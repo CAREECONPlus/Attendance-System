@@ -25,62 +25,64 @@
     </div>
 
     <!-- 従業員画面 -->
-    <div id="employee-page" class="hidden">
+    <div id="employee-page" class="page hidden">
         <div class="container">
             <header class="app-header">
                 <h1>勤怠管理システム</h1>
                 <div class="user-info">
-                    <span class="user-name"></span>
-                    <button id="logout-btn" class="btn btn-small logout-button">ログアウト</button>
+                    <span id="user-name"></span>
+                    <button class="btn btn-secondary btn-small" id="logout-btn">ログアウト</button>
                 </div>
             </header>
 
             <main class="employee-main">
+                <!-- 現在時刻表示 -->
                 <div class="date-display">
-                    <div id="current-date" class="date"></div>
-                    <div id="current-time" class="time"></div>
+                    <div class="date" id="current-date"></div>
+                    <div class="time" id="current-time"></div>
                 </div>
 
-                <div class="clock-status" id="clock-status">
-                    <!-- ステータス表示エリア -->
+                <!-- 勤務状況 -->
+                <div id="clock-status" class="clock-status">
+                    <div class="status-waiting">出勤ボタンを押してください</div>
                 </div>
 
+                <!-- 出退勤・休憩ボタン -->
                 <div class="clock-buttons">
-                    <!-- 1行目: 出勤と退勤を横に並べる -->
                     <div class="button-row">
-                        <button id="clock-in-btn" class="btn btn-primary clock-btn">出勤</button>
-                        <button id="clock-out-btn" class="btn btn-secondary clock-btn">退勤</button>
+                        <button class="btn btn-primary clock-btn" id="clock-in-btn">出勤</button>
+                        <button class="btn btn-secondary clock-btn" id="clock-out-btn" disabled>退勤</button>
                     </div>
-                    <!-- 2行目: 休憩開始と休憩終了を横に並べる -->
                     <div class="button-row">
-                        <button id="break-start-btn" class="btn btn-warning clock-btn">休憩開始</button>
-                        <button id="break-end-btn" class="btn btn-warning clock-btn">休憩終了</button>
+                        <button class="btn btn-warning clock-btn" id="break-start-btn" disabled>休憩開始</button>
+                        <button class="btn btn-warning clock-btn" id="break-end-btn" disabled>休憩終了</button>
                     </div>
                 </div>
 
-                <div class="form-group site-selection">
-                    <label for="site-name">現場名：</label>
-                    <select id="site-name" required>
-                        <option value="">現場を選択してください</option>
-                        <option value="新宿オフィスビル改修工事">新宿オフィスビル改修工事</option>
-                        <option value="渋谷マンション建設現場">渋谷マンション建設現場</option>
-                        <option value="横浜倉庫補修工事">横浜倉庫補修工事</option>
-                        <option value="other">その他（直接入力）</option>
-                    </select>
-                    <input type="text" id="other-site" placeholder="現場名を入力してください" style="display: none; margin-top: 10px;">
+                <!-- 現場選択 -->
+                <div class="site-selection">
+                    <div class="form-group">
+                        <label for="site-name">現場名：</label>
+                        <select id="site-name" required>
+                            <option value="">現場を選択してください</option>
+                        </select>
+                        <input type="text" id="other-site" placeholder="その他の現場名を入力" style="display: none; margin-top: 10px;">
+                    </div>
                 </div>
 
+                <!-- 作業メモ -->
                 <div class="form-group">
                     <label for="work-notes">作業メモ：</label>
-                    <textarea id="work-notes" rows="3" placeholder="作業内容を記入（任意）"></textarea>
+                    <textarea id="work-notes" placeholder="作業内容を記入（任意）" rows="3"></textarea>
                 </div>
 
-                <div class="recent-records">
+                <!-- 最近の記録 -->
+                <section class="recent-records">
                     <h3>最近の記録</h3>
-                    <div id="recent-list" class="records-list">
-                        <!-- 直近の記録が表示されます -->
+                    <div id="recent-list">
+                        <!-- 動的に生成 -->
                     </div>
-                </div>
+                </section>
             </main>
         </div>
     </div>
