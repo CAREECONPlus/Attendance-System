@@ -1,5 +1,7 @@
+
 /**
- * 修正版 login.js - index.htmlリダイレクト対応
+ * login.js - SPA構造対応版
+ * ログイン成功時はindex.htmlにリダイレクトし、そこで適切な画面を表示
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -9,34 +11,18 @@ document.addEventListener('DOMContentLoaded', function() {
     firebase.auth().onAuthStateChanged(async function(user) {
         if (user) {
             console.log('ユーザーは既にログイン済み:', user.email);
-            // index.htmlにリダイレクトして、そこで役割に基づく画面表示
+            // ログイン済みの場合はindex.htmlへリダイレクト
             window.location.href = 'index.html';
         }
     });
     
     // ログインフォームの処理
     setupLoginForm();
-    // 新規登録フォームの処理（register.htmlでも使用される場合）
+    // 新規登録フォームの処理（register.html用）
     setupRegisterForm();
     // ページ切り替えの処理
     setupPageSwitcher();
 });
-
-/**
- * ページの表示/非表示を切り替え
- */
-function showPage(pageType) {
-    const loginPage = document.querySelector('.login-container');
-    const registerPage = document.getElementById('register-page');
-    
-    if (pageType === 'login') {
-        if (loginPage) loginPage.classList.remove('hidden');
-        if (registerPage) registerPage.classList.add('hidden');
-    } else if (pageType === 'register') {
-        if (loginPage) loginPage.classList.add('hidden');
-        if (registerPage) registerPage.classList.remove('hidden');
-    }
-}
 
 /**
  * ページ切り替えの設定
@@ -47,7 +33,6 @@ function setupPageSwitcher() {
     if (goToRegister) {
         goToRegister.addEventListener('click', function(e) {
             e.preventDefault();
-            // register.htmlにリダイレクト
             window.location.href = 'register.html';
         });
     }
@@ -57,7 +42,6 @@ function setupPageSwitcher() {
     if (backToLogin) {
         backToLogin.addEventListener('click', function(e) {
             e.preventDefault();
-            // login.htmlにリダイレクト
             window.location.href = 'login.html';
         });
     }
@@ -138,7 +122,7 @@ async function handleLogin() {
         console.log('Firebase認証成功:', userCredential.user.email);
         
         // ログイン成功後はindex.htmlにリダイレクト
-        // index.htmlで認証状態に基づいて適切な画面を表示
+        // index.htmlのmain.jsで役割に基づく画面切り替えを実行
         window.location.href = 'index.html';
         
     } catch (error) {
@@ -179,7 +163,7 @@ async function handleLogin() {
 }
 
 /**
- * 新規登録フォームの設定（register.htmlで使用される場合）
+ * 新規登録フォームの設定（register.htmlで使用）
  */
 function setupRegisterForm() {
     const registerForm = document.getElementById('registerForm');
