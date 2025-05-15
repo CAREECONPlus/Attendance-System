@@ -1,5 +1,6 @@
 /**
- * ログイン画面処理 (Firebase v8 - HTML構造対応版)
+ * 修正版 login.js - SPA対応
+ * リダイレクトをページ遷移ではなく、showPage()関数で画面切り替えに変更
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -307,7 +308,7 @@ async function handleRegister() {
 }
 
 /**
- * ユーザーの役割に基づいてリダイレクト
+ * ユーザーの役割に基づいてページ切り替え（SPA版）
  */
 async function redirectBasedOnRole(user) {
     try {
@@ -326,13 +327,19 @@ async function redirectBasedOnRole(user) {
         const userData = userDoc.data();
         console.log('ユーザーデータ:', userData);
         
-        // 役割に基づいてリダイレクト
+        // 役割に基づいて画面切り替え（ページ遷移ではなく）
         if (userData.role === 'admin') {
-            console.log('管理者としてリダイレクト');
-            window.location.href = 'admin.html';
+            console.log('管理者画面を表示');
+            showPage('admin');  // ← ページ遷移からshowPage()に変更
+            if (typeof initAdminPage === 'function') {
+                initAdminPage();
+            }
         } else if (userData.role === 'employee') {
-            console.log('従業員としてリダイレクト');
-            window.location.href = 'employee.html';
+            console.log('従業員画面を表示');
+            showPage('employee');  // ← ページ遷移からshowPage()に変更
+            if (typeof initEmployeePage === 'function') {
+                initEmployeePage();
+            }
         } else {
             console.error('不明な役割:', userData.role);
             showError('ユーザーの役割が設定されていません。管理者に連絡してください。');
