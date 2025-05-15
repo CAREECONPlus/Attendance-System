@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新規登録 - 勤怠管理システム</title>
     <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <!-- Firebase v8 SDK - v8に統一 -->
+    
+    <!-- Firebase v8 SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -19,8 +18,8 @@
     <script src="js/utils.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/login.js"></script>
-    <script src="js/main.js"></script>
-
+</head>
+<body>
     <div class="login-container">
         <div class="login-card">
             <h1>勤怠管理システム</h1>
@@ -55,11 +54,19 @@
             </p>
         </div>
     </div>
-
     <script>
+        // Firebase認証状態監視
+        firebase.auth().onAuthStateChanged(async function(user) {
+            if (user) {
+                // 既にログイン済みの場合はindex.htmlへ
+                window.location.href = 'index.html';
+            }
+        });
+        
         // ページの初期設定
         document.addEventListener('DOMContentLoaded', function() {
-            // 登録ページの初期化（login.jsで処理される）
+            // register フォームの初期化
+            setupRegisterForm();
         });
     </script>
 </body>
