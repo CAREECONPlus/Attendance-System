@@ -1,3 +1,4 @@
+
 /* リセットとベース設定 */
 * {
     box-sizing: border-box;
@@ -64,9 +65,10 @@ body {
     margin-bottom: 30px;
 }
 
-/* フォーム要素 */
+/* フォーム要素（修正版） */
 .form-group {
     margin-bottom: 20px;
+    width: 100%;
 }
 
 label {
@@ -76,21 +78,25 @@ label {
     color: #555;
 }
 
+/* 全ての入力フィールドを統一（メールアドレス含む） */
 input[type="text"],
 input[type="password"],
+input[type="email"],
 input[type="date"],
 input[type="month"],
 input[type="datetime-local"],
 select,
 textarea {
-    width: 100%;
+    width: 100% !important;
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
     transition: border-color 0.3s;
+    box-sizing: border-box;
     -webkit-appearance: none;
     appearance: none;
+    display: block;
 }
 
 input:focus,
@@ -99,6 +105,22 @@ textarea:focus {
     outline: none;
     border-color: #2C5EFF;
     box-shadow: 0 0 0 2px rgba(44, 94, 255, 0.1);
+}
+
+/* 特にメールアドレス入力フィールドの修正 */
+#email,
+#reg-email {
+    width: 100% !important;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* フォームグループ内の入力フィールド */
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100% !important;
 }
 
 /* ボタン */
@@ -746,6 +768,13 @@ textarea:focus {
         padding: 12px 8px;
         font-size: 16px;
         min-width: 0;
+    }
+    
+    /* メール入力フィールドのモバイル対応 */
+    input[type="email"],
+    input[type="text"],
+    input[type="password"] {
+        font-size: 16px; /* iOS Safari のズーム防止 */
     }
 }
 
