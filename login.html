@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -7,6 +8,20 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <!-- Firebase v8 SDK - v8に統一 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <!-- Firebase設定 -->
+    <script src="js/firebase.js"></script>
+    
+    <!-- システムのJavaScript -->
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+    <script src="js/main.js"></script>
+
     <div class="container login-container">
         <div class="login-card">
             <h1>勤怠管理システム</h1>
@@ -27,116 +42,59 @@
                     <button type="submit" class="btn btn-primary btn-full">ログイン</button>
                 </div>
                 
-                <div id="login-message" class="error-text"></div>
+                <div id="error-message" class="error-text hidden"></div>
             </form>
             
             <div class="login-footer">
                 <p>アカウントをお持ちでない方は</p>
-                <a href="register.html" id="to-register" class="link">新規登録はこちら</a>
+                <a href="#" id="go-to-register" class="link">新規登録はこちら</a>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
-        
-            // Firebaseの設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyCUCD0CLd6SQELpMK2f6KQFy2XVv5eMT2o",
-            authDomain: "attendance-system-39ae6.firebaseapp.com",
-            projectId: "attendance-system-39ae6",
-            storageBucket: "attendance-system-39ae6.appspot.com",
-            messagingSenderId: "723896381304",
-            appId: "1:723896381304:web:92f31b721706dcbf11a28d",
-            measurementId: "G-8DY7MWM44W"
-        };
-        
-        // Firebaseの初期化
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // グローバル変数として公開
-        window.db = db;
-        window.auth = auth;
-        
-        // 既にログインしているかチェック
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // ログイン済みならindex.htmlにリダイレクト
-                window.location.href = 'index.html';
-            }
-        });
-        
-        // ログインフォームの処理
-        const loginForm = document.getElementById('loginForm');
-        const loginMessage = document.getElementById('login-message');
-        
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const submitButton = loginForm.querySelector('button[type="submit"]');
-            
-            // バリデーション
-            if (!email || !password) {
-                loginMessage.textContent = 'メールアドレスとパスワードを入力してください';
-                return;
-            }
-            
-            // ボタンを無効化
-            submitButton.disabled = true;
-            submitButton.textContent = 'ログイン中...';
-            loginMessage.textContent = '';
-            
-            try {
-                // Firebase Authenticationでログイン
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                
-                // ユーザーのロールを取得
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                
-                if (userDoc.exists()) {
-                    console.log('ログイン成功:', user.email);
-                    // index.htmlにリダイレクト（onAuthStateChangedが処理）
-                } else {
-                    throw new Error('ユーザー情報が見つかりません');
-                }
-                
-            } catch (error) {
-                console.error('ログインエラー:', error);
-                
-                // エラーメッセージの表示
-                switch (error.code) {
-                    case 'auth/invalid-email':
-                        loginMessage.textContent = 'メールアドレスの形式が正しくありません';
-                        break;
-                    case 'auth/user-disabled':
-                        loginMessage.textContent = 'このアカウントは無効になっています';
-                        break;
-                    case 'auth/user-not-found':
-                        loginMessage.textContent = 'このメールアドレスは登録されていません';
-                        break;
-                    case 'auth/wrong-password':
-                        loginMessage.textContent = 'パスワードが正しくありません';
-                        break;
-                    case 'auth/too-many-requests':
-                        loginMessage.textContent = 'ログイン試行回数が上限を超えました。しばらく待ってから再試行してください';
-                        break;
-                    default:
-                        loginMessage.textContent = 'ログインに失敗しました: ' + error.message;
-                }
-                
-                // ボタンを再び有効化
-                submitButton.disabled = false;
-                submitButton.textContent = 'ログイン';
-            }
+    <!-- 新規登録ページ -->
+    <div id="register-page" class="page hidden">
+        <div class="login-container">
+            <div class="login-card">
+                <h1>勤怠管理システム</h1>
+                <h2>新規ユーザー登録</h2>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="reg-fullname">氏名</label>
+                        <input type="text" id="reg-fullname" name="fullname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">メールアドレス</label>
+                        <input type="email" id="reg-email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">パスワード</label>
+                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                        <div class="form-hint">6文字以上で入力してください</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-role">役割</label>
+                        <select id="reg-role" name="role">
+                            <option value="employee">従業員</option>
+                            <option value="admin">管理者</option>
+                        </select>
+                    </div>
+                    <div id="register-message" class="error-text"></div>
+                    <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                </form>
+                <p style="text-align: center; margin-top: 20px;">
+                    すでにアカウントをお持ちの方は<br>
+                    <a href="#" id="back-to-login">ログインはこちら</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ページの初期設定（login.jsと連携）
+        document.addEventListener('DOMContentLoaded', function() {
+            // ログインページを表示
+            showPage('login');
         });
     </script>
 </body>
