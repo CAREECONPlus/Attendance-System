@@ -1,6 +1,5 @@
 /**
- * 修正版 login.js - SPA対応
- * リダイレクトをページ遷移ではなく、showPage()関数で画面切り替えに変更
+ * 修正版 login.js - index.htmlリダイレクト対応
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -10,13 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
     firebase.auth().onAuthStateChanged(async function(user) {
         if (user) {
             console.log('ユーザーは既にログイン済み:', user.email);
-            await redirectBasedOnRole(user);
+            // index.htmlにリダイレクトして、そこで役割に基づく画面表示
+            window.location.href = 'index.html';
         }
     });
     
     // ログインフォームの処理
     setupLoginForm();
-    // 新規登録フォームの処理
+    // 新規登録フォームの処理（register.htmlでも使用される場合）
     setupRegisterForm();
     // ページ切り替えの処理
     setupPageSwitcher();
@@ -47,7 +47,8 @@ function setupPageSwitcher() {
     if (goToRegister) {
         goToRegister.addEventListener('click', function(e) {
             e.preventDefault();
-            showPage('register');
+            // register.htmlにリダイレクト
+            window.location.href = 'register.html';
         });
     }
     
@@ -56,7 +57,8 @@ function setupPageSwitcher() {
     if (backToLogin) {
         backToLogin.addEventListener('click', function(e) {
             e.preventDefault();
-            showPage('login');
+            // login.htmlにリダイレクト
+            window.location.href = 'login.html';
         });
     }
 }
@@ -92,23 +94,6 @@ function setupLoginForm() {
 }
 
 /**
- * 新規登録フォームの設定
- */
-function setupRegisterForm() {
-    const registerForm = document.getElementById('registerForm');
-    
-    if (!registerForm) {
-        console.error('新規登録フォームが見つかりません');
-        return;
-    }
-    
-    registerForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleRegister();
-    });
-}
-
-/**
  * ログイン処理
  */
 async function handleLogin() {
@@ -140,7 +125,7 @@ async function handleLogin() {
         return;
     }
     
-    // ボタンを無効化（ローディングUI削除、テキスト変更のみ）
+    // ボタンを無効化
     const originalText = submitButton.textContent;
     submitButton.disabled = true;
     submitButton.textContent = 'ログイン中...';
@@ -152,8 +137,9 @@ async function handleLogin() {
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         console.log('Firebase認証成功:', userCredential.user.email);
         
-        // ロールベースのリダイレクト
-        await redirectBasedOnRole(userCredential.user);
+        // ログイン成功後はindex.htmlにリダイレクト
+        // index.htmlで認証状態に基づいて適切な画面を表示
+        window.location.href = 'index.html';
         
     } catch (error) {
         console.error('ログインエラー:', error);
@@ -190,6 +176,22 @@ async function handleLogin() {
         submitButton.disabled = false;
         submitButton.textContent = originalText;
     }
+}
+
+/**
+ * 新規登録フォームの設定（register.htmlで使用される場合）
+ */
+function setupRegisterForm() {
+    const registerForm = document.getElementById('registerForm');
+    
+    if (!registerForm) {
+        return; // 登録フォームがない場合はスキップ
+    }
+    
+    registerForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleRegister();
+    });
 }
 
 /**
@@ -268,13 +270,11 @@ async function handleRegister() {
         });
         
         console.log('新規登録成功:', user.email);
-        showRegisterMessage('登録が完了しました。ログインページに移動します...', 'success');
+        showRegisterMessage('登録が完了しました。メイン画面に移動します...', 'success');
         
-        // 2秒後にログインページに移動
+        // 2秒後にindex.htmlに移動
         setTimeout(() => {
-            showPage('login');
-            // フォームをリセット
-            document.getElementById('registerForm').reset();
+            window.location.href = 'index.html';
         }, 2000);
         
     } catch (error) {
@@ -307,69 +307,17 @@ async function handleRegister() {
     }
 }
 
-/**
- * ユーザーの役割に基づいてページ切り替え（SPA版）
- */
-async function redirectBasedOnRole(user) {
-    try {
-        console.log('ユーザー役割確認中:', user.uid);
-        
-        // Firestoreからユーザー情報を取得
-        const userDoc = await window.db.collection('users').doc(user.uid).get();
-        
-        if (!userDoc.exists) {
-            console.error('ユーザーデータが見つかりません:', user.uid);
-            showError('ユーザーデータが見つかりません。管理者に連絡してください。');
-            await firebase.auth().signOut();
-            return;
-        }
-        
-        const userData = userDoc.data();
-        console.log('ユーザーデータ:', userData);
-        
-        // 役割に基づいて画面切り替え（ページ遷移ではなく）
-        if (userData.role === 'admin') {
-            console.log('管理者画面を表示');
-            showPage('admin');  // ← ページ遷移からshowPage()に変更
-            if (typeof initAdminPage === 'function') {
-                initAdminPage();
-            }
-        } else if (userData.role === 'employee') {
-            console.log('従業員画面を表示');
-            showPage('employee');  // ← ページ遷移からshowPage()に変更
-            if (typeof initEmployeePage === 'function') {
-                initEmployeePage();
-            }
-        } else {
-            console.error('不明な役割:', userData.role);
-            showError('ユーザーの役割が設定されていません。管理者に連絡してください。');
-            await firebase.auth().signOut();
-        }
-        
-    } catch (error) {
-        console.error('役割確認エラー:', error);
-        showError('ユーザー情報の確認に失敗しました');
-        await firebase.auth().signOut();
-    }
-}
-
-/**
- * ログインエラーメッセージの表示
- */
+// エラーメッセージ関数群
 function showError(message) {
     const errorDiv = document.getElementById('error-message');
     if (errorDiv) {
         errorDiv.textContent = message;
         errorDiv.classList.remove('hidden');
     } else {
-        // フォールバック：アラートで表示
         alert(message);
     }
 }
 
-/**
- * 新規登録メッセージの表示
- */
 function showRegisterMessage(message, type = 'error') {
     const messageDiv = document.getElementById('register-message');
     if (messageDiv) {
@@ -378,9 +326,6 @@ function showRegisterMessage(message, type = 'error') {
     }
 }
 
-/**
- * 新規登録エラーメッセージの表示
- */
 function showRegisterError(message) {
     showRegisterMessage(message, 'error');
 }
