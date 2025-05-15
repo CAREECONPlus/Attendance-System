@@ -1,54 +1,32 @@
-console.log('auth.js loaded');
-
 /**
- * 勤怠管理システム - Firebase認証機能
- * 
- * このファイルには、Firebase Authenticationを使用した
- * ログイン、登録、ログアウト、認証状態管理の機能が含まれています。
+ * Firebase認証関連ユーティリティ (Firebase v8対応)
  */
 
-// Firebase モジュールのインポート
-import { 
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    updateProfile,
-    sendPasswordResetEmail,
-    updateEmail,
-    deleteUser
-} from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+console.log('auth.js (Firebase v8) 読み込み開始');
 
-import {
-    collection,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
-
-// Firebase関連の参照を取得
-let auth;
-let db;
-
-// 初期化関数
-function initAuth() {
-    // Firebase参照を取得
-    auth = window.auth;
-    db = window.db;
-    
-    if (!auth || !db) {
-        console.error('Firebase が初期化されていません');
-        return;
-    }
-    
-    console.log('Firebase Auth初期化完了');
+/**
+ * 現在のユーザーを取得
+ */
+function getCurrentUser() {
+    return firebase.auth().currentUser;
 }
 
 /**
- * メールアドレスとパスワードでユーザー登録
+ * ユーザーがログインしているかチェック
+ */
+function isLoggedIn() {
+    return getCurrentUser() !== null;
+}
+
+/**
+ * 認証状態の監視
+ */
+function onAuthStateChanged(callback) {
+    return firebase.auth().onAuthStateChanged(callback);
+}
+
+/**
+ * メールアドレスとパスワードでユーザー登録 (Firebase v8)
  * @param {string} email メールアドレス
  * @param {string} password パスワード
  * @param {string} displayName 表示名
@@ -57,22 +35,25 @@ function initAuth() {
  */
 async function registerUser(email, password, displayName, role = 'employee') {
     try {
+        console.log('ユーザー登録開始:', email);
+        
         // Firebase Authenticationでユーザー作成
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
         // ユーザープロフィールを更新
-        await updateProfile(user, {
+        await user.updateProfile({
             displayName: displayName
         });
         
         // Firestoreにユーザー情報を保存
-        await setDoc(doc(db, 'users', user.uid), {
+        await db.collection('users').doc(user.uid).set({
             email: email,
             displayName: displayName,
             role: role,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            siteHistory: []
         });
         
         console.log('ユーザー登録成功:', user.email);
@@ -85,17 +66,19 @@ async function registerUser(email, password, displayName, role = 'employee') {
 }
 
 /**
- * メールアドレスとパスワードでログイン
+ * メールアドレスとパスワードでログイン (Firebase v8)
  * @param {string} email メールアドレス
  * @param {string} password パスワード
  * @returns {Object} { success: boolean, user?: User, error?: string }
  */
 async function loginUser(email, password) {
     try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log('ログイン試行:', email);
+        
+        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        console.log('ログイン成功:', user.email);
+        console.log('Firebase認証成功:', user.email);
         return { success: true, user: user };
         
     } catch (error) {
@@ -105,12 +88,12 @@ async function loginUser(email, password) {
 }
 
 /**
- * ログアウト
+ * ログアウト (Firebase v8)
  * @returns {Object} { success: boolean, error?: string }
  */
 async function logoutUser() {
     try {
-        await signOut(auth);
+        await firebase.auth().signOut();
         console.log('ログアウト成功');
         return { success: true };
         
@@ -121,15 +104,7 @@ async function logoutUser() {
 }
 
 /**
- * 現在のユーザーの情報を取得
- * @returns {Object|null} ユーザー情報またはnull
- */
-function getCurrentUser() {
-    return auth ? auth.currentUser : null;
-}
-
-/**
- * ユーザーのロール情報をFirestoreから取得
+ * ユーザーの役割をFirestoreから取得 (Firebase v8)
  * @param {string} userId ユーザーID
  * @returns {Object} { success: boolean, role?: string, userData?: Object, error?: string }
  */
@@ -139,10 +114,9 @@ async function getUserRole(userId) {
             return { success: false, error: 'ユーザーIDが無効です' };
         }
         
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
+        const userDoc = await db.collection('users').doc(userId).get();
         
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
             const userData = userDoc.data();
             return { 
                 success: true, 
@@ -161,27 +135,82 @@ async function getUserRole(userId) {
 }
 
 /**
- * 認証状態の変化を監視
- * @param {Function} callback 認証状態が変化した時に呼び出されるコールバック
- * @returns {Function} アンサブスクライブ関数
+ * 認証と役割チェック (Firebase v8)
+ * @param {string} requiredRole 必要な役割（'admin' または 'employee'）
+ * @returns {boolean} 認証と役割チェックの結果
  */
-function onAuthChanged(callback) {
-    if (!auth) {
-        console.error('Firebase Authが初期化されていません');
-        return () => {};
+async function checkAuth(requiredRole = null) {
+    const user = getCurrentUser();
+    
+    if (!user) {
+        console.log('未認証 - ログイン画面へリダイレクト');
+        window.location.href = 'login.html';
+        return false;
     }
     
-    return onAuthStateChanged(auth, callback);
+    if (requiredRole) {
+        const roleResult = await getUserRole(user.uid);
+        
+        if (!roleResult.success) {
+            console.log('ユーザー役割取得失敗 - ログイン画面へリダイレクト');
+            window.location.href = 'login.html';
+            return false;
+        }
+        
+        const userRole = roleResult.role;
+        
+        if (userRole !== requiredRole) {
+            console.log(`権限不足: ${userRole} !== ${requiredRole}`);
+            
+            // 適切なページにリダイレクト
+            if (userRole === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (userRole === 'employee') {
+                window.location.href = 'employee.html';
+            } else {
+                window.location.href = 'login.html';
+            }
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 /**
- * パスワードリセットメールを送信
+ * ページ初期化時の認証確認 (Firebase v8)
+ * @param {string} requiredRole 必要な役割
+ * @returns {Promise} 認証確認の結果
+ */
+async function initAuth(requiredRole = null) {
+    return new Promise((resolve) => {
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('認証済みユーザー:', user.email);
+                
+                if (requiredRole) {
+                    const isValid = await checkAuth(requiredRole);
+                    resolve({ user, isValid });
+                } else {
+                    resolve({ user, isValid: true });
+                }
+            } else {
+                console.log('未認証ユーザー');
+                window.location.href = 'login.html';
+                resolve({ user: null, isValid: false });
+            }
+        });
+    });
+}
+
+/**
+ * パスワードリセットメールを送信 (Firebase v8)
  * @param {string} email メールアドレス
  * @returns {Object} { success: boolean, error?: string }
  */
 async function sendPasswordReset(email) {
     try {
-        await sendPasswordResetEmail(auth, email);
+        await firebase.auth().sendPasswordResetEmail(email);
         console.log('パスワードリセットメール送信成功:', email);
         return { success: true };
         
@@ -192,7 +221,7 @@ async function sendPasswordReset(email) {
 }
 
 /**
- * 現在のユーザーのプロフィールを更新
+ * 現在のユーザーのプロフィールを更新 (Firebase v8)
  * @param {Object} updates 更新する情報 { displayName?, email? }
  * @returns {Object} { success: boolean, error?: string }
  */
@@ -205,23 +234,23 @@ async function updateUserProfile(updates) {
         
         // プロフィール更新
         if (updates.displayName) {
-            await updateProfile(user, { displayName: updates.displayName });
+            await user.updateProfile({ displayName: updates.displayName });
         }
         
         // メールアドレス更新
         if (updates.email) {
-            await updateEmail(user, updates.email);
+            await user.updateEmail(updates.email);
         }
         
         // Firestoreのユーザー情報も更新
         const updateData = {
-            updatedAt: serverTimestamp()
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         if (updates.displayName) updateData.displayName = updates.displayName;
         if (updates.email) updateData.email = updates.email;
         
-        await updateDoc(doc(db, 'users', user.uid), updateData);
+        await db.collection('users').doc(user.uid).update(updateData);
         
         console.log('プロフィール更新成功');
         return { success: true };
@@ -233,7 +262,7 @@ async function updateUserProfile(updates) {
 }
 
 /**
- * ユーザーアカウントを削除
+ * ユーザーアカウントを削除 (Firebase v8)
  * @returns {Object} { success: boolean, error?: string }
  */
 async function deleteUserAccount() {
@@ -244,10 +273,21 @@ async function deleteUserAccount() {
         }
         
         // Firestoreからユーザー情報を削除
-        await deleteDoc(doc(db, 'users', user.uid));
+        await db.collection('users').doc(user.uid).delete();
+        
+        // 関連する勤怠記録も削除
+        const attendanceQuery = await db.collection('attendance')
+            .where('userId', '==', user.uid)
+            .get();
+        
+        const batch = db.batch();
+        attendanceQuery.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
         
         // Authenticationからユーザーを削除
-        await deleteUser(user);
+        await user.delete();
         
         console.log('アカウント削除成功');
         return { success: true };
@@ -258,31 +298,76 @@ async function deleteUserAccount() {
     }
 }
 
-// DOMが読み込まれたら初期化
-document.addEventListener('DOMContentLoaded', () => {
-    // Firebaseの初期化を待つ
-    if (window.auth && window.db) {
-        initAuth();
-    } else {
-        // Firebaseが初期化されるまで待機
-        const checkInterval = setInterval(() => {
-            if (window.auth && window.db) {
-                clearInterval(checkInterval);
-                initAuth();
+/**
+ * ユーザー情報をローカルストレージに保存
+ */
+function saveUserToLocalStorage(user, userData) {
+    const userInfo = {
+        uid: user.uid,
+        email: user.email,
+        displayName: userData.displayName || user.displayName,
+        role: userData.role,
+        lastLogin: new Date().toISOString()
+    };
+    
+    localStorage.setItem('currentUser', JSON.stringify(userInfo));
+}
+
+/**
+ * ローカルストレージからユーザー情報を取得
+ */
+function getUserFromLocalStorage() {
+    const userInfo = localStorage.getItem('currentUser');
+    return userInfo ? JSON.parse(userInfo) : null;
+}
+
+/**
+ * ローカルストレージからユーザー情報を削除
+ */
+function clearUserFromLocalStorage() {
+    localStorage.removeItem('currentUser');
+}
+
+// Firebase認証状態のグローバル監視を設定
+document.addEventListener('DOMContentLoaded', function() {
+    // Firebaseが初期化されるまで待機
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+        console.log('Firebase認証監視開始');
+        
+        firebase.auth().onAuthStateChanged(async function(user) {
+            if (user) {
+                // ユーザー情報をローカルストレージに保存
+                try {
+                    const userRole = await getUserRole(user.uid);
+                    if (userRole.success) {
+                        saveUserToLocalStorage(user, userRole.userData);
+                    }
+                } catch (error) {
+                    console.error('ユーザー情報保存エラー:', error);
+                }
+            } else {
+                // ログアウト時にローカルストレージをクリア
+                clearUserFromLocalStorage();
             }
-        }, 100);
+        });
     }
 });
 
-// グローバルスコープに関数をエクスポート
+console.log('auth.js (Firebase v8) 読み込み完了');
+
+// v8形式の関数をグローバルスコープにエクスポート
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 window.logoutUser = logoutUser;
 window.getCurrentUser = getCurrentUser;
 window.getUserRole = getUserRole;
-window.onAuthChanged = onAuthChanged;
+window.onAuthStateChanged = onAuthStateChanged;
 window.sendPasswordReset = sendPasswordReset;
 window.updateUserProfile = updateUserProfile;
 window.deleteUserAccount = deleteUserAccount;
-
-console.log('Auth関数をグローバルにエクスポートしました');
+window.checkAuth = checkAuth;
+window.initAuth = initAuth;
+window.isLoggedIn = isLoggedIn;
+window.saveUserToLocalStorage = saveUserToLocalStorage;
+window.getUserFromLocalStorage = getUserFromLocalStorage;
+window.clearUserFromLocalStorage = clearUserFromLocalStorage;
