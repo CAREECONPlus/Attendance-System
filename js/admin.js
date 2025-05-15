@@ -1,154 +1,373 @@
 /**
- * 管理者画面の初期化処理（Firebase v8対応完全版）
+ * Firebase対応勤怠管理システム - 管理者画面 (Firebase v8)
  */
-function initAdminPage() {
-    console.log('管理者ページの初期化開始');
-    
-    // 権限チェック
-    if (!checkAuth('admin')) return;
 
-    // 基本的なUI初期化
-    setupAdminBasics();
-    
-    // 残りの初期化を少し遅延させて実行
-    setTimeout(function() {
+// グローバル変数
+let currentSortField = 'date';
+let currentSortDirection = 'desc';
+
+/**
+ * DOMContentLoaded時の初期化
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('管理者画面の初期化開始');
+    checkAuthAndRole();
+});
+
+/**
+ * Firebase認証とロール確認
+ */
+async function checkAuthAndRole() {
+    firebase.auth().onAuthStateChanged(async function(user) {
+        if (!user) {
+            console.log('未認証ユーザー、ログイン画面へリダイレクト');
+            window.location.href = 'login.html';
+            return;
+        }
+
         try {
-            // 今日の日付をセット
-            const today = new Date().toISOString().split('T')[0];
-            const filterDate = getElement('filter-date');
-            if (filterDate) filterDate.value = today;
+            // ユーザーの役割を確認
+            const userDoc = await db.collection('users').doc(user.uid).get();
             
-            // 今月をセット
-            const thisMonth = today.substring(0, 7);
-            const filterMonth = getElement('filter-month');
-            if (filterMonth) filterMonth.value = thisMonth;
-            
-            // データの読み込み
-            loadEmployeeList();
-            loadSiteList();
-            loadAttendanceData();
-            
-            // イベントリスナーの設定
-            setupAdminEvents();
-            
-            console.log('管理者ページの詳細初期化完了');
+            if (!userDoc.exists || userDoc.data().role !== 'admin') {
+                console.log('管理者権限なし、トップページへリダイレクト');
+                alert('管理者権限が必要です');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            console.log('管理者として認証完了');
+            initializeAdminPage(user, userDoc.data());
         } catch (error) {
-            console.error('管理者ページ初期化エラー:', error);
-            showError('データの読み込みに失敗しました');
+            console.error('ユーザー役割確認エラー:', error);
+            alert('エラーが発生しました');
+            window.location.href = 'login.html';
         }
-    }, 200);
+    });
 }
 
 /**
- * 管理者画面の基本的なUI初期化
+ * 管理者画面の初期化
  */
-function setupAdminBasics() {
-    // ユーザー名を表示
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        const adminUserNameEl = getElement('admin-user-name');
-        if (adminUserNameEl) {
-            adminUserNameEl.textContent = currentUser.displayName || currentUser.email;
-            console.log('管理者名を表示:', currentUser.displayName);
-        }
+function initializeAdminPage(user, userData) {
+    // ユーザー名表示
+    displayUserName(userData);
+    
+    // イベントリスナーの設定
+    setupEventListeners();
+    
+    // 初期データの読み込み
+    loadInitialData();
+    
+    console.log('管理者画面の初期化完了');
+}
+
+/**
+ * ユーザー名の表示
+ */
+function displayUserName(userData) {
+    const adminUserNameEl = document.getElementById('admin-user-name');
+    if (adminUserNameEl) {
+        adminUserNameEl.textContent = userData.displayName || userData.email;
     }
 }
 
 /**
- * 管理者画面のイベント設定（修正版）
+ * イベントリスナーの設定
  */
-function setupAdminEvents() {
-    // タブ切り替えイベント
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    if (tabButtons && tabButtons.length > 0) {
-        tabButtons.forEach(button => {
-            // 既存のイベントリスナーを削除
-            button.replaceWith(button.cloneNode(true));
-        });
-        
-        // 新しいイベントリスナーを追加
-        document.querySelectorAll('.tab-btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                console.log('タブクリック:', this.getAttribute('data-tab'));
-                
-                // アクティブタブの切り替え
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                
-                // フィルターの表示切り替え
-                const tabName = this.getAttribute('data-tab');
-                toggleFilterDisplay(tabName);
-                
-                // データを再読み込み
-                loadAttendanceData();
-            });
-        });
-    }
+function setupEventListeners() {
+    // ログアウトボタン
+    setupLogoutButton();
     
-    // フィルター変更イベント
-    const filterDate = getElement('filter-date');
-    if (filterDate) {
-        filterDate.removeEventListener('change', loadAttendanceData);
-        filterDate.addEventListener('change', loadAttendanceData);
-    }
+    // タブ切り替え
+    setupTabButtons();
     
-    const filterMonth = getElement('filter-month');
-    if (filterMonth) {
-        filterMonth.removeEventListener('change', loadAttendanceData);
-        filterMonth.addEventListener('change', loadAttendanceData);
-    }
-    
-    const filterEmployee = getElement('filter-employee');
-    if (filterEmployee) {
-        filterEmployee.removeEventListener('change', loadAttendanceData);
-        filterEmployee.addEventListener('change', loadAttendanceData);
-    }
-
-    const filterSite = getElement('filter-site');
-    if (filterSite) {
-        filterSite.removeEventListener('change', loadAttendanceData);
-        filterSite.addEventListener('change', loadAttendanceData);
-    }
+    // フィルター
+    setupFilters();
     
     // CSV出力
-    const exportCsvBtn = getElement('export-csv');
-    if (exportCsvBtn) {
-        exportCsvBtn.removeEventListener('click', exportCsv);
-        exportCsvBtn.addEventListener('click', exportCsv);
-    }
+    setupCsvExport();
     
-    // ソートヘッダーの設定
+    // ソート
     setupSortableHeaders();
     
-    // モーダル関連
-    setupModalEvents();
+    // モーダル
+    setupModals();
+}
+
+/**
+ * ログアウトボタンの設定
+ */
+function setupLogoutButton() {
+    // 可能性のあるIDを全て試す
+    const possibleIds = [
+        'admin-logout-btn',
+        'logout-btn',
+        'admin-logout-button',
+        'logout-button'
+    ];
     
-    // ログアウトボタン（修正）
-    const adminLogoutBtn = getElement('admin-logout-btn');
-    if (adminLogoutBtn) {
-        adminLogoutBtn.removeEventListener('click', handleLogout);
-        adminLogoutBtn.addEventListener('click', handleLogout);
-        console.log('ログアウトボタンイベント設定完了');
+    let logoutBtn = null;
+    
+    for (const id of possibleIds) {
+        logoutBtn = document.getElementById(id);
+        if (logoutBtn) {
+            console.log(`ログアウトボタンを発見: ID="${id}"`);
+            break;
+        }
+    }
+    
+    if (!logoutBtn) {
+        // IDで見つからない場合は、classや属性で検索
+        logoutBtn = document.querySelector('.logout-btn') || 
+                   document.querySelector('button[onclick*="logout"]') ||
+                   document.querySelector('button[onclick*="Logout"]');
+    }
+    
+    if (logoutBtn) {
+        // 既存のイベントを削除してから新しく設定
+        logoutBtn.onclick = null;
+        logoutBtn.addEventListener('click', handleLogout);
+        console.log('ログアウトボタンのイベントリスナー設定完了');
+    } else {
+        console.error('ログアウトボタンが見つかりません');
+        // デバッグ用：全てのボタンをリストアップ
+        const allButtons = document.querySelectorAll('button');
+        console.log('ページ内の全ボタン:');
+        allButtons.forEach((btn, index) => {
+            console.log(`${index}: id="${btn.id}", class="${btn.className}", text="${btn.textContent.trim()}"`);
+        });
     }
 }
 
 /**
  * ログアウト処理
  */
-function handleLogout() {
-    console.log('ログアウト処理開始');
+async function handleLogout() {
+    console.log('ログアウト開始');
+    
     try {
-        firebase.auth().signOut().then(() => {
-            console.log('ログアウト成功');
-            window.location.href = 'login.html';
-        }).catch(error => {
-            console.error('ログアウトエラー:', error);
-            showError('ログアウトに失敗しました');
-        });
+        await firebase.auth().signOut();
+        console.log('ログアウト成功');
+        window.location.href = 'login.html';
     } catch (error) {
-        console.error('ログアウト処理エラー:', error);
-        showError('ログアウトに失敗しました');
+        console.error('ログアウトエラー:', error);
+        alert('ログアウトに失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * タブボタンの設定
+ */
+function setupTabButtons() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // アクティブタブの切り替え
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // フィルター表示の切り替え
+            const tabName = this.getAttribute('data-tab');
+            toggleFilterDisplay(tabName);
+            
+            // データの再読み込み
+            loadAttendanceData();
+        });
+    });
+}
+
+/**
+ * フィルターの設定
+ */
+function setupFilters() {
+    // 今日の日付を設定
+    const today = new Date().toISOString().split('T')[0];
+    const filterDate = document.getElementById('filter-date');
+    if (filterDate) filterDate.value = today;
+    
+    // 今月を設定
+    const thisMonth = today.substring(0, 7);
+    const filterMonth = document.getElementById('filter-month');
+    if (filterMonth) filterMonth.value = thisMonth;
+    
+    // フィルター変更イベント
+    const filters = ['filter-date', 'filter-month', 'filter-employee', 'filter-site'];
+    filters.forEach(filterId => {
+        const filterEl = document.getElementById(filterId);
+        if (filterEl) {
+            filterEl.addEventListener('change', loadAttendanceData);
+        }
+    });
+}
+
+/**
+ * CSV出力の設定
+ */
+function setupCsvExport() {
+    const exportBtn = document.getElementById('export-csv');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportCsv);
+    }
+}
+
+/**
+ * ソート可能ヘッダーの設定
+ */
+function setupSortableHeaders() {
+    const sortableHeaders = document.querySelectorAll('.sortable');
+    
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const field = this.getAttribute('data-sort');
+            
+            if (currentSortField === field) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortField = field;
+                currentSortDirection = 'asc';
+            }
+            
+            // ヘッダーのソート表示を更新
+            updateSortHeaders();
+            
+            // データを再読み込み
+            loadAttendanceData();
+        });
+    });
+}
+
+/**
+ * モーダルの設定
+ */
+function setupModals() {
+    // モーダルの閉じるボタン
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const closeBtn = modal.querySelector('.close-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => modal.style.display = 'none');
+        }
+        
+        // モーダル外クリックで閉じる
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    });
+}
+
+/**
+ * 初期データの読み込み
+ */
+async function loadInitialData() {
+    try {
+        await Promise.all([
+            loadEmployeeList(),
+            loadSiteList(),
+            loadAttendanceData()
+        ]);
+        console.log('初期データ読み込み完了');
+    } catch (error) {
+        console.error('初期データ読み込みエラー:', error);
+        showErrorMessage('データの読み込みに失敗しました');
+    }
+}
+
+/**
+ * 従業員リストの読み込み（orderByを使わない版）
+ */
+async function loadEmployeeList() {
+    try {
+        console.log('従業員リスト読み込み開始');
+        
+        // orderByを使わずに取得
+        const snapshot = await db.collection('users')
+            .where('role', '==', 'employee')
+            .get();
+        
+        const employees = [];
+        snapshot.forEach(doc => {
+            employees.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        // クライアントサイドでソート
+        employees.sort((a, b) => {
+            const nameA = a.displayName || a.email || '';
+            const nameB = b.displayName || b.email || '';
+            return nameA.localeCompare(nameB);
+        });
+        
+        // プルダウンに追加
+        const select = document.getElementById('filter-employee');
+        if (select) {
+            // 既存のオプションをクリア（最初の「全員」オプションは残す）
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            employees.forEach(employee => {
+                const option = document.createElement('option');
+                option.value = employee.id;
+                option.textContent = employee.displayName || employee.email;
+                select.appendChild(option);
+            });
+        }
+        
+        console.log(`従業員リスト読み込み完了: ${employees.length}件`);
+        
+    } catch (error) {
+        console.error('従業員リスト読み込みエラー:', error);
+        // エラーが発生してもページの動作を止めない
+        console.warn('従業員リストの読み込みに失敗しましたが、処理を続行します');
+    }
+}
+
+/**
+ * 現場リストの読み込み
+ */
+async function loadSiteList() {
+    try {
+        console.log('現場リスト読み込み開始');
+        
+        const snapshot = await db.collection('attendance').get();
+        const sites = new Set();
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.siteName) {
+                sites.add(data.siteName);
+            }
+        });
+        
+        const select = document.getElementById('filter-site');
+        if (select) {
+            // 既存のオプションをクリア（最初の「全ての現場」オプションは残す）
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // アルファベット順でソート
+            Array.from(sites).sort().forEach(site => {
+                const option = document.createElement('option');
+                option.value = site;
+                option.textContent = site;
+                select.appendChild(option);
+            });
+        }
+        
+        console.log(`現場リスト読み込み完了: ${sites.size}件`);
+        
+    } catch (error) {
+        console.error('現場リスト読み込みエラー:', error);
+        console.warn('現場リストの読み込みに失敗しましたが、処理を続行します');
     }
 }
 
@@ -157,112 +376,49 @@ function handleLogout() {
  */
 function toggleFilterDisplay(tabName) {
     // 全てのフィルターを非表示
-    ['date-filter', 'month-filter', 'employee-filter', 'site-filter'].forEach(filterId => {
-        const filterEl = document.querySelector(`.${filterId}`);
-        if (filterEl) filterEl.classList.add('hidden');
+    const filterContainers = [
+        document.querySelector('.date-filter'),
+        document.querySelector('.month-filter'),
+        document.querySelector('.employee-filter'),
+        document.querySelector('.site-filter')
+    ];
+    
+    filterContainers.forEach(container => {
+        if (container) container.classList.add('hidden');
     });
     
     // 選択されたタブに応じてフィルターを表示
-    let targetFilter = '';
+    let targetClass = '';
     switch(tabName) {
         case 'daily':
-            targetFilter = 'date-filter';
+            targetClass = '.date-filter';
             break;
         case 'monthly':
-            targetFilter = 'month-filter';
+            targetClass = '.month-filter';
             break;
         case 'employee':
-            targetFilter = 'employee-filter';
+            targetClass = '.employee-filter';
             break;
         case 'site':
-            targetFilter = 'site-filter';
+            targetClass = '.site-filter';
             break;
     }
     
-    if (targetFilter) {
-        const filterEl = document.querySelector(`.${targetFilter}`);
-        if (filterEl) filterEl.classList.remove('hidden');
-    }
-}
-
-/**
- * 従業員リストの読み込み（Firebase v8対応版）
- */
-async function loadEmployeeList() {
-    try {
-        const snapshot = await db.collection('users')
-            .where('role', '==', 'employee')
-            .orderBy('displayName')
-            .get();
-        
-        const select = getElement('filter-employee');
-        if (!select) return;
-        
-        // 既存のオプションをクリア（最初の「全員」オプションは残す）
-        while (select.options.length > 1) {
-            select.remove(1);
+    if (targetClass) {
+        const targetContainer = document.querySelector(targetClass);
+        if (targetContainer) {
+            targetContainer.classList.remove('hidden');
         }
-        
-        // 従業員リストを追加
-        snapshot.forEach(doc => {
-            const employee = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = employee.displayName || employee.email;
-            select.appendChild(option);
-        });
-        
-        console.log(`従業員リスト読み込み完了: ${snapshot.size}件`);
-    } catch (error) {
-        console.error('従業員リスト読み込みエラー:', error);
-        showError('従業員リストの読み込みに失敗しました');
     }
 }
 
 /**
- * 現場リストの読み込み（Firebase v8対応版）
- */
-async function loadSiteList() {
-    try {
-        const snapshot = await db.collection('attendance').get();
-        const sites = new Set();
-        
-        // すべての勤怠記録から現場名を抽出
-        snapshot.forEach(doc => {
-            const record = doc.data();
-            if (record.siteName) {
-                sites.add(record.siteName);
-            }
-        });
-        
-        const select = getElement('filter-site');
-        if (!select) return;
-        
-        // 既存のオプションをクリア（最初の「全ての現場」オプションは残す）
-        while (select.options.length > 1) {
-            select.remove(1);
-        }
-        
-        // 現場リストを追加
-        Array.from(sites).sort().forEach(site => {
-            const option = document.createElement('option');
-            option.value = site;
-            option.textContent = site;
-            select.appendChild(option);
-        });
-        
-        console.log(`現場リスト読み込み完了: ${sites.size}件`);
-    } catch (error) {
-        console.error('現場リスト読み込みエラー:', error);
-        showError('現場リストの読み込みに失敗しました');
-    }
-}
-
-/**
- * 勤怠データの読み込み（Firebase v8対応版）
+ * 勤怠データの読み込み
  */
 async function loadAttendanceData() {
     try {
+        console.log('勤怠データ読み込み開始');
+        
         const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
         if (!activeTab) {
             console.log('アクティブタブが見つかりません');
@@ -274,7 +430,7 @@ async function loadAttendanceData() {
         // フィルター条件の適用
         switch(activeTab) {
             case 'daily':
-                const filterDate = getElement('filter-date')?.value;
+                const filterDate = document.getElementById('filter-date')?.value;
                 if (filterDate) {
                     query = query.where('date', '==', filterDate);
                 } else {
@@ -285,7 +441,7 @@ async function loadAttendanceData() {
                 break;
                 
             case 'monthly':
-                const filterMonth = getElement('filter-month')?.value;
+                const filterMonth = document.getElementById('filter-month')?.value;
                 if (filterMonth) {
                     const startDate = `${filterMonth}-01`;
                     const endDate = `${filterMonth}-31`;
@@ -294,22 +450,19 @@ async function loadAttendanceData() {
                 break;
                 
             case 'employee':
-                const employeeId = getElement('filter-employee')?.value;
+                const employeeId = document.getElementById('filter-employee')?.value;
                 if (employeeId) {
                     query = query.where('userId', '==', employeeId);
                 }
                 break;
                 
             case 'site':
-                const siteName = getElement('filter-site')?.value;
+                const siteName = document.getElementById('filter-site')?.value;
                 if (siteName) {
                     query = query.where('siteName', '==', siteName);
                 }
                 break;
         }
-        
-        // 日付でソート
-        query = query.orderBy('date', 'desc');
         
         const snapshot = await query.get();
         
@@ -322,28 +475,31 @@ async function loadAttendanceData() {
             });
         });
         
-        // 休憩データも取得
+        // 各記録に対して休憩データを取得
         await loadBreakDataForRecords(attendanceData);
+        
+        // クライアントサイドでソート
+        sortAttendanceData(attendanceData);
         
         // テーブルを描画
         renderAttendanceTable(attendanceData);
         
         console.log(`勤怠データ読み込み完了: ${attendanceData.length}件`);
+        
     } catch (error) {
         console.error('勤怠データ読み込みエラー:', error);
-        showError('勤怠データの読み込みに失敗しました: ' + error.message);
+        showErrorMessage('勤怠データの読み込みに失敗しました: ' + error.message);
     }
 }
 
 /**
- * 各勤怠記録の休憩データを読み込み（Firebase v8対応版）
+ * 各勤怠記録の休憩データを読み込み
  */
 async function loadBreakDataForRecords(attendanceData) {
-    try {
-        for (const record of attendanceData) {
+    const breakPromises = attendanceData.map(async record => {
+        try {
             const breakSnapshot = await db.collection('breaks')
                 .where('attendanceId', '==', record.id)
-                .orderBy('startTime')
                 .get();
             
             record.breakTimes = [];
@@ -351,21 +507,78 @@ async function loadBreakDataForRecords(attendanceData) {
                 const breakData = doc.data();
                 record.breakTimes.push({
                     id: doc.id,
-                    start: breakData.startTime?.toDate()?.toISOString(),
-                    end: breakData.endTime?.toDate()?.toISOString()
+                    startTime: breakData.startTime,
+                    endTime: breakData.endTime,
+                    duration: breakData.duration || 0
                 });
             });
+        } catch (error) {
+            console.error(`記録ID ${record.id} の休憩データ取得エラー:`, error);
+            record.breakTimes = [];
         }
-    } catch (error) {
-        console.error('休憩データ読み込みエラー:', error);
-    }
+    });
+    
+    await Promise.all(breakPromises);
 }
 
 /**
- * テーブルの描画処理（修正版）
+ * 勤怠データのソート
+ */
+function sortAttendanceData(data) {
+    data.sort((a, b) => {
+        let valueA, valueB;
+        
+        switch(currentSortField) {
+            case 'date':
+                valueA = a.date || '';
+                valueB = b.date || '';
+                break;
+            case 'employee':
+                valueA = a.userName || a.displayName || '';
+                valueB = b.userName || b.displayName || '';
+                break;
+            case 'site':
+                valueA = a.siteName || '';
+                valueB = b.siteName || '';
+                break;
+            default:
+                return 0;
+        }
+        
+        const comparison = valueA.localeCompare(valueB);
+        return currentSortDirection === 'asc' ? comparison : -comparison;
+    });
+}
+
+/**
+ * ソートヘッダーの表示更新
+ */
+function updateSortHeaders() {
+    const headers = document.querySelectorAll('.sortable');
+    
+    headers.forEach(header => {
+        const field = header.getAttribute('data-sort');
+        const sortIcon = header.querySelector('.sort-icon');
+        
+        if (field === currentSortField) {
+            header.classList.add('sorted');
+            if (sortIcon) {
+                sortIcon.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
+            }
+        } else {
+            header.classList.remove('sorted');
+            if (sortIcon) {
+                sortIcon.textContent = '';
+            }
+        }
+    });
+}
+
+/**
+ * テーブルの描画
  */
 function renderAttendanceTable(data) {
-    const tableBody = getElement('attendance-data');
+    const tableBody = document.getElementById('attendance-data');
     if (!tableBody) return;
     
     tableBody.innerHTML = '';
@@ -377,94 +590,133 @@ function renderAttendanceTable(data) {
         return;
     }
     
-    // テーブル行の生成
     data.forEach(record => {
         const row = document.createElement('tr');
-        
-        // 勤務時間の計算
-        let workTimeHTML = '-';
-        
-        // clockInTimeとclockOutTimeがFirestore Timestampの場合の処理
-        const clockInTime = record.clockInTime?.toDate ? record.clockInTime.toDate().toISOString() : record.clockInTime;
-        const clockOutTime = record.clockOutTime?.toDate ? record.clockOutTime.toDate().toISOString() : record.clockOutTime;
-        
-        if (clockInTime) {
-            if (clockOutTime) {
-                // 休憩時間
-                const breakTime = calculateTotalBreakTime(record.breakTimes || []);
-                
-                // 実労働時間
-                const workTime = calculateWorkingTime(
-                    clockInTime, 
-                    clockOutTime,
-                    record.breakTimes || []
-                );
-                
-                workTimeHTML = `
-                    <div class="work-times">
-                        <div>
-                            <span class="work-time-label">出勤:</span>
-                            <span class="work-time-value">${formatTime(clockInTime)}</span>
-                        </div>
-                        <div>
-                            <span class="work-time-label">退勤:</span>
-                            <span class="work-time-value">${formatTime(clockOutTime)}</span>
-                        </div>
-                        <div class="break">
-                            <span class="work-time-label">休憩:</span>
-                            <span class="work-time-value">${breakTime.formatted}</span>
-                        </div>
-                        <div class="total">
-                            <span class="work-time-label">実働:</span>
-                            <span class="work-time-value">${workTime.formatted}</span>
-                        </div>
-                    </div>
-                `;
-            } else {
-                // 出勤のみ
-                workTimeHTML = `
-                    <div class="work-times">
-                        <div>
-                            <span class="work-time-label">出勤:</span>
-                            <span class="work-time-value">${formatTime(clockInTime)}</span>
-                        </div>
-                        <div>
-                            <span class="work-time-value">勤務中</span>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
         row.innerHTML = `
             <td>${record.userName || record.displayName || '不明'}</td>
             <td>${formatDate(record.date)}</td>
             <td>${record.siteName || '-'}</td>
-            <td>${workTimeHTML}</td>
-            <td><button class="btn btn-small edit-btn" data-id="${record.id}">編集</button></td>
+            <td>${formatWorkTime(record)}</td>
+            <td>
+                <button class="btn btn-small edit-btn" onclick="openEditModal('${record.id}')">
+                    編集
+                </button>
+            </td>
         `;
-        
         tableBody.appendChild(row);
-    });
-    
-    // 編集ボタンにイベントリスナーを追加
-    const editBtns = tableBody.querySelectorAll('.edit-btn');
-    editBtns.forEach(button => {
-        button.addEventListener('click', function() {
-            const recordId = this.getAttribute('data-id');
-            if (recordId) openEditModal(recordId);
-        });
     });
 }
 
 /**
- * エラーメッセージを表示
+ * 勤務時間の表示フォーマット
  */
-function showError(message) {
-    console.error(message);
+function formatWorkTime(record) {
+    const clockInTime = record.clockInTime?.toDate ? record.clockInTime.toDate() : 
+                      (record.clockInTime ? new Date(record.clockInTime) : null);
+    const clockOutTime = record.clockOutTime?.toDate ? record.clockOutTime.toDate() : 
+                        (record.clockOutTime ? new Date(record.clockOutTime) : null);
+    
+    if (!clockInTime) return '-';
+    
+    let html = `
+        <div class="work-times">
+            <div>出勤: ${formatTime(clockInTime)}</div>
+    `;
+    
+    if (clockOutTime) {
+        // 休憩時間の計算
+        const totalBreakMinutes = (record.breakTimes || []).reduce((total, breakTime) => {
+            if (breakTime.startTime && breakTime.endTime) {
+                const start = breakTime.startTime.toDate ? breakTime.startTime.toDate() : new Date(breakTime.startTime);
+                const end = breakTime.endTime.toDate ? breakTime.endTime.toDate() : new Date(breakTime.endTime);
+                return total + Math.floor((end - start) / (1000 * 60));
+            }
+            return total;
+        }, 0);
+        
+        // 実働時間の計算
+        const totalMinutes = Math.floor((clockOutTime - clockInTime) / (1000 * 60));
+        const workMinutes = totalMinutes - totalBreakMinutes;
+        
+        html += `
+            <div>退勤: ${formatTime(clockOutTime)}</div>
+            <div>休憩: ${formatMinutes(totalBreakMinutes)}</div>
+            <div class="work-time-total">実働: ${formatMinutes(workMinutes)}</div>
+        `;
+    } else {
+        html += '<div class="work-time-status">勤務中</div>';
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+/**
+ * 時刻のフォーマット
+ */
+function formatTime(date) {
+    if (!date) return '-';
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * 日付のフォーマット
+ */
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+/**
+ * 分を時間:分の形式でフォーマット
+ */
+function formatMinutes(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}時間${mins}分`;
+}
+
+/**
+ * CSV出力
+ */
+function exportCsv() {
+    // この機能は後ほど実装
+    alert('CSV出力機能は実装中です');
+}
+
+/**
+ * 編集モーダルを開く
+ */
+function openEditModal(recordId) {
+    // この機能は後ほど実装
+    alert(`編集機能は実装中です (ID: ${recordId})`);
+}
+
+/**
+ * エラーメッセージの表示
+ */
+function showErrorMessage(message) {
     const toast = document.createElement('div');
-    toast.className = 'toast error';
+    toast.className = 'toast error-toast';
     toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #f44336;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        z-index: 10000;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    `;
+    
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -473,35 +725,27 @@ function showError(message) {
 }
 
 /**
- * 成功メッセージを表示
+ * 成功メッセージの表示
  */
-function showSuccess(message) {
-    console.log(message);
+function showSuccessMessage(message) {
     const toast = document.createElement('div');
-    toast.className = 'toast success';
+    toast.className = 'toast success-toast';
     toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        z-index: 10000;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    `;
+    
     document.body.appendChild(toast);
     
     setTimeout(() => {
         toast.remove();
     }, 3000);
 }
-
-// その他のモーダル関連の関数やソート関数は既存のままで使用可能
-// 必要に応じて同様にFirebase v8対応に修正
-
-// Firebase認証状態の監視（管理者用）
-firebase.auth().onAuthStateChanged(async function(user) {
-    if (user) {
-        // ユーザーの役割を確認
-        try {
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            if (userDoc.exists && userDoc.data().role === 'admin') {
-                console.log('管理者ユーザー確認完了');
-                // 必要に応じて追加処理
-            }
-        } catch (error) {
-            console.error('ユーザー役割確認エラー:', error);
-        }
-    }
-});
