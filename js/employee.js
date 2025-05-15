@@ -359,6 +359,85 @@ async function clockIn() {
 /**
  * 退勤処理（Firebase対応版）
  */
+async function clockIn() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    const siteSelect = getElement('site-name');
+    let siteName = siteSelect?.value || '';
+
+    if (siteName === 'other') {
+        siteName = getElement('other-site')?.value || '';
+    }
+
+    if (!siteName) {
+        showError('現場名を選択または入力してください');
+        return;
+    }
+
+    const notes = getElement('work-notes')?.value || '';
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    try {
+        // ローディング削除：ボタン無効化のみ
+        const clockInBtn = getElement('clock-in-btn');
+        if (clockInBtn) {
+            clockInBtn.disabled = true;
+            clockInBtn.textContent = '処理中...';
+        }
+
+        // 今日の記録が既に存在するかチェック
+        const existingQuery = await db.collection('attendance')
+            .where('userId', '==', currentUser.uid)
+            .where('date', '==', today)
+            .get();
+
+        if (!existingQuery.empty) {
+            showError('今日は既に出勤済みです');
+            return;
+        }
+
+        const newRecord = {
+            userId: currentUser.uid,
+            userName: currentUser.displayName || currentUser.email,
+            date: today,
+            clockInTime: firebase.firestore.Timestamp.fromDate(now),
+            clockOutTime: null,
+            siteName: siteName,
+            notes: notes,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db.collection('attendance').add(newRecord);
+
+        // 現場履歴に追加
+        await saveSiteHistory(siteName);
+        
+        // UI更新
+        await checkTodayAttendance();
+        await loadRecentRecords();
+        
+        showSuccess('出勤を記録しました');
+        console.log('出勤記録完了');
+    } catch (error) {
+        console.error('出勤エラー:', error);
+        showError('出勤の記録に失敗しました');
+    } finally {
+        // ボタンを元に戻す
+        const clockInBtn = getElement('clock-in-btn');
+        if (clockInBtn) {
+            clockInBtn.disabled = false;
+            clockInBtn.textContent = '出勤';
+        }
+    }
+}
+
+/**
+ * 退勤処理（ローディングUI削除版）
+ */
 async function clockOut() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
@@ -366,11 +445,11 @@ async function clockOut() {
     const today = new Date().toISOString().split('T')[0];
 
     try {
-        // ローディング表示
+        // ローディング削除：ボタン無効化のみ
         const clockOutBtn = getElement('clock-out-btn');
         if (clockOutBtn) {
-            clockOutBtn.classList.add('loading');
             clockOutBtn.disabled = true;
+            clockOutBtn.textContent = '処理中...';
         }
 
         // 今日の勤怠記録を取得
@@ -431,11 +510,118 @@ async function clockOut() {
         console.error('退勤エラー:', error);
         showError('退勤の記録に失敗しました');
     } finally {
-        // ローディング解除
+        // ボタンを元に戻す
         const clockOutBtn = getElement('clock-out-btn');
         if (clockOutBtn) {
-            clockOutBtn.classList.remove('loading');
             clockOutBtn.disabled = false;
+            clockOutBtn.textContent = '退勤';
+        }
+    }
+}
+
+/**
+ * 直近の記録を表示（エラーハンドリング改善版）
+ */
+async function loadRecentRecords() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    try {
+        // 現在のユーザーの記録を直近5件取得
+        const querySnapshot = await db.collection('attendance')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('date', 'desc')
+            .limit(5)
+            .get();
+        
+        const recentList = getElement('recent-list');
+        if (!recentList) return;
+        
+        recentList.innerHTML = '';
+        
+        if (querySnapshot.empty) {
+            // 記録がない場合はエラーではなく、適切なメッセージを表示
+            recentList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-message">まだ記録がありません</div>
+                    <div class="empty-state-submessage">出勤ボタンを押して記録を開始しましょう</div>
+                </div>
+            `;
+            return;
+        }
+        
+        // 各記録について詳細情報を取得
+        for (const doc of querySnapshot.docs) {
+            const record = { id: doc.id, ...doc.data() };
+            
+            // 休憩データを取得
+            const breakQuery = await db.collection('breaks')
+                .where('attendanceId', '==', record.id)
+                .get();
+            
+            const breakTimes = breakQuery.docs.map(breakDoc => {
+                const breakData = breakDoc.data();
+                return {
+                    start: breakData.startTime?.toDate()?.toISOString(),
+                    end: breakData.endTime?.toDate()?.toISOString()
+                };
+            });
+            
+            const recordDiv = document.createElement('div');
+            recordDiv.className = 'record-item';
+            
+            const dateObj = new Date(record.date);
+            const dateStr = `${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
+            
+            let breakTimeStr = '';
+            let totalTimeStr = '';
+            
+            if (record.clockInTime && record.clockOutTime) {
+                const breakTime = calculateTotalBreakTime(breakTimes);
+                const workTime = calculateWorkingTime(
+                    record.clockInTime.toDate().toISOString(),
+                    record.clockOutTime.toDate().toISOString(),
+                    breakTimes
+                );
+                
+                breakTimeStr = `
+                    <div class="record-break-info">休憩: ${breakTime.formatted}</div>
+                `;
+                
+                totalTimeStr = `
+                    <div class="record-total-time">実労働: ${workTime.formatted}</div>
+                `;
+            }
+            
+            recordDiv.innerHTML = `
+                <div class="record-date">${dateStr} (${formatDate(record.date)})</div>
+                <div class="record-site">${record.siteName}</div>
+                <div class="record-time">
+                    ${record.clockInTime ? formatTime(record.clockInTime.toDate().toISOString()) : '-'} 〜 
+                    ${record.clockOutTime ? formatTime(record.clockOutTime.toDate().toISOString()) : '勤務中'}
+                </div>
+                ${breakTimeStr}
+                ${totalTimeStr}
+            `;
+            
+            recentList.appendChild(recordDiv);
+        }
+        
+        console.log('最近の記録を表示完了');
+    } catch (error) {
+        console.error('最近の記録読み込みエラー:', error);
+        
+        // エラー時も適切なメッセージを表示
+        const recentList = getElement('recent-list');
+        if (recentList) {
+            recentList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <div class="empty-state-message">記録の読み込み中にエラーが発生しました</div>
+                    <div class="empty-state-submessage">ページを再読み込みしてください</div>
+                </div>
+            `;
         }
     }
 }
