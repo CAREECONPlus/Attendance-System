@@ -13,7 +13,8 @@ function initLoginForm() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const email = document.getElementById('username').value.trim();
+            // 修正：HTMLのIDに合わせて変更
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
             const errorMsg = document.getElementById('error-message');
             
@@ -123,8 +124,8 @@ function initRegisterForm() {
             
             const msgEl = document.getElementById('register-message');
             
-            // 入力値を取得
-            const email = document.getElementById('reg-username').value.trim();
+            // 修正：HTMLのIDに合わせて変更
+            const email = document.getElementById('reg-email').value.trim();
             const password = document.getElementById('reg-password').value.trim();
             const confirmPassword = document.getElementById('reg-confirm-password')?.value.trim();
             const displayName = document.getElementById('reg-fullname').value.trim();
