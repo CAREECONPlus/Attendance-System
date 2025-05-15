@@ -7,20 +7,82 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- ログイン/ユーザーセクション -->
-    <div id="login-section" style="display: none;">
-        <div class="container">
+    <!-- Firebase v8 SDK のみ読み込み -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- Firebase設定（v8版） -->
+    <script src="js/firebase.js"></script>
+    
+    <!-- システムのJavaScript -->
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+    <script src="js/employee.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/main.js"></script>
+
+    <!-- ログイン画面 -->
+    <div id="login-page" class="page hidden">
+        <div class="login-container">
             <div class="login-card">
                 <h1>勤怠管理システム</h1>
-                <p>サービスを利用するには<a href="login.html">ログイン</a>または<a href="register.html">新規登録</a>してください。</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">メールアドレス</label>
+                        <input type="email" id="email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">パスワード</label>
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    </div>
+                    <div id="error-message" class="error-text hidden"></div>
+                    <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+                </form>
+                <p style="text-align: center; margin-top: 20px;">
+                    アカウントをお持ちでない方は<br>
+                    <a href="#" id="go-to-register">新規登録はこちら</a>
+                </p>
             </div>
         </div>
     </div>
-    
-    <div id="user-section" style="display: none;">
-        <div class="user-header">
-            <p>ようこそ、<span id="user-name" class="user-name"></span>さん</p>
-            <button id="logout-button" class="btn logout-button">ログアウト</button>
+
+    <!-- 新規登録画面 -->
+    <div id="register-page" class="page hidden">
+        <div class="login-container">
+            <div class="login-card">
+                <h1>勤怠管理システム</h1>
+                <h2>新規ユーザー登録</h2>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="reg-fullname">氏名</label>
+                        <input type="text" id="reg-fullname" name="fullname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">メールアドレス</label>
+                        <input type="email" id="reg-email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">パスワード</label>
+                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                        <div class="form-hint">6文字以上で入力してください</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-role">役割</label>
+                        <select id="reg-role" name="role">
+                            <option value="employee">従業員</option>
+                            <option value="admin">管理者</option>
+                        </select>
+                    </div>
+                    <div id="register-message" class="error-text"></div>
+                    <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                </form>
+                <p style="text-align: center; margin-top: 20px;">
+                    すでにアカウントをお持ちの方は<br>
+                    <a href="#" id="back-to-login">ログインはこちら</a>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -88,13 +150,13 @@
     </div>
 
     <!-- 管理者画面 -->
-    <div id="admin-page" class="hidden">
+    <div id="admin-page" class="page hidden">
         <div class="container">
             <header class="app-header">
                 <h1>勤怠管理システム</h1>
                 <div class="user-info">
-                    <span id="admin-user-name" class="user-name"></span>
-                    <button id="admin-logout-btn" class="btn btn-small logout-button">ログアウト</button>
+                    <span id="admin-user-name"></span>
+                    <button id="admin-logout-btn" class="btn btn-secondary btn-small">ログアウト</button>
                 </div>
             </header>
 
@@ -119,14 +181,12 @@
                         <label class="filter-label">従業員:</label>
                         <select id="filter-employee">
                             <option value="">全員</option>
-                            <!-- 従業員リストは動的に生成 -->
                         </select>
                     </div>
                     <div class="site-filter hidden">
                         <label class="filter-label">現場:</label>
                         <select id="filter-site">
                             <option value="">全ての現場</option>
-                            <!-- 現場リストは動的に生成 -->
                         </select>
                     </div>
                     <div class="filter-actions">
@@ -143,8 +203,8 @@
                                 <th class="sortable" data-sort="siteName">現場名</th>
                                 <th>勤務時間</th>
                                 <th>操作</th>
-                           </tr>
-                       </thead>
+                            </tr>
+                        </thead>
                         <tbody id="attendance-data">
                             <!-- 勤怠データが表示されます -->
                         </tbody>
@@ -232,167 +292,5 @@
             </div>
         </div>
     </div>
-
-    <!-- JavaScriptの参照 -->
-    <script src="js/firebase.js" type="module" defer></script>
-    <script src="js/auth.js" type="module" defer></script>
-    <script src="js/utils.js" defer></script>
-    <script src="js/login.js" type="module" defer></script>
-    <script src="js/employee.js" type="module" defer></script>
-    <script src="js/admin.js" type="module" defer></script>
-    <script src="js/main.js" defer></script>
-
-    <!-- Firebase SDK と認証処理 -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, getDocs, addDoc, query, where, orderBy, limit, serverTimestamp, Timestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
-        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        
-        // Firebaseの設定
-        const firebaseConfig = {
-          apiKey: "AIzaSyCUCD0CLd6SQELpMK2f6KQFy2XVv5eMT2o",
-          authDomain: "attendance-system-39ae6.firebaseapp.com",
-          projectId: "attendance-system-39ae6",
-          storageBucket: "attendance-system-39ae6.appspot.com",
-          messagingSenderId: "723896381304",
-          appId: "1:723896381304:web:92f31b721706dcbf11a28d",
-          measurementId: "G-8DY7MWM44W"
-        };
-        
-        // Firebaseの初期化
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // グローバル変数として公開（Firestoreの関数も含む）
-        window.db = db;
-        window.auth = auth;
-        window.firebase = { app, db, auth };
-        window.Firestore = {
-            collection,
-            doc,
-            getDoc,
-            setDoc,
-            updateDoc,
-            getDocs,
-            addDoc,
-            query,
-            where,
-            orderBy,
-            limit,
-            serverTimestamp,
-            Timestamp,
-            deleteDoc
-        };
-        
-        // すべてのユーザーネーム要素を更新
-        function updateUserNames(userName) {
-            document.querySelectorAll('.user-name').forEach(el => {
-                el.textContent = userName;
-            });
-        }
-        
-        // 認証状態の変化を監視
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                // ユーザーがログインしている場合
-                console.log('ログイン中:', user.email);
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('user-section').style.display = 'block';
-                
-                // すべてのユーザー名表示を更新
-                updateUserNames(user.displayName || user.email);
-                
-                // ユーザーのロールを取得して適切なページを表示
-                try {
-                    const userRef = doc(db, 'users', user.uid);
-                    const userSnap = await getDoc(userRef);
-                    
-                    if (userSnap.exists()) {
-                        const userData = userSnap.data();
-                        const userRole = userData.role || 'employee';
-                        
-                        // ロールに基づいてページを表示
-                        if (userRole === 'admin') {
-                            hideAllPages();
-                            document.getElementById('admin-page').classList.remove('hidden');
-                            if (typeof window.initAdminPage === 'function') {
-                                setTimeout(() => window.initAdminPage(), 200);
-                            }
-                        } else {
-                            hideAllPages();
-                            document.getElementById('employee-page').classList.remove('hidden');
-                            if (typeof window.initEmployeePage === 'function') {
-                                setTimeout(() => window.initEmployeePage(), 200);
-                            }
-                        }
-                    } else {
-                        // ユーザー情報がFirestoreにない場合はデフォルトで従業員として作成
-                        await setDoc(userRef, {
-                            email: user.email,
-                            displayName: user.displayName || user.email,
-                            role: 'employee',
-                            createdAt: serverTimestamp()
-                        });
-                        
-                        hideAllPages();
-                        document.getElementById('employee-page').classList.remove('hidden');
-                        if (typeof window.initEmployeePage === 'function') {
-                            setTimeout(() => window.initEmployeePage(), 200);
-                        }
-                    }
-                } catch (error) {
-                    console.error('ユーザー情報の取得エラー:', error);
-                    // エラーの場合でも従業員ページを表示
-                    hideAllPages();
-                    document.getElementById('employee-page').classList.remove('hidden');
-                    if (typeof window.initEmployeePage === 'function') {
-                        setTimeout(() => window.initEmployeePage(), 200);
-                    }
-                }
-            } else {
-                // ユーザーがログインしていない場合
-                console.log('ログインしていません');
-                document.getElementById('login-section').style.display = 'block';
-                document.getElementById('user-section').style.display = 'none';
-                hideAllPages();
-                
-                // ログインページにリダイレクト
-                window.location.href = 'login.html';
-            }
-        });
-        
-        // すべてのログアウトボタンにイベントリスナーを追加
-        function setupLogoutButtons() {
-            document.querySelectorAll('#logout-button, .logout-button').forEach(button => {
-                button.addEventListener('click', async () => {
-                    try {
-                        await signOut(auth);
-                        console.log('ログアウト成功');
-                        window.location.href = 'login.html';
-                    } catch (error) {
-                        console.error('ログアウトエラー:', error);
-                        alert('ログアウト中にエラーが発生しました');
-                    }
-                });
-            });
-        }
-        
-        // すべてのページを隠す関数
-        function hideAllPages() {
-            document.querySelectorAll('#employee-page, #admin-page').forEach(page => {
-                page.classList.add('hidden');
-            });
-        }
-        
-        // DOMが読み込まれたらログアウトボタンを設定
-        document.addEventListener('DOMContentLoaded', () => {
-            setupLogoutButtons();
-        });
-        
-        // グローバル関数として公開
-        window.hideAllPages = hideAllPages;
-        window.updateUserNames = updateUserNames;
-    </script>
 </body>
 </html>
