@@ -100,20 +100,26 @@ function setupEmployeeBasics() {
 }
 
 /**
- * 勤務状況をチェックしてボタンの有効/無効状態を更新する（Firebase対応版）
- * 今日の勤怠記録に基づいて、ボタンの状態や表示内容を変更します
+ * 勤務状況をチェックしてボタンの有効/無効状態を更新する（視覚化改善版）
  */
 async function checkTodayAttendance() {
     const currentUser = getCurrentUser();
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.log('currentUser が取得できません');
+        return;
+    }
+
+    console.log('勤務状況チェック開始:', currentUser);
 
     try {
         const today = new Date().toISOString().split('T')[0];
+        console.log('今日の日付:', today);
         
         // 前日までの未完了の勤怠記録を確認し、必要に応じて自動終了処理
         await handleIncompleteRecords(currentUser.uid, today);
 
         // 今日の記録を検索
+        console.log('今日の記録を検索中...');
         const query = await db.collection('attendance')
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today)
@@ -126,33 +132,50 @@ async function checkTodayAttendance() {
         const breakEndBtn = getElement('break-end-btn');
         const clockStatus = getElement('clock-status');
 
-        // すべてのボタンを一旦無効化
-        if (clockInBtn) clockInBtn.disabled = true;
-        if (clockOutBtn) clockOutBtn.disabled = true;
-        if (breakStartBtn) breakStartBtn.disabled = true;
-        if (breakEndBtn) breakEndBtn.disabled = true;
+        // すべてのボタンのクラスをリセット
+        [clockInBtn, clockOutBtn, breakStartBtn, breakEndBtn].forEach(btn => {
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.remove('btn-primary', 'btn-secondary', 'btn-warning', 'available', 'current-action');
+            }
+        });
+
+        // 基本的なクラスを設定
+        if (clockInBtn) clockInBtn.classList.add('btn-secondary');
+        if (clockOutBtn) clockOutBtn.classList.add('btn-secondary');
+        if (breakStartBtn) breakStartBtn.classList.add('btn-warning');
+        if (breakEndBtn) breakEndBtn.classList.add('btn-warning');
 
         if (query.empty) {
-            // 未出勤
+            console.log('今日の記録なし - 未出勤状態');
+            // 未出勤 - 出勤ボタンを有効化・強調
             if (clockStatus) {
                 clockStatus.innerHTML = `
                     <div class="status-waiting">おはようございます！<br>出勤ボタンを押してください</div>
                 `;
             }
-            if (clockInBtn) clockInBtn.disabled = false;
+            if (clockInBtn) {
+                clockInBtn.disabled = false;
+                clockInBtn.classList.remove('btn-secondary');
+                clockInBtn.classList.add('btn-primary', 'available');
+                console.log('出勤ボタンを有効化・強調');
+            }
             return;
         }
 
         const todayRecord = query.docs[0];
         const attendanceData = { id: todayRecord.id, ...todayRecord.data() };
+        console.log('今日の記録:', attendanceData);
 
         // 休憩データを取得
+        console.log('休憩データ取得中...');
         const breakQuery = await db.collection('breaks')
             .where('attendanceId', '==', attendanceData.id)
             .where('endTime', '==', null)
             .get();
 
         const isOnBreak = !breakQuery.empty;
+        console.log('休憩中？:', isOnBreak);
 
         if (attendanceData.clockInTime && !attendanceData.clockOutTime) {
             // 出勤済み・退勤前
@@ -168,7 +191,19 @@ async function checkTodayAttendance() {
                         <div class="status-detail">休憩開始: ${breakStart}</div>
                     `;
                 }
-                if (breakEndBtn) breakEndBtn.disabled = false;
+                
+                // 出勤ボタン：完了状態（グレー）
+                if (clockInBtn) {
+                    clockInBtn.classList.add('current-action');
+                    clockInBtn.textContent = '出勤済み';
+                }
+                
+                // 休憩終了ボタンを有効化・強調
+                if (breakEndBtn) {
+                    breakEndBtn.disabled = false;
+                    breakEndBtn.classList.add('available');
+                    console.log('休憩終了ボタンを有効化・強調');
+                }
             } else {
                 // 勤務中
                 if (clockStatus) {
@@ -177,8 +212,26 @@ async function checkTodayAttendance() {
                         <div class="status-detail">出勤: ${formatTime(attendanceData.clockInTime.toDate().toISOString())}</div>
                     `;
                 }
-                if (clockOutBtn) clockOutBtn.disabled = false;
-                if (breakStartBtn) breakStartBtn.disabled = false;
+                
+                // 出勤ボタン：完了状態（グレー）
+                if (clockInBtn) {
+                    clockInBtn.classList.add('current-action');
+                    clockInBtn.textContent = '出勤済み';
+                }
+                
+                // 退勤ボタンを有効化・強調（青）
+                if (clockOutBtn) {
+                    clockOutBtn.disabled = false;
+                    clockOutBtn.classList.remove('btn-secondary');
+                    clockOutBtn.classList.add('btn-primary', 'available');
+                    console.log('退勤ボタンを有効化・強調');
+                }
+                
+                // 休憩開始ボタンを有効化
+                if (breakStartBtn) {
+                    breakStartBtn.disabled = false;
+                    console.log('休憩開始ボタンを有効化');
+                }
             }
         } else if (attendanceData.clockInTime && attendanceData.clockOutTime) {
             // 出退勤済み
@@ -211,74 +264,34 @@ async function checkTodayAttendance() {
                     <div class="status-detail">実労働: ${workTime.formatted}</div>
                 `;
             }
+            
+            // 両方のボタンを完了状態に
+            if (clockInBtn) {
+                clockInBtn.classList.add('current-action');
+                clockInBtn.textContent = '出勤済み';
+            }
+            if (clockOutBtn) {
+                clockOutBtn.classList.add('current-action');
+                clockOutBtn.textContent = '退勤済み';
+            }
+            
+            console.log('本日の勤務完了');
         }
     } catch (error) {
         console.error('勤怠状況チェックエラー:', error);
-        showError('勤怠状況の確認に失敗しました');
+        showError('勤怠状況の確認に失敗しました: ' + error.message);
+        
+        // エラー時は出勤ボタンのみ有効化
+        const clockInBtn = getElement('clock-in-btn');
+        if (clockInBtn) {
+            clockInBtn.disabled = false;
+            clockInBtn.classList.add('btn-primary', 'available');
+        }
     }
 }
 
 /**
- * 未完了の勤怠記録を処理する（Firebase対応版）
- * @param {string} userId ユーザーID
- * @param {string} today 今日の日付（YYYY-MM-DD）
- */
-async function handleIncompleteRecords(userId, today) {
-    if (!userId || !today) return;
-    
-    try {
-        // 前日までの未完了の勤怠記録を検索
-        const querySnapshot = await db.collection('attendance')
-            .where('userId', '==', userId)
-            .where('date', '<', today)
-            .where('clockOutTime', '==', null)
-            .get();
-
-        const batch = db.batch();
-        let hasUpdates = false;
-
-        for (const doc of querySnapshot.docs) {
-            const record = doc.data();
-            console.log(`未完了の勤怠記録を自動終了: ${record.date}`);
-            
-            // その日の23:59:59で勤務終了としてマーク
-            const endDate = new Date(record.date);
-            endDate.setHours(23, 59, 59);
-            const endTimestamp = firebase.firestore.Timestamp.fromDate(endDate);
-            
-            // 勤怠記録を更新
-            batch.update(doc.ref, {
-                clockOutTime: endTimestamp,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            // 未完了の休憩も終了
-            const breakQuery = await db.collection('breaks')
-                .where('attendanceId', '==', doc.id)
-                .where('endTime', '==', null)
-                .get();
-
-            breakQuery.forEach(breakDoc => {
-                batch.update(breakDoc.ref, {
-                    endTime: endTimestamp,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            });
-
-            hasUpdates = true;
-        }
-
-        if (hasUpdates) {
-            await batch.commit();
-            console.log('未完了記録の自動終了処理完了');
-        }
-    } catch (error) {
-        console.error('未完了記録処理エラー:', error);
-    }
-}
-
-/**
- * 出勤処理（Firebase対応版）
+ * 出勤処理（視覚化改善版）
  */
 async function clockIn() {
     const currentUser = getCurrentUser();
@@ -301,11 +314,12 @@ async function clockIn() {
     const today = now.toISOString().split('T')[0];
 
     try {
-        // ローディング表示
+        // ボタンの視覚的フィードバック
         const clockInBtn = getElement('clock-in-btn');
         if (clockInBtn) {
-            clockInBtn.classList.add('loading');
             clockInBtn.disabled = true;
+            clockInBtn.textContent = '処理中...';
+            clockInBtn.classList.remove('available');
         }
 
         // 今日の記録が既に存在するかチェック
@@ -337,7 +351,7 @@ async function clockIn() {
         // 現場履歴に追加
         await saveSiteHistory(siteName);
         
-        // UI更新
+        // UI更新（ボタンの色が自動で変わる）
         await checkTodayAttendance();
         await loadRecentRecords();
         
@@ -347,11 +361,12 @@ async function clockIn() {
         console.error('出勤エラー:', error);
         showError('出勤の記録に失敗しました');
     } finally {
-        // ローディング解除
+        // エラー時のボタン復旧
         const clockInBtn = getElement('clock-in-btn');
-        if (clockInBtn) {
-            clockInBtn.classList.remove('loading');
+        if (clockInBtn && clockInBtn.textContent === '処理中...') {
+            clockInBtn.textContent = '出勤';
             clockInBtn.disabled = false;
+            clockInBtn.classList.add('available');
         }
     }
 }
