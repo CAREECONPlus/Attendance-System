@@ -2,90 +2,26 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>勤怠管理システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠管理システム</title>
     <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-    <!-- Firebase v8 SDK のみ読み込み -->
+    
+    <!-- Firebase v8 SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-    <!-- Firebase設定（v8版） -->
+    
+    <!-- Firebase設定 -->
     <script src="js/firebase.js"></script>
     
     <!-- システムのJavaScript -->
     <script src="js/utils.js"></script>
     <script src="js/auth.js"></script>
-    <script src="js/login.js"></script>
+    <script src="js/main.js"></script>
     <script src="js/employee.js"></script>
     <script src="js/admin.js"></script>
-    <script src="js/main.js"></script>
-
-    <!-- ログイン画面 -->
-    <div id="login-page" class="page hidden">
-        <div class="login-container">
-            <div class="login-card">
-                <h1>勤怠管理システム</h1>
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="email">メールアドレス</label>
-                        <input type="email" id="email" name="email" autocomplete="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">パスワード</label>
-                        <input type="password" id="password" name="password" autocomplete="current-password" required>
-                    </div>
-                    <div id="error-message" class="error-text hidden"></div>
-                    <button type="submit" class="btn btn-primary btn-full">ログイン</button>
-                </form>
-                <p style="text-align: center; margin-top: 20px;">
-                    アカウントをお持ちでない方は<br>
-                    <a href="#" id="go-to-register">新規登録はこちら</a>
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 新規登録画面 -->
-    <div id="register-page" class="page hidden">
-        <div class="login-container">
-            <div class="login-card">
-                <h1>勤怠管理システム</h1>
-                <h2>新規ユーザー登録</h2>
-                <form id="registerForm">
-                    <div class="form-group">
-                        <label for="reg-fullname">氏名</label>
-                        <input type="text" id="reg-fullname" name="fullname" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-email">メールアドレス</label>
-                        <input type="email" id="reg-email" name="email" autocomplete="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-password">パスワード</label>
-                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
-                        <div class="form-hint">6文字以上で入力してください</div>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-role">役割</label>
-                        <select id="reg-role" name="role">
-                            <option value="employee">従業員</option>
-                            <option value="admin">管理者</option>
-                        </select>
-                    </div>
-                    <div id="register-message" class="error-text"></div>
-                    <button type="submit" class="btn btn-primary btn-full">登録する</button>
-                </form>
-                <p style="text-align: center; margin-top: 20px;">
-                    すでにアカウントをお持ちの方は<br>
-                    <a href="#" id="back-to-login">ログインはこちら</a>
-                </p>
-            </div>
-        </div>
-    </div>
-
+</head>
+<body>
     <!-- 従業員画面 -->
     <div id="employee-page" class="page hidden">
         <div class="container">
