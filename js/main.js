@@ -1,9 +1,8 @@
 /**
- * main.js - SPA構造対応版
- * index.htmlにアクセスした際の初期化とルーティング処理
+ * main.js - 管理者初期化改善版
  */
 
-console.log('main.js 読み込み開始 - SPA版');
+console.log('main.js 読み込み開始');
 
 /**
  * システム初期化
@@ -23,7 +22,6 @@ async function initializeSystem() {
     } catch (error) {
         console.error('システム初期化エラー:', error);
         showError('システムの初期化に失敗しました');
-        // エラー時はログイン画面へリダイレクト
         window.location.href = 'login.html';
     }
     
@@ -79,20 +77,28 @@ async function handleAuthState() {
                     // 役割に基づいて画面表示
                     if (userData.role === 'admin') {
                         showPage('admin');
-                        // 管理者画面の初期化（admin.jsの関数を呼び出し）
-                        if (typeof initAdminPage === 'function') {
-                            initAdminPage();
-                        } else {
-                            console.error('initAdminPage 関数が見つかりません');
-                        }
+                        
+                        // 少し遅延させてから管理者画面を初期化
+                        setTimeout(() => {
+                            if (typeof initAdminPage === 'function') {
+                                initAdminPage();
+                            } else {
+                                console.error('initAdminPage 関数が見つかりません');
+                            }
+                        }, 300);
+                        
                     } else if (userData.role === 'employee') {
                         showPage('employee');
-                        // 従業員画面の初期化（employee.jsの関数を呼び出し）
-                        if (typeof initEmployeePage === 'function') {
-                            initEmployeePage();
-                        } else {
-                            console.error('initEmployeePage 関数が見つかりません');
-                        }
+                        
+                        // 少し遅延させてから従業員画面を初期化
+                        setTimeout(() => {
+                            if (typeof initEmployeePage === 'function') {
+                                initEmployeePage();
+                            } else {
+                                console.error('initEmployeePage 関数が見つかりません');
+                            }
+                        }, 300);
+                        
                     } else {
                         console.error('不明な役割:', userData.role);
                         await firebase.auth().signOut();
@@ -180,7 +186,6 @@ function setupErrorHandling() {
         
         if (e.reason && e.reason.code) {
             if (e.reason.code.startsWith('auth/')) {
-                // 認証エラーの場合はログイン画面へ
                 window.location.href = 'login.html';
             } else if (e.reason.code.startsWith('firestore/')) {
                 showError('データベースエラーが発生しました');
@@ -223,19 +228,5 @@ window.resetApplication = function() {
             console.error('リセット時のエラー:', error);
             window.location.href = 'login.html';
         });
-    }
-};
-
-/**
- * ログアウト処理（共通関数）
- */
-window.handleLogout = async function() {
-    try {
-        await firebase.auth().signOut();
-        console.log('ログアウト成功');
-        window.location.href = 'login.html';
-    } catch (error) {
-        console.error('ログアウトエラー:', error);
-        showError('ログアウトに失敗しました');
     }
 };
