@@ -1,15 +1,14 @@
-
 /**
- * 勤怠管理システム - メインスクリプト（Firebase対応版）
+ * 勤怠管理システム - メインスクリプト（Firebase v8対応版）
  * 
  * システムの初期化と全体の連携を担当します。
  * Firebase初期化完了後にシステムを初期化し、適切な画面を表示します。
  */
 
-console.log('main.js loaded - Firebase version');
+console.log('main.js loaded - Firebase v8 version');
 
 /**
- * システム初期化の中心関数（Firebase対応版）
+ * システム初期化の中心関数（Firebase v8対応版）
  */
 async function initializeSystem() {
     console.log('勤怠管理システムを初期化中...');
@@ -128,25 +127,20 @@ function showError(message) {
 }
 
 /**
- * ページ表示切り替え（utils.jsと重複するが、確実に動作させるためここにも定義）
+ * 成功メッセージを表示
+ * @param {string} message 成功メッセージ
  */
-function showPage(pageName) {
-    try {
-        // 全てのページを非表示
-        document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
-            .forEach(el => el.classList.add('hidden'));
-        
-        // 指定されたページを表示
-        const targetPage = document.getElementById(`${pageName}-page`);
-        if (targetPage) {
-            targetPage.classList.remove('hidden');
-            console.log(`ページ切り替え: ${pageName}`);
-        } else {
-            console.error(`ページが見つかりません: ${pageName}`);
-        }
-    } catch (error) {
-        console.error('ページ切り替えエラー:', error);
-    }
+function showSuccess(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast success';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+    
+    console.log(message);
 }
 
 /**
@@ -154,31 +148,33 @@ function showPage(pageName) {
  */
 function monitorFirebaseConnection() {
     // Firestore接続状態の監視
-    db.enableNetwork().then(() => {
-        console.log('Firestore接続が有効です');
-    }).catch((error) => {
-        console.error('Firestore接続エラー:', error);
-        showError('データベース接続に問題があります');
-    });
-    
-    // 定期的な接続チェック（5分ごと）
-    setInterval(async () => {
-        try {
-            // 簡単なクエリでFirestore接続をテスト
-            await db.collection('users').limit(1).get();
-            console.log('Firestore接続確認完了');
-        } catch (error) {
-            console.error('Firestore接続チェック失敗:', error);
-            // 接続エラーの場合は再接続を試行
+    if (typeof db !== 'undefined') {
+        db.enableNetwork().then(() => {
+            console.log('Firestore接続が有効です');
+        }).catch((error) => {
+            console.error('Firestore接続エラー:', error);
+            showError('データベース接続に問題があります');
+        });
+        
+        // 定期的な接続チェック（5分ごと）
+        setInterval(async () => {
             try {
-                await db.enableNetwork();
-                console.log('Firestore再接続成功');
-            } catch (reconnectError) {
-                console.error('Firestore再接続失敗:', reconnectError);
-                showError('データベース接続が不安定です');
+                // 簡単なクエリでFirestore接続をテスト
+                await db.collection('users').limit(1).get();
+                console.log('Firestore接続確認完了');
+            } catch (error) {
+                console.error('Firestore接続チェック失敗:', error);
+                // 接続エラーの場合は再接続を試行
+                try {
+                    await db.enableNetwork();
+                    console.log('Firestore再接続成功');
+                } catch (reconnectError) {
+                    console.error('Firestore再接続失敗:', reconnectError);
+                    showError('データベース接続が不安定です');
+                }
             }
-        }
-    }, 5 * 60 * 1000); // 5分間隔
+        }, 5 * 60 * 1000); // 5分間隔
+    }
 }
 
 /**
@@ -225,10 +221,77 @@ function setupOfflineDetection() {
 }
 
 /**
+ * ページヘルパー関数
+ */
+function showPage(pageName) {
+    try {
+        // 全てのページを非表示
+        document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+            .forEach(el => el.classList.add('hidden'));
+        
+        // 指定されたページを表示
+        const targetPage = document.getElementById(`${pageName}-page`);
+        if (targetPage) {
+            targetPage.classList.remove('hidden');
+            console.log(`ページ切り替え: ${pageName}`);
+        } else {
+            console.error(`ページが見つかりません: ${pageName}`);
+        }
+    } catch (error) {
+        console.error('ページ切り替えエラー:', error);
+    }
+}
+
+/**
+ * バックアップ認証チェック関数
+ */
+function checkAuthStatus() {
+    const currentUser = firebase.auth().currentUser;
+    if (currentUser) {
+        console.log('認証済み:', currentUser.email);
+        return true;
+    } else {
+        console.log('未認証');
+        showPage('login');
+        return false;
+    }
+}
+
+/**
+ * アプリケーション状態の診断（デバッグ用）
+ */
+function diagnoseApplication() {
+    console.log('=== アプリケーション診断 ===');
+    console.log('Firebase App:', typeof firebase !== 'undefined' && firebase.app() ? '初期化済み' : '未初期化');
+    console.log('Firestore:', typeof db !== 'undefined' ? '利用可能' : '未定義');
+    console.log('Auth:', typeof firebase !== 'undefined' && firebase.auth() ? '利用可能' : '未定義');
+    console.log('Current User:', firebase.auth()?.currentUser ? firebase.auth().currentUser.email : 'なし');
+    
+    // 表示されているページをチェック
+    const visiblePage = document.querySelector('.page:not(.hidden)');
+    console.log('表示中のページ:', visiblePage ? visiblePage.id : 'なし');
+    
+    // 必要な関数の存在チェック
+    console.log('initEmployeePage:', typeof window.initEmployeePage);
+    console.log('initAdminPage:', typeof window.initAdminPage);
+    console.log('getCurrentUser:', typeof window.getCurrentUser);
+    console.log('showPage:', typeof window.showPage);
+    console.log('==============================');
+    
+    return {
+        firebase: typeof firebase !== 'undefined',
+        firestore: typeof db !== 'undefined',
+        auth: typeof firebase !== 'undefined' && firebase.auth(),
+        currentUser: firebase.auth()?.currentUser,
+        visiblePage: visiblePage?.id
+    };
+}
+
+/**
  * DOMContentLoadedイベントでの初期化
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM読み込み完了 - Firebase version');
+    console.log('DOM読み込み完了 - Firebase v8 version');
     
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
@@ -247,10 +310,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (loadingScreen) {
                 loadingScreen.classList.add('hidden');
             }
+        }).catch(error => {
+            console.error('システム初期化に失敗:', error);
+            // フォールバック処理
+            showPage('login');
+            if (loadingScreen) {
+                loadingScreen.classList.add('hidden');
+            }
         });
         
-        // Firebase接続監視を開始
-        monitorFirebaseConnection();
+        // Firebase接続監視を開始（少し遅延）
+        setTimeout(() => {
+            if (typeof db !== 'undefined') {
+                monitorFirebaseConnection();
+            }
+        }, 2000);
         
         // オフライン検出を設定
         setupOfflineDetection();
@@ -261,13 +335,26 @@ document.addEventListener('DOMContentLoaded', function() {
  * window.onloadイベントでのバックアップ初期化
  */
 window.onload = function() {
-    console.log('ページが完全に読み込まれました - Firebase version');
+    console.log('ページが完全に読み込まれました - Firebase v8 version');
     
     // DOMContentLoadedで初期化されていない場合のバックアップ
-    if (!firebase.apps.length) {
+    if (!firebase.apps || firebase.apps.length === 0) {
         console.warn('Firebase未初期化 - バックアップ初期化を実行');
         setTimeout(initializeSystem, 500);
     }
+    
+    // 3秒後にもチェック（最終的なフォールバック）
+    setTimeout(() => {
+        if (!window.currentUser && firebase.auth().currentUser) {
+            console.warn('認証状態の不整合を検出 - 修正を試行');
+            firebase.auth().onAuthStateChanged(user => {
+                if (user && !window.currentUser) {
+                    console.log('認証状態を修復中...');
+                    location.reload();
+                }
+            });
+        }
+    }, 3000);
 };
 
 /**
@@ -307,11 +394,30 @@ function registerServiceWorker() {
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     // 開発環境でのデバッグ関数
     window.debugInfo = function() {
-        console.log('=== デバッグ情報 ===');
-        console.log('Firebase App:', firebase.app());
-        console.log('Current User:', firebase.auth().currentUser);
-        console.log('Firestore:', db);
-        console.log('Auth State:', firebase.auth().currentUser ? 'Signed In' : 'Signed Out');
-        console.log('==================');
+        return diagnoseApplication();
+    };
+    
+    window.forceLogin = function() {
+        showPage('login');
+    };
+    
+    window.testAuth = function() {
+        return checkAuthStatus();
+    };
+    
+    window.clearData = function() {
+        if (confirm('ローカルデータをクリアしますか？')) {
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log('ローカルデータをクリアしました');
+        }
     };
 }
+
+// グローバルスコープにエクスポート
+window.initializeSystem = initializeSystem;
+window.showPage = showPage;
+window.showError = showError;
+window.showSuccess = showSuccess;
+window.checkAuthStatus = checkAuthStatus;
+window.diagnoseApplication = diagnoseApplication;
