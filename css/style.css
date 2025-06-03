@@ -1,0 +1,865 @@
+/* リセットとベース設定 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+}
+
+body {
+    background-color: #f5f7fa;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px;
+}
+
+/* ヘッダー */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.app-header h1 {
+    color: #2C5EFF;
+    font-size: 24px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* ログイン画面 */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f7fa;
+    padding: 15px;
+}
+
+.login-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-card h1 {
+    color: #2C5EFF;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* フォーム要素 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #555;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="date"],
+input[type="month"],
+input[type="datetime-local"],
+select,
+textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #2C5EFF;
+    box-shadow: 0 0 0 2px rgba(44, 94, 255, 0.1);
+}
+
+/* ボタン */
+.btn {
+    display: inline-block;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+    text-align: center;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn-primary {
+    background-color: #2C5EFF;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #1a4ad9;
+}
+
+.btn-secondary {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background-color: #d0d0d0;
+}
+
+.btn-warning {
+    background-color: #ff9800;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #e68a00;
+}
+
+.btn-danger {
+    background-color: #ff4d4d;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #e64444;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.btn-full {
+    width: 100%;
+    display: block;
+}
+
+/* 従業員画面 */
+.employee-main {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.date-display {
+    background-color: #f0f4ff;
+    border-radius: 12px;
+    padding: 20px 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.date {
+    font-size: 18px;
+    font-weight: 500;
+    color: #444;
+}
+
+.time {
+    font-size: 36px;
+    font-weight: 700;
+    color: #2C5EFF;
+    margin-top: 5px;
+}
+
+.clock-status {
+    text-align: center;
+    margin: 20px 0;
+    min-height: 60px;
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.status-waiting,
+.status-working,
+.status-break,
+.status-complete {
+    font-size: 18px;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.status-waiting {
+    color: #666;
+}
+
+.status-working {
+    color: #2C5EFF;
+}
+
+.status-break {
+    color: #ff9800;
+}
+
+.status-complete {
+    color: #4CAF50;
+}
+
+.status-detail {
+    font-size: 14px;
+    color: #666;
+    margin: 4px 0;
+}
+
+.clock-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.button-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    width: 100%;
+}
+
+.clock-btn {
+    flex: 1;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: 500;
+    min-width: 0;
+}
+
+.clock-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.site-selection {
+    margin-bottom: 20px;
+}
+
+.recent-records {
+    margin-top: 30px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.recent-records h3 {
+    margin-bottom: 15px;
+    color: #555;
+}
+
+.record-item {
+    background-color: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-left: 4px solid #2C5EFF;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.record-date {
+    font-weight: 500;
+    color: #333;
+}
+
+.record-site {
+    color: #666;
+    margin: 5px 0;
+}
+
+.record-time {
+    color: #2C5EFF;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.record-time-detail {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #777;
+}
+
+.record-break-info {
+    font-size: 13px;
+    color: #ff9800;
+    margin-top: 5px;
+}
+
+.record-total-time {
+    font-weight: bold;
+    color: #4CAF50;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+/* 管理者画面 */
+.admin-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    color: #2C5EFF;
+}
+
+.tab-btn.active {
+    color: #2C5EFF;
+    border-bottom-color: #2C5EFF;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f0f4ff;
+    border-radius: 10px;
+}
+
+.date-filter,
+.month-filter,
+.employee-filter,
+.site-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 150px;
+}
+
+.filter-label {
+    font-weight: 500;
+    font-size: 14px;
+    color: #555;
+}
+
+.filter-actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.attendance-table-container {
+    overflow-x: auto;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 30px;
+}
+
+.attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.attendance-table th,
+.attendance-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.attendance-table th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #555;
+    z-index: 10;
+}
+
+.attendance-table tbody tr:hover {
+    background-color: #f9fbff;
+}
+
+.work-times {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.work-time-label {
+    font-size: 12px;
+    color: #777;
+}
+
+.work-time-value {
+    font-weight: 500;
+}
+
+.work-times .break {
+    color: #ff9800;
+}
+
+.work-times .total {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.no-data {
+    text-align: center;
+    color: #888;
+    padding: 30px !important;
+}
+
+/* モーダル */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 15px;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 25px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 24px;
+    color: #888;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.close-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.modal h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.form-col {
+    flex: 1;
+}
+
+.form-hint {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.break-times {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #fff8e1;
+    border-radius: 8px;
+    border: 1px solid #ffe0b2;
+}
+
+.break-title {
+    font-weight: 500;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.break-list {
+    margin-top: 10px;
+}
+
+.break-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding: 8px 0;
+}
+
+.break-time {
+    flex: 1;
+    font-size: 14px;
+}
+
+.break-duration {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ff9800;
+}
+
+.break-remove {
+    color: #ff4d4d;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 10px;
+    border-radius: 4px;
+}
+
+.break-remove:hover {
+    background-color: #ffebee;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 10px;
+}
+
+.delete-section {
+    border-top: 1px solid #eee;
+    margin-top: 30px;
+    padding-top: 20px;
+}
+
+.toggle-section {
+    margin-top: 15px;
+}
+
+.toggle-btn {
+    background: none;
+    border: none;
+    color: #2C5EFF;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.toggle-btn::before {
+    content: '+';
+    margin-right: 5px;
+    font-size: 16px;
+}
+
+.toggle-section.open .toggle-btn::before {
+    content: '-';
+}
+
+.toggle-content {
+    display: none;
+    margin-top: 10px;
+}
+
+.toggle-section.open .toggle-content {
+    display: block;
+}
+
+/* ユーティリティ */
+.hidden {
+    display: none !important;
+}
+
+/* 既存のerror-textクラス */
+.error-text {
+    color: #ff4d4d;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* 新たに成功メッセージ用のクラスを追加 */
+.success-text {
+    color: #4CAF50;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* ソート可能なヘッダーのスタイル */
+.sortable {
+    cursor: pointer;
+    position: relative;
+}
+
+.sortable:after {
+    content: '↕';
+    font-size: 12px;
+    color: #999;
+    position: absolute;
+    right: 8px;
+}
+
+.sortable.asc:after {
+    content: '↑';
+    color: #2C5EFF;
+}
+
+.sortable.desc:after {
+    content: '↓';
+    color: #2C5EFF;
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 768px) {
+    .app-header h1 {
+        font-size: 20px;
+    }
+    
+    .filter-row {
+        flex-direction: column;
+    }
+    
+    .date-filter,
+    .month-filter,
+    .employee-filter,
+    .site-filter {
+        width: 100%;
+    }
+    
+    .filter-actions {
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    .filter-actions .btn {
+        width: 100%;
+    }
+    
+    .modal-content {
+        padding: 20px 15px;
+    }
+    
+    .form-row {
+        flex-direction: column;
+    }
+}
+
+/* モバイル向け追加調整 */
+@media (max-width: 480px) {
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .time {
+        font-size: 32px;
+    }
+    
+    .form-group .btn {
+        padding: 12px;
+    }
+    
+    .break-item {
+        flex-wrap: wrap;
+    }
+    
+    .break-duration {
+        width: 100%;
+        margin-top: 5px;
+    }
+    
+    .button-row {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+    }
+    
+    .clock-btn {
+        flex: 1;
+        padding: 12px 8px;
+        font-size: 16px;
+        min-width: 0;
+    }
+}
+
+/* ローディング状態 */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2C5EFF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* トースト通知 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 2000;
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast.success {
+    background-color: #4CAF50;
+}
+
+.toast.error {
+    background-color: #ff4d4d;
+}
+
+.toast.warning {
+    background-color: #ff9800;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 空の状態表示 */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ddd;
+}
+
+.empty-state-message {
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.empty-state-submessage {
+    font-size: 14px;
+    color: #bbb;
+}
+
+/* パスワード表示切り替え */
+.password-field {
+    position: relative;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    font-size: 16px;
+}
+
+.password-toggle:hover {
+    color: #2C5EFF;
+}
