@@ -1,5 +1,7 @@
+console.log('admin.js loaded');
+
 /**
- * 管理者画面の初期化処理（Firebase対応版）
+ * 管理者画面の初期化処理（Firebase v8対応版）
  * 全てのイベントリスナーを設定し、初期データを読み込みます
  */
 async function initAdminPage() {
@@ -41,7 +43,76 @@ async function initAdminPage() {
 }
 
 /**
- * 従業員リストの読み込み（Firebase対応版）
+ * 管理者画面の基本的なUI初期化
+ */
+function setupAdminBasics() {
+    console.log('管理者画面の基本UI初期化');
+    
+    // ユーザー名を表示
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        const userNameEl = getElement('admin-user-name');
+        if (userNameEl) {
+            userNameEl.textContent = currentUser.displayName || currentUser.email;
+        }
+    }
+    
+    // ログアウトボタン
+    const logoutBtn = getElement('admin-logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            signOut();
+        });
+    }
+    
+    // タブ切り替えイベント
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tab = this.getAttribute('data-tab');
+            switchTab(tab);
+        });
+    });
+}
+
+/**
+ * タブ切り替え関数
+ */
+function switchTab(tab) {
+    // アクティブタブの切り替え
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.querySelector(`[data-tab="${tab}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+    
+    // フィルター表示の切り替え
+    document.querySelectorAll('.date-filter, .month-filter, .employee-filter, .site-filter').forEach(filter => {
+        filter.classList.add('hidden');
+    });
+    
+    if (tab === 'daily') {
+        const dateFilter = document.querySelector('.date-filter');
+        if (dateFilter) dateFilter.classList.remove('hidden');
+    } else if (tab === 'monthly') {
+        const monthFilter = document.querySelector('.month-filter');
+        if (monthFilter) monthFilter.classList.remove('hidden');
+    } else if (tab === 'employee') {
+        const employeeFilter = document.querySelector('.employee-filter');
+        if (employeeFilter) employeeFilter.classList.remove('hidden');
+    } else if (tab === 'site') {
+        const siteFilter = document.querySelector('.site-filter');
+        if (siteFilter) siteFilter.classList.remove('hidden');
+    }
+    
+    // データを再読み込み
+    loadAttendanceData();
+}
+
+/**
+ * 従業員リストの読み込み（Firebase v8対応版）
  */
 async function loadEmployeeList() {
     try {
@@ -75,7 +146,7 @@ async function loadEmployeeList() {
 }
 
 /**
- * 現場リストの読み込み（Firebase対応版）
+ * 現場リストの読み込み（Firebase v8対応版）
  */
 async function loadSiteList() {
     try {
@@ -114,7 +185,7 @@ async function loadSiteList() {
 }
 
 /**
- * 勤怠データの読み込み（Firebase対応版）
+ * 勤怠データの読み込み（Firebase v8対応版）
  */
 async function loadAttendanceData() {
     try {
@@ -205,15 +276,217 @@ async function loadBreakDataForRecords(attendanceData) {
 }
 
 /**
- * 勤怠記録の保存（Firebase対応版）
+ * 勤怠テーブルのレンダリング
+ */
+function renderAttendanceTable(data) {
+    const tbody = getElement('attendance-data');
+    if (!tbody) return;
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="no-data">データがありません</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = data.map(record => {
+        const breakTime = calculateTotalBreakTime(record.breakTimes || []);
+        const workTime = calculateWorkingTime(
+            record.clockInTime,
+            record.clockOutTime,
+            record.breakTimes || []
+        );
+        
+        return `
+            <tr>
+                <td>${record.userName || '-'}</td>
+                <td>${formatDate(record.date)}</td>
+                <td>${record.siteName || '-'}</td>
+                <td>
+                    <div class="work-times">
+                        <div class="work-time-row">
+                            <span class="work-time-label">出勤:</span>
+                            <span class="work-time-value">${formatTime(record.clockInTime)}</span>
+                        </div>
+                        <div class="work-time-row">
+                            <span class="work-time-label">退勤:</span>
+                            <span class="work-time-value">${formatTime(record.clockOutTime)}</span>
+                        </div>
+                        <div class="work-time-row break">
+                            <span class="work-time-label">休憩:</span>
+                            <span class="work-time-value">${breakTime.formatted}</span>
+                        </div>
+                        <div class="work-time-row total">
+                            <span class="work-time-label">実労働:</span>
+                            <span class="work-time-value">${workTime.formatted}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-small btn-secondary" onclick="editRecord('${record.id}')">編集</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * 勤怠記録の編集
+ */
+function editRecord(recordId) {
+    console.log('編集レコードID:', recordId);
+    // TODO: 編集モーダルの実装
+    showToast('編集機能は実装中です', 'warning');
+}
+
+/**
+ * 管理者イベントの設定
+ */
+function setupAdminEvents() {
+    console.log('管理者イベントを設定中...');
+    
+    // CSV出力ボタン
+    const exportBtn = getElement('export-csv');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportToCSV);
+    }
+    
+    // フィルター変更イベント
+    const filterInputs = document.querySelectorAll('#filter-date, #filter-month, #filter-employee, #filter-site');
+    filterInputs.forEach(input => {
+        input.addEventListener('change', loadAttendanceData);
+    });
+    
+    console.log('管理者イベント設定完了');
+}
+
+/**
+ * CSV出力関数
+ */
+async function exportToCSV() {
+    try {
+        const data = await getCurrentFilteredData();
+        
+        if (!data || data.length === 0) {
+            showToast('出力するデータがありません', 'warning');
+            return;
+        }
+        
+        const csvContent = generateCSVContent(data);
+        downloadCSV(csvContent, `attendance_${getTodayString()}.csv`);
+        
+        showToast('CSVファイルをダウンロードしました', 'success');
+    } catch (error) {
+        console.error('CSV出力エラー:', error);
+        showToast('CSV出力に失敗しました', 'error');
+    }
+}
+
+/**
+ * 現在のフィルター設定でデータを取得
+ */
+async function getCurrentFilteredData() {
+    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
+    if (!activeTab) return [];
+    
+    let query = db.collection('attendance');
+    
+    // フィルター条件の適用
+    if (activeTab === 'daily') {
+        const filterDate = getElement('filter-date')?.value;
+        if (filterDate) {
+            query = query.where('date', '==', filterDate);
+        }
+    } else if (activeTab === 'monthly') {
+        const filterMonth = getElement('filter-month')?.value;
+        if (filterMonth) {
+            const startDate = `${filterMonth}-01`;
+            const endDate = `${filterMonth}-31`;
+            query = query.where('date', '>=', startDate).where('date', '<=', endDate);
+        }
+    } else if (activeTab === 'employee') {
+        const employeeId = getElement('filter-employee')?.value;
+        if (employeeId) {
+            query = query.where('userId', '==', employeeId);
+        }
+    } else if (activeTab === 'site') {
+        const siteName = getElement('filter-site')?.value;
+        if (siteName) {
+            query = query.where('siteName', '==', siteName);
+        }
+    }
+    
+    query = query.orderBy('date', 'desc');
+    const querySnapshot = await query.get();
+    
+    const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    
+    // 休憩データも取得
+    await loadBreakDataForRecords(data);
+    
+    return data;
+}
+
+/**
+ * CSV形式のコンテンツを生成
+ */
+function generateCSVContent(data) {
+    const headers = ['従業員名', '日付', '現場名', '出勤時間', '退勤時間', '休憩時間', '実労働時間', 'メモ'];
+    
+    const rows = data.map(record => {
+        const breakTime = calculateTotalBreakTime(record.breakTimes || []);
+        const workTime = calculateWorkingTime(
+            record.clockInTime,
+            record.clockOutTime,
+            record.breakTimes || []
+        );
+        
+        return [
+            record.userName || '',
+            formatDate(record.date),
+            record.siteName || '',
+            formatTime(record.clockInTime),
+            formatTime(record.clockOutTime),
+            breakTime.formatted,
+            workTime.formatted,
+            record.notes || ''
+        ];
+    });
+    
+    const csvArray = [headers, ...rows];
+    return csvArray.map(row => 
+        row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+}
+
+/**
+ * CSVファイルをダウンロード
+ */
+function downloadCSV(csvContent, filename) {
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * 勤怠記録の保存（Firebase v8対応版）
  */
 async function saveAttendanceRecord() {
-    const recordId = getElement('edit-id').value;
-    const date = getElement('edit-date').value;
-    const clockIn = getElement('edit-clock-in').value;
-    const clockOut = getElement('edit-clock-out').value;
-    const siteName = getElement('edit-site').value;
-    const notes = getElement('edit-notes').value;
+    const recordId = getElement('edit-id')?.value;
+    const date = getElement('edit-date')?.value;
+    const clockIn = getElement('edit-clock-in')?.value;
+    const clockOut = getElement('edit-clock-out')?.value;
+    const siteName = getElement('edit-site')?.value;
+    const notes = getElement('edit-notes')?.value;
     
     // バリデーション
     if (!date || !siteName) {
@@ -247,7 +520,8 @@ async function saveAttendanceRecord() {
         await db.collection('attendance').doc(recordId).update(updateData);
         
         // モーダルを閉じる
-        getElement('edit-modal').classList.add('hidden');
+        const modal = getElement('edit-modal');
+        if (modal) modal.classList.add('hidden');
         
         // データを再読み込み
         await loadAttendanceData();
@@ -261,11 +535,13 @@ async function saveAttendanceRecord() {
 }
 
 /**
- * 勤怠記録の削除（Firebase対応版）
+ * 勤怠記録の削除（Firebase v8対応版）
  */
 async function deleteAttendanceRecord() {
-    const recordId = getElement('edit-id').value;
+    const recordId = getElement('edit-id')?.value;
     if (!recordId) return;
+    
+    if (!confirm('この勤怠記録を削除しますか？')) return;
     
     try {
         // 関連する休憩記録も削除
@@ -286,7 +562,8 @@ async function deleteAttendanceRecord() {
         await batch.commit();
         
         // モーダルを閉じる
-        getElement('edit-modal').classList.add('hidden');
+        const modal = getElement('edit-modal');
+        if (modal) modal.classList.add('hidden');
         
         // データを再読み込み
         await loadAttendanceData();
@@ -300,12 +577,12 @@ async function deleteAttendanceRecord() {
 }
 
 /**
- * 休憩時間を追加（Firebase対応版）
+ * 休憩時間を追加（Firebase v8対応版）
  */
 async function addBreakTime() {
-    const attendanceId = getElement('edit-id').value;
-    const breakStart = getElement('break-start').value;
-    const breakEnd = getElement('break-end').value;
+    const attendanceId = getElement('edit-id')?.value;
+    const breakStart = getElement('break-start')?.value;
+    const breakEnd = getElement('break-end')?.value;
     
     if (!attendanceId || !breakStart || !breakEnd) {
         showError('必須項目を入力してください');
@@ -340,7 +617,8 @@ async function addBreakTime() {
         await loadBreakTimesForEdit(attendanceId);
         
         // 休憩追加モーダルを閉じる
-        getElement('break-modal').classList.add('hidden');
+        const modal = getElement('break-modal');
+        if (modal) modal.classList.add('hidden');
         
         showSuccess('休憩時間を追加しました');
         console.log('休憩時間追加完了');
@@ -377,12 +655,47 @@ async function loadBreakTimesForEdit(attendanceId) {
 }
 
 /**
- * 休憩時間を削除（Firebase対応版）
+ * 休憩時間リストのレンダリング
+ */
+function renderBreakTimesList(breakTimes) {
+    const breakList = getElement('break-list');
+    if (!breakList) return;
+    
+    if (!breakTimes || breakTimes.length === 0) {
+        breakList.innerHTML = '<div class="no-data">休憩時間が登録されていません</div>';
+        return;
+    }
+    
+    breakList.innerHTML = breakTimes.map((breakTime, index) => {
+        const duration = calculateTimeDiff(breakTime.start, breakTime.end);
+        return `
+            <div class="break-item">
+                <div class="break-time">
+                    ${formatTime(breakTime.start)} - ${formatTime(breakTime.end)}
+                </div>
+                <div class="break-duration">${duration.formatted}</div>
+                <button class="break-remove" onclick="removeBreakTime(${index})" title="削除">×</button>
+            </div>
+        `;
+    }).join('');
+    
+    // 合計休憩時間を更新
+    const totalBreakTime = calculateTotalBreakTime(breakTimes);
+    const totalEl = getElement('total-break-time');
+    if (totalEl) {
+        totalEl.textContent = `合計休憩時間: ${totalBreakTime.formatted}`;
+    }
+}
+
+/**
+ * 休憩時間を削除（Firebase v8対応版）
  * @param {number} index 削除する休憩時間のインデックス
  */
 async function removeBreakTime(index) {
-    const attendanceId = getElement('edit-id').value;
+    const attendanceId = getElement('edit-id')?.value;
     if (!attendanceId) return;
+    
+    if (!confirm('この休憩時間を削除しますか？')) return;
     
     try {
         const breakQuery = await db.collection('breaks')
@@ -436,3 +749,14 @@ function showSuccess(message) {
         toast.remove();
     }, 3000);
 }
+
+// グローバルスコープに関数をエクスポート
+window.initAdminPage = initAdminPage;
+window.switchTab = switchTab;
+window.loadAttendanceData = loadAttendanceData;
+window.editRecord = editRecord;
+window.exportToCSV = exportToCSV;
+window.saveAttendanceRecord = saveAttendanceRecord;
+window.deleteAttendanceRecord = deleteAttendanceRecord;
+window.addBreakTime = addBreakTime;
+window.removeBreakTime = removeBreakTime;
