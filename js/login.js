@@ -1,24 +1,27 @@
 /**
- * 勤怠管理システム - ログイン・ユーザー登録機能 (Firebase対応版)
+ * 勤怠管理システム - ログイン・ユーザー登録機能 (Firebase v8対応版)
  */
 
-console.log('login.js loaded - Firebase Auth version');
+console.log('login.js loaded - Firebase Auth v8 version');
 
-// ログインフォームの初期化（Firebase対応版）
+// ログインフォームの初期化（Firebase v8対応版）
 function initLoginForm() {
-    console.log('ログインフォーム初期化 - Firebase Auth version');
+    console.log('ログインフォーム初期化 - Firebase Auth v8 version');
     
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const email = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
             const errorMsg = document.getElementById('error-message');
             
             // エラーメッセージをクリア
-            if (errorMsg) errorMsg.textContent = '';
+            if (errorMsg) {
+                errorMsg.textContent = '';
+                errorMsg.classList.add('hidden');
+            }
             
             // 入力チェック
             if (!email || !password) {
@@ -106,14 +109,11 @@ function initLoginForm() {
         });
     }
     
-    // パスワード表示切り替え
-    setupPasswordToggle('password');
-    
     // 登録フォーム初期化
     initRegisterForm();
 }
 
-// 新規登録フォーム初期化（Firebase対応版）
+// 新規登録フォーム初期化（Firebase v8対応版）
 function initRegisterForm() {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
@@ -124,9 +124,8 @@ function initRegisterForm() {
             const msgEl = document.getElementById('register-message');
             
             // 入力値を取得
-            const email = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
             const password = document.getElementById('reg-password').value.trim();
-            const confirmPassword = document.getElementById('reg-confirm-password')?.value.trim();
             const displayName = document.getElementById('reg-fullname').value.trim();
             const role = document.getElementById('reg-role').value || 'employee';
             
@@ -135,12 +134,6 @@ function initRegisterForm() {
             // 入力チェック
             if (!email || !password || !displayName) {
                 showRegisterError('全ての項目を入力してください');
-                return;
-            }
-            
-            // パスワード確認がある場合のチェック
-            if (confirmPassword !== undefined && password !== confirmPassword) {
-                showRegisterError('パスワードが一致しません');
                 return;
             }
             
@@ -239,46 +232,6 @@ function initRegisterForm() {
             clearRegisterMessage();
         });
     }
-    
-    // パスワード表示切り替え
-    setupPasswordToggle('reg-password');
-    if (document.getElementById('reg-confirm-password')) {
-        setupPasswordToggle('reg-confirm-password');
-    }
-}
-
-// パスワード表示切り替え機能
-function setupPasswordToggle(inputId) {
-    const passwordInput = document.getElementById(inputId);
-    if (!passwordInput) return;
-    
-    // パスワードフィールドを囲むコンテナを作成
-    const wrapper = document.createElement('div');
-    wrapper.className = 'password-field';
-    passwordInput.parentNode.insertBefore(wrapper, passwordInput);
-    wrapper.appendChild(passwordInput);
-    
-    // 表示切り替えボタンを作成
-    const toggleBtn = document.createElement('button');
-    toggleBtn.type = 'button';
-    toggleBtn.className = 'password-toggle';
-    toggleBtn.innerHTML = '👁';
-    toggleBtn.setAttribute('aria-label', 'パスワードを表示');
-    
-    wrapper.appendChild(toggleBtn);
-    
-    // クリックイベント
-    toggleBtn.addEventListener('click', function() {
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            toggleBtn.innerHTML = '👁‍🗨';
-            toggleBtn.setAttribute('aria-label', 'パスワードを非表示');
-        } else {
-            passwordInput.type = 'password';
-            toggleBtn.innerHTML = '👁';
-            toggleBtn.setAttribute('aria-label', 'パスワードを表示');
-        }
-    });
 }
 
 // エラーメッセージ表示
@@ -401,7 +354,7 @@ firebase.auth().onAuthStateChanged(async function(user) {
 
 // DOMが読み込まれた時の初期化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM読み込み完了 - Firebase Auth version');
+    console.log('DOM読み込み完了 - Firebase Auth v8 version');
     
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
@@ -448,4 +401,9 @@ window.checkAuth = function(requiredRole) {
     }
     
     return true;
+};
+
+// 新規登録フォームのセットアップ（register.htmlで使用）
+window.setupRegisterForm = function() {
+    initRegisterForm();
 };
