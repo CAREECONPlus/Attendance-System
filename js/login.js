@@ -1,314 +1,451 @@
 /**
- * login.js - SPA構造対応版
- * ログイン成功時はindex.htmlにリダイレクトし、そこで適切な画面を表示
+ * 勤怠管理システム - ログイン・ユーザー登録機能 (Firebase対応版)
  */
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('ログイン画面初期化開始');
-    
-    // Firebase認証状態の監視
-    firebase.auth().onAuthStateChanged(async function(user) {
-        if (user) {
-            console.log('ユーザーは既にログイン済み:', user.email);
-            // ログイン済みの場合はindex.htmlへリダイレクト
-            window.location.href = 'index.html';
-        }
-    });
-    
-    // ログインフォームの処理
-    setupLoginForm();
-    // 新規登録フォームの処理（register.html用）
-    setupRegisterForm();
-    // ページ切り替えの処理
-    setupPageSwitcher();
-});
+console.log('login.js loaded - Firebase Auth version');
 
-/**
- * ページ切り替えの設定
- */
-function setupPageSwitcher() {
-    // 新規登録へのリンク
-    const goToRegister = document.getElementById('go-to-register');
-    if (goToRegister) {
-        goToRegister.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'register.html';
-        });
-    }
+// ログインフォームの初期化（Firebase対応版）
+function initLoginForm() {
+    console.log('ログインフォーム初期化 - Firebase Auth version');
     
-    // ログインへ戻るリンク
-    const backToLogin = document.getElementById('back-to-login');
-    if (backToLogin) {
-        backToLogin.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'login.html';
-        });
-    }
-}
-
-/**
- * ログインフォームの設定
- */
-function setupLoginForm() {
     const loginForm = document.getElementById('loginForm');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    
-    if (!loginForm || !emailInput || !passwordInput) {
-        console.error('ログインフォームの要素が見つかりません');
-        return;
-    }
-    
-    // フォーム送信イベント
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleLogin();
-    });
-    
-    // Enterキーでログイン
-    [emailInput, passwordInput].forEach(input => {
-        input.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleLogin();
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('error-message');
+            
+            // エラーメッセージをクリア
+            if (errorMsg) errorMsg.textContent = '';
+            
+            // 入力チェック
+            if (!email || !password) {
+                showError('メールアドレスとパスワードを入力してください');
+                return;
+            }
+            
+            try {
+                // ローディング表示
+                const loginBtn = loginForm.querySelector('button[type="submit"]');
+                if (loginBtn) {
+                    loginBtn.classList.add('loading');
+                    loginBtn.disabled = true;
+                }
+                
+                // Firebase Auth でログイン
+                const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                console.log('Firebase認証成功:', user.uid);
+                
+                // ユーザー情報をFirestoreから取得
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                
+                if (!userDoc.exists) {
+                    throw new Error('ユーザーデータが見つかりません');
+                }
+                
+                const userData = userDoc.data();
+                console.log('ユーザーデータ取得:', userData);
+                
+                // ページ遷移
+                if (userData.role === 'admin') {
+                    showPage('admin');
+                    setTimeout(() => {
+                        if (typeof initAdminPage === 'function') {
+                            initAdminPage();
+                        }
+                    }, 200);
+                } else {
+                    showPage('employee');
+                    setTimeout(() => {
+                        if (typeof initEmployeePage === 'function') {
+                            initEmployeePage();
+                        }
+                    }, 200);
+                }
+                
+            } catch (error) {
+                console.error('ログインエラー:', error);
+                
+                // エラーメッセージの表示
+                let message = 'ログインに失敗しました';
+                
+                if (error.code === 'auth/user-not-found') {
+                    message = 'ユーザーが見つかりません';
+                } else if (error.code === 'auth/wrong-password') {
+                    message = 'パスワードが正しくありません';
+                } else if (error.code === 'auth/invalid-email') {
+                    message = 'メールアドレスの形式が正しくありません';
+                } else if (error.code === 'auth/user-disabled') {
+                    message = 'このアカウントは無効化されています';
+                } else if (error.code === 'auth/too-many-requests') {
+                    message = 'ログイン試行回数が多すぎます。しばらく時間をおいてから再試行してください';
+                }
+                
+                showError(message);
+            } finally {
+                // ローディング解除
+                const loginBtn = loginForm.querySelector('button[type="submit"]');
+                if (loginBtn) {
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                }
             }
         });
-    });
+    }
+    
+    // 新規登録リンク
+    const registerBtn = document.getElementById('go-to-register');
+    if (registerBtn) {
+        registerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPage('register');
+        });
+    }
+    
+    // パスワード表示切り替え
+    setupPasswordToggle('password');
+    
+    // 登録フォーム初期化
+    initRegisterForm();
 }
 
-/**
- * ログイン処理
- */
-async function handleLogin() {
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const submitButton = document.querySelector('#loginForm button[type="submit"]');
-    const errorDiv = document.getElementById('error-message');
-    
-    // エラーメッセージをクリア
-    if (errorDiv) {
-        errorDiv.textContent = '';
-        errorDiv.classList.add('hidden');
-    }
-    
-    // 入力値の取得
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    
-    // バリデーション
-    if (!email) {
-        showError('メールアドレスを入力してください');
-        emailInput.focus();
-        return;
-    }
-    
-    if (!password) {
-        showError('パスワードを入力してください');
-        passwordInput.focus();
-        return;
-    }
-    
-    // ボタンを無効化
-    const originalText = submitButton.textContent;
-    submitButton.disabled = true;
-    submitButton.textContent = 'ログイン中...';
-    
-    try {
-        console.log('ログイン試行:', email);
-        
-        // Firebase認証
-        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-        console.log('Firebase認証成功:', userCredential.user.email);
-        
-        // ログイン成功後はindex.htmlにリダイレクト
-        // index.htmlのmain.jsで役割に基づく画面切り替えを実行
-        window.location.href = 'index.html';
-        
-    } catch (error) {
-        console.error('ログインエラー:', error);
-        
-        // エラーメッセージの表示
-        let errorMessage = 'ログインに失敗しました';
-        switch (error.code) {
-            case 'auth/user-not-found':
-                errorMessage = 'このメールアドレスは登録されていません';
-                break;
-            case 'auth/wrong-password':
-                errorMessage = 'パスワードが正しくありません';
-                break;
-            case 'auth/invalid-email':
-                errorMessage = 'メールアドレスの形式が正しくありません';
-                break;
-            case 'auth/user-disabled':
-                errorMessage = 'このアカウントは無効化されています';
-                break;
-            case 'auth/too-many-requests':
-                errorMessage = 'ログイン試行回数が上限に達しました。しばらく待ってから再試行してください';
-                break;
-            case 'auth/network-request-failed':
-                errorMessage = 'ネットワークエラーです。接続を確認してください';
-                break;
-            default:
-                errorMessage = `ログインエラー: ${error.message}`;
-        }
-        
-        showError(errorMessage);
-        
-    } finally {
-        // ボタンを元に戻す
-        submitButton.disabled = false;
-        submitButton.textContent = originalText;
-    }
-}
-
-/**
- * 新規登録フォームの設定（register.htmlで使用）
- */
-function setupRegisterForm() {
+// 新規登録フォーム初期化（Firebase対応版）
+function initRegisterForm() {
     const registerForm = document.getElementById('registerForm');
-    
-    if (!registerForm) {
-        return; // 登録フォームがない場合はスキップ
+    if (registerForm) {
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('新規登録フォーム送信イベント発生');
+            
+            const msgEl = document.getElementById('register-message');
+            
+            // 入力値を取得
+            const email = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const confirmPassword = document.getElementById('reg-confirm-password')?.value.trim();
+            const displayName = document.getElementById('reg-fullname').value.trim();
+            const role = document.getElementById('reg-role').value || 'employee';
+            
+            console.log('入力値:', {email, displayName, role});
+            
+            // 入力チェック
+            if (!email || !password || !displayName) {
+                showRegisterError('全ての項目を入力してください');
+                return;
+            }
+            
+            // パスワード確認がある場合のチェック
+            if (confirmPassword !== undefined && password !== confirmPassword) {
+                showRegisterError('パスワードが一致しません');
+                return;
+            }
+            
+            // パスワードの長さチェック
+            if (password.length < 6) {
+                showRegisterError('パスワードは6文字以上で入力してください');
+                return;
+            }
+            
+            try {
+                // ローディング表示
+                const registerBtn = registerForm.querySelector('button[type="submit"]');
+                if (registerBtn) {
+                    registerBtn.classList.add('loading');
+                    registerBtn.disabled = true;
+                }
+                
+                // Firebase Auth でユーザー作成
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                console.log('Firebase認証ユーザー作成成功:', user.uid);
+                
+                // Firestoreにユーザー情報を保存
+                const userData = {
+                    email: email,
+                    displayName: displayName,
+                    role: role,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    siteHistory: []
+                };
+                
+                await db.collection('users').doc(user.uid).set(userData);
+                
+                console.log('Firestoreにユーザーデータ保存成功');
+                
+                // Firebase Auth プロファイルの更新
+                await user.updateProfile({
+                    displayName: displayName
+                });
+                
+                // 成功メッセージを表示
+                showRegisterSuccess('登録が完了しました！ログイン画面に戻ります...');
+                
+                // 3秒後にログイン画面へ
+                setTimeout(() => {
+                    showPage('login');
+                    registerForm.reset();
+                    clearRegisterMessage();
+                }, 3000);
+                
+            } catch (error) {
+                console.error('ユーザー登録エラー:', error);
+                
+                // エラーメッセージの表示
+                let message = '登録処理中にエラーが発生しました';
+                
+                if (error.code === 'auth/email-already-in-use') {
+                    message = 'このメールアドレスは既に使用されています';
+                } else if (error.code === 'auth/invalid-email') {
+                    message = 'メールアドレスの形式が正しくありません';
+                } else if (error.code === 'auth/weak-password') {
+                    message = 'パスワードが弱すぎます（6文字以上で入力してください）';
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    message = 'メール/パスワード認証が有効化されていません';
+                }
+                
+                showRegisterError(message);
+                
+                // Firebase Authでユーザーが作成された場合は削除
+                if (firebase.auth().currentUser) {
+                    await firebase.auth().currentUser.delete();
+                }
+            } finally {
+                // ローディング解除
+                const registerBtn = registerForm.querySelector('button[type="submit"]');
+                if (registerBtn) {
+                    registerBtn.classList.remove('loading');
+                    registerBtn.disabled = false;
+                }
+            }
+        });
     }
     
-    registerForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleRegister();
+    // 戻るボタン
+    const backBtn = document.getElementById('back-to-login');
+    if (backBtn) {
+        backBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPage('login');
+            
+            // フォームとメッセージをリセット
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) registerForm.reset();
+            clearRegisterMessage();
+        });
+    }
+    
+    // パスワード表示切り替え
+    setupPasswordToggle('reg-password');
+    if (document.getElementById('reg-confirm-password')) {
+        setupPasswordToggle('reg-confirm-password');
+    }
+}
+
+// パスワード表示切り替え機能
+function setupPasswordToggle(inputId) {
+    const passwordInput = document.getElementById(inputId);
+    if (!passwordInput) return;
+    
+    // パスワードフィールドを囲むコンテナを作成
+    const wrapper = document.createElement('div');
+    wrapper.className = 'password-field';
+    passwordInput.parentNode.insertBefore(wrapper, passwordInput);
+    wrapper.appendChild(passwordInput);
+    
+    // 表示切り替えボタンを作成
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'password-toggle';
+    toggleBtn.innerHTML = '👁';
+    toggleBtn.setAttribute('aria-label', 'パスワードを表示');
+    
+    wrapper.appendChild(toggleBtn);
+    
+    // クリックイベント
+    toggleBtn.addEventListener('click', function() {
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleBtn.innerHTML = '👁‍🗨';
+            toggleBtn.setAttribute('aria-label', 'パスワードを非表示');
+        } else {
+            passwordInput.type = 'password';
+            toggleBtn.innerHTML = '👁';
+            toggleBtn.setAttribute('aria-label', 'パスワードを表示');
+        }
     });
 }
 
-/**
- * 新規登録処理
- */
-async function handleRegister() {
-    const fullnameInput = document.getElementById('reg-fullname');
-    const emailInput = document.getElementById('reg-email');
-    const passwordInput = document.getElementById('reg-password');
-    const roleInput = document.getElementById('reg-role');
-    const submitButton = document.querySelector('#registerForm button[type="submit"]');
-    const messageDiv = document.getElementById('register-message');
-    
-    // メッセージをクリア
-    if (messageDiv) {
-        messageDiv.textContent = '';
-        messageDiv.className = 'message';
-    }
-    
-    // 入力値の取得
-    const fullname = fullnameInput.value.trim();
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    const role = roleInput.value;
-    
-    // バリデーション
-    if (!fullname) {
-        showRegisterError('氏名を入力してください');
-        fullnameInput.focus();
-        return;
-    }
-    
-    if (!email) {
-        showRegisterError('メールアドレスを入力してください');
-        emailInput.focus();
-        return;
-    }
-    
-    if (!password) {
-        showRegisterError('パスワードを入力してください');
-        passwordInput.focus();
-        return;
-    }
-    
-    if (password.length < 6) {
-        showRegisterError('パスワードは6文字以上で入力してください');
-        passwordInput.focus();
-        return;
-    }
-    
-    // ボタンを無効化
-    const originalText = submitButton.textContent;
-    submitButton.disabled = true;
-    submitButton.textContent = '登録中...';
-    
-    try {
-        console.log('新規登録試行:', email);
-        
-        // Firebase認証でユーザー作成
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // プロフィール更新
-        await user.updateProfile({
-            displayName: fullname
-        });
-        
-        // Firestoreにユーザー情報を保存
-        await window.db.collection('users').doc(user.uid).set({
-            email: email,
-            displayName: fullname,
-            role: role,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            siteHistory: []
-        });
-        
-        console.log('新規登録成功:', user.email);
-        showRegisterMessage('登録が完了しました。メイン画面に移動します...', 'success');
-        
-        // 2秒後にindex.htmlに移動
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 2000);
-        
-    } catch (error) {
-        console.error('新規登録エラー:', error);
-        
-        let errorMessage = '登録に失敗しました';
-        switch (error.code) {
-            case 'auth/email-already-in-use':
-                errorMessage = 'このメールアドレスは既に使用されています';
-                break;
-            case 'auth/invalid-email':
-                errorMessage = 'メールアドレスの形式が正しくありません';
-                break;
-            case 'auth/weak-password':
-                errorMessage = 'パスワードが弱すぎます';
-                break;
-            case 'auth/network-request-failed':
-                errorMessage = 'ネットワークエラーです。接続を確認してください';
-                break;
-            default:
-                errorMessage = `登録エラー: ${error.message}`;
-        }
-        
-        showRegisterError(errorMessage);
-        
-    } finally {
-        // ボタンを元に戻す
-        submitButton.disabled = false;
-        submitButton.textContent = originalText;
-    }
-}
-
-// エラーメッセージ関数群
+// エラーメッセージ表示
 function showError(message) {
-    const errorDiv = document.getElementById('error-message');
-    if (errorDiv) {
-        errorDiv.textContent = message;
-        errorDiv.classList.remove('hidden');
-    } else {
-        alert(message);
+    const errorMsg = document.getElementById('error-message');
+    if (errorMsg) {
+        errorMsg.textContent = message;
+        errorMsg.classList.remove('hidden');
     }
+    
+    // トースト通知も表示
+    const toast = document.createElement('div');
+    toast.className = 'toast error';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
 }
 
-function showRegisterMessage(message, type = 'error') {
-    const messageDiv = document.getElementById('register-message');
-    if (messageDiv) {
-        messageDiv.textContent = message;
-        messageDiv.className = type === 'success' ? 'success-text' : 'error-text';
-    }
-}
-
+// 登録エラーメッセージ表示
 function showRegisterError(message) {
-    showRegisterMessage(message, 'error');
+    const msgEl = document.getElementById('register-message');
+    if (msgEl) {
+        msgEl.className = 'error-text';
+        msgEl.textContent = message;
+        msgEl.style.color = '#ff4d4d';
+    }
 }
+
+// 登録成功メッセージ表示
+function showRegisterSuccess(message) {
+    const msgEl = document.getElementById('register-message');
+    if (msgEl) {
+        msgEl.className = 'success-text';
+        msgEl.textContent = message;
+        msgEl.style.color = '#4CAF50';
+    }
+}
+
+// 登録メッセージクリア
+function clearRegisterMessage() {
+    const msgEl = document.getElementById('register-message');
+    if (msgEl) {
+        msgEl.textContent = '';
+        msgEl.className = '';
+        msgEl.style.color = '';
+    }
+}
+
+// ページ表示切り替え
+function showPage(pageName) {
+    // 全てのページを非表示
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+        .forEach(el => el.classList.add('hidden'));
+    
+    // 指定されたページを表示
+    const targetPage = document.getElementById(`${pageName}-page`);
+    if (targetPage) {
+        targetPage.classList.remove('hidden');
+    }
+}
+
+// Firebase Auth 状態の監視
+firebase.auth().onAuthStateChanged(async function(user) {
+    console.log('Auth state changed:', user ? user.uid : 'null');
+    
+    if (user) {
+        try {
+            // ユーザー情報をFirestoreから取得
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                console.log('認証済みユーザー:', userData);
+                
+                // currentUserをグローバルスコープに設定
+                window.currentUser = {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: userData.displayName,
+                    role: userData.role
+                };
+                
+                // ページ遷移（初回ログイン時のみ）
+                const currentPage = document.querySelector('.page:not(.hidden)');
+                if (!currentPage || currentPage.id === 'login-page') {
+                    if (userData.role === 'admin') {
+                        showPage('admin');
+                        setTimeout(() => {
+                            if (typeof initAdminPage === 'function') {
+                                initAdminPage();
+                            }
+                        }, 200);
+                    } else {
+                        showPage('employee');
+                        setTimeout(() => {
+                            if (typeof initEmployeePage === 'function') {
+                                initEmployeePage();
+                            }
+                        }, 200);
+                    }
+                }
+            } else {
+                console.error('ユーザーデータが見つかりません');
+                firebase.auth().signOut();
+            }
+        } catch (error) {
+            console.error('ユーザーデータ取得エラー:', error);
+            firebase.auth().signOut();
+        }
+    } else {
+        // ログアウト状態
+        window.currentUser = null;
+        showPage('login');
+        console.log('ユーザーがログアウトしました');
+    }
+});
+
+// DOMが読み込まれた時の初期化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM読み込み完了 - Firebase Auth version');
+    
+    // 初期状態では全ページを非表示
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+        .forEach(el => el.classList.add('hidden'));
+    
+    // ログインフォームを初期化
+    initLoginForm();
+    
+    // Firebase Auth の状態を確認してページ表示
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        showPage('login');
+    }
+});
+
+// ログアウト機能（グローバル関数として提供）
+window.signOut = async function() {
+    try {
+        await firebase.auth().signOut();
+        console.log('ログアウト成功');
+    } catch (error) {
+        console.error('ログアウトエラー:', error);
+    }
+};
+
+// 現在のユーザー取得（グローバル関数として提供）
+window.getCurrentUser = function() {
+    return window.currentUser;
+};
+
+// 権限チェック（グローバル関数として提供）
+window.checkAuth = function(requiredRole) {
+    const user = getCurrentUser();
+    if (!user) {
+        console.log('ユーザーが認証されていません');
+        showPage('login');
+        return false;
+    }
+    
+    if (requiredRole && user.role !== requiredRole) {
+        console.log(`権限不足: 要求=${requiredRole}, 実際=${user.role}`);
+        showPage('login');
+        return false;
+    }
+    
+    return true;
+};
