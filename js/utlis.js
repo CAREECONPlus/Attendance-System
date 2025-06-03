@@ -1,13 +1,13 @@
 /**
- * 勤怠管理システム - ユーティリティ関数（Firebase対応版）
+ * 勤怠管理システム - ユーティリティ関数（Firebase v8対応版）
  * 
  * このファイルには、システム全体で使用される共通の関数が含まれています。
  * 日付処理、時間計算、Firebase操作などの基本的な機能を提供します。
  */
 
-console.log('utils.js loaded - Firebase version');
+console.log('utils.js loaded - Firebase v8 version');
 
-// ================ データアクセス関連（Firebase対応版） ================
+// ================ データアクセス関連（Firebase v8対応版） ================
 
 /**
  * Firebase Authから現在のユーザー情報を取得
@@ -127,35 +127,6 @@ async function getUserById(userId) {
         }
     } catch (error) {
         console.error('ユーザー取得エラー:', error);
-        throw error;
-    }
-}
-
-/**
- * ユーザーの現場履歴を更新
- * @param {string} userId ユーザーID
- * @param {string} siteName 現場名
- * @returns {Promise<void>}
- */
-async function updateSiteHistory(userId, siteName) {
-    try {
-        const userRef = db.collection('users').doc(userId);
-        const userDoc = await userRef.get();
-        
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            const currentHistory = userData.siteHistory || [];
-            
-            // 既に履歴にない場合のみ追加
-            if (!currentHistory.includes(siteName)) {
-                await userRef.update({
-                    siteHistory: firebase.firestore.FieldValue.arrayUnion(siteName),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-        }
-    } catch (error) {
-        console.error('現場履歴更新エラー:', error);
         throw error;
     }
 }
@@ -405,7 +376,7 @@ function getElement(id) {
 }
 
 /**
- * 画面切り替え関数（Firebase対応版）
+ * 画面切り替え関数（Firebase v8対応版）
  * @param {string} page 表示するページ名（login/register/employee/admin）
  */
 function showPage(page) {
@@ -434,16 +405,16 @@ function showPage(page) {
 
     // ページごとの初期化処理
     if (page === 'login') {
-        const usernameInput = getElement('username');
-        if (usernameInput) usernameInput.focus();
+        const emailInput = getElement('email');
+        if (emailInput) emailInput.focus();
     } else if (page === 'register') {
-        const usernameInput = getElement('reg-username');
-        if (usernameInput) usernameInput.focus();
+        const emailInput = getElement('reg-email');
+        if (emailInput) emailInput.focus();
     }
 }
 
 /**
- * 認証チェック（Firebase対応版）
+ * 認証チェック（Firebase v8対応版）
  * @param {string} requiredRole 必要な権限
  * @returns {boolean} 認証結果
  */
@@ -531,10 +502,8 @@ function showToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// ================ Firebase Firestore ヘルパー関数 ================
-
 /**
- * Firebase Timestampを作成
+ * Firebase Timestampを作成（v8対応版）
  * @param {Date|string|number} dateInput 日付入力
  * @returns {firebase.firestore.Timestamp} Firebase Timestamp
  */
@@ -555,52 +524,24 @@ function createTimestamp(dateInput) {
     return firebase.firestore.Timestamp.fromDate(date);
 }
 
-/**
- * バッチ処理でFirestoreの操作を実行
- * @param {Array} operations 操作の配列
- * @returns {Promise<void>}
- */
-async function executeBatch(operations) {
-    const batch = db.batch();
-    
-    operations.forEach(operation => {
-        switch (operation.type) {
-            case 'set':
-                batch.set(operation.ref, operation.data);
-                break;
-            case 'update':
-                batch.update(operation.ref, operation.data);
-                break;
-            case 'delete':
-                batch.delete(operation.ref);
-                break;
-        }
-    });
-    
-    return batch.commit();
-}
-
-/**
- * デバッグ用：Firestoreのデータを整理して表示
- * @param {string} collection コレクション名
- * @param {number} limit 取得件数制限
- */
-async function debugFirestoreData(collection, limit = 10) {
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        console.warn('デバッグ機能は本番環境では無効です');
-        return;
-    }
-    
-    try {
-        const query = db.collection(collection).limit(limit);
-        const snapshot = await query.get();
-        
-        console.log(`=== ${collection} コレクション (${snapshot.size}件) ===`);
-        snapshot.forEach(doc => {
-            console.log(`ID: ${doc.id}`, doc.data());
-        });
-        console.log('=====================================');
-    } catch (error) {
-        console.error(`${collection} デバッグエラー:`, error);
-    }
-}
+// グローバルスコープに主要な関数をエクスポート
+window.getCurrentUser = getCurrentUser;
+window.getAttendanceRecords = getAttendanceRecords;
+window.getUsers = getUsers;
+window.getUserById = getUserById;
+window.formatDate = formatDate;
+window.formatTime = formatTime;
+window.calculateTimeDiff = calculateTimeDiff;
+window.calculateTotalBreakTime = calculateTotalBreakTime;
+window.calculateWorkingTime = calculateWorkingTime;
+window.formatDateTimeLocal = formatDateTimeLocal;
+window.getCurrentDateTimeLocal = getCurrentDateTimeLocal;
+window.getTodayString = getTodayString;
+window.getJapaneseDayOfWeek = getJapaneseDayOfWeek;
+window.getElement = getElement;
+window.showPage = showPage;
+window.checkAuth = checkAuth;
+window.updateDateTime = updateDateTime;
+window.setLoadingState = setLoadingState;
+window.showToast = showToast;
+window.createTimestamp = createTimestamp;
