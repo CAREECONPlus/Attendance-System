@@ -1,7 +1,7 @@
 console.log('employee.js loaded');
 
 /**
- * 勤怠管理システム - 従業員機能（Firebase対応版）
+ * 勤怠管理システム - 従業員機能（Firebase v8対応版）
  * 
  * このファイルには、従業員画面の機能に関連する関数が含まれています。
  * 出退勤、休憩、作業記録などの処理を担当します。
@@ -10,7 +10,7 @@ console.log('employee.js loaded');
 // ================ 従業員側の機能 ================
 
 /**
- * 従業員画面の初期化処理（Firebase対応版）
+ * 従業員画面の初期化処理（Firebase v8対応版）
  * 全てのイベントリスナーを設定し、初期データを読み込みます
  */
 async function initEmployeePage() {
@@ -100,7 +100,7 @@ function setupEmployeeBasics() {
 }
 
 /**
- * 勤務状況をチェックしてボタンの有効/無効状態を更新する（Firebase対応版）
+ * 勤務状況をチェックしてボタンの有効/無効状態を更新する（Firebase v8対応版）
  * 今日の勤怠記録に基づいて、ボタンの状態や表示内容を変更します
  */
 async function checkTodayAttendance() {
@@ -219,7 +219,7 @@ async function checkTodayAttendance() {
 }
 
 /**
- * 未完了の勤怠記録を処理する（Firebase対応版）
+ * 未完了の勤怠記録を処理する（Firebase v8対応版）
  * @param {string} userId ユーザーID
  * @param {string} today 今日の日付（YYYY-MM-DD）
  */
@@ -278,7 +278,7 @@ async function handleIncompleteRecords(userId, today) {
 }
 
 /**
- * 出勤処理（Firebase対応版）
+ * 出勤処理（Firebase v8対応版）
  */
 async function clockIn() {
     const currentUser = getCurrentUser();
@@ -357,7 +357,7 @@ async function clockIn() {
 }
 
 /**
- * 退勤処理（Firebase対応版）
+ * 退勤処理（Firebase v8対応版）
  */
 async function clockOut() {
     const currentUser = getCurrentUser();
@@ -441,7 +441,7 @@ async function clockOut() {
 }
 
 /**
- * 休憩開始処理（Firebase対応版）
+ * 休憩開始処理（Firebase v8対応版）
  */
 async function startBreak() {
     const currentUser = getCurrentUser();
@@ -517,7 +517,7 @@ async function startBreak() {
 }
 
 /**
- * 休憩終了処理（Firebase対応版）
+ * 休憩終了処理（Firebase v8対応版）
  */
 async function endBreak() {
     const currentUser = getCurrentUser();
@@ -592,7 +592,7 @@ async function endBreak() {
 }
 
 /**
- * 現場履歴を保存（Firebase対応版）
+ * 現場履歴を保存（Firebase v8対応版）
  * @param {string} siteName 現場名
  */
 async function saveSiteHistory(siteName) {
@@ -633,7 +633,7 @@ async function saveSiteHistory(siteName) {
 }
 
 /**
- * プルダウンに現場履歴を反映（Firebase対応版）
+ * プルダウンに現場履歴を反映（Firebase v8対応版）
  */
 async function populateSiteOptions() {
     const select = getElement("site-name");
@@ -698,7 +698,7 @@ async function populateSiteOptions() {
 }
 
 /**
- * 直近の記録を表示（Firebase対応版）
+ * 直近の記録を表示（Firebase v8対応版）
  */
 async function loadRecentRecords() {
     const currentUser = getCurrentUser();
@@ -816,7 +816,7 @@ function showSuccess(message) {
     }, 3000);
 }
 
-// 従業員画面のイベント設定は基本的にそのまま使用可能
+// 従業員画面のイベント設定
 function setupEmployeeEvents() {
     console.log('従業員イベントを設定中...');
     
@@ -839,14 +839,11 @@ function setupEmployeeEvents() {
     console.log('従業員イベント設定完了');
 }
 
-// DOMが読み込まれた時に従業員ページを初期化（Firebase Auth対応版）
-firebase.auth().onAuthStateChanged(async function(user) {
-    if (user) {
-        // ユーザーの役割を確認
-        const userDoc = await db.collection('users').doc(user.uid).get();
-        if (userDoc.exists && userDoc.data().role === 'employee') {
-            showPage('employee');
-            initEmployeePage();
-        }
-    }
-});
+// グローバルスコープに関数をエクスポート
+window.initEmployeePage = initEmployeePage;
+window.checkTodayAttendance = checkTodayAttendance;
+window.clockIn = clockIn;
+window.clockOut = clockOut;
+window.startBreak = startBreak;
+window.endBreak = endBreak;
+window.loadRecentRecords = loadRecentRecords;
