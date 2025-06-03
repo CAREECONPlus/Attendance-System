@@ -1,33 +1,11 @@
 console.log('auth.js loaded');
 
 /**
- * 勤怠管理システム - Firebase認証機能
+ * 勤怠管理システム - Firebase認証機能 (v8 SDK対応版)
  * 
  * このファイルには、Firebase Authenticationを使用した
  * ログイン、登録、ログアウト、認証状態管理の機能が含まれています。
  */
-
-// Firebase モジュールのインポート
-import { 
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    updateProfile,
-    sendPasswordResetEmail,
-    updateEmail,
-    deleteUser
-} from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-
-import {
-    collection,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 
 // Firebase関連の参照を取得
 let auth;
@@ -58,21 +36,22 @@ function initAuth() {
 async function registerUser(email, password, displayName, role = 'employee') {
     try {
         // Firebase Authenticationでユーザー作成
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
         // ユーザープロフィールを更新
-        await updateProfile(user, {
+        await user.updateProfile({
             displayName: displayName
         });
         
         // Firestoreにユーザー情報を保存
-        await setDoc(doc(db, 'users', user.uid), {
+        await db.collection('users').doc(user.uid).set({
             email: email,
             displayName: displayName,
             role: role,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            siteHistory: []
         });
         
         console.log('ユーザー登録成功:', user.email);
@@ -92,7 +71,7 @@ async function registerUser(email, password, displayName, role = 'employee') {
  */
 async function loginUser(email, password) {
     try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
         console.log('ログイン成功:', user.email);
@@ -110,7 +89,7 @@ async function loginUser(email, password) {
  */
 async function logoutUser() {
     try {
-        await signOut(auth);
+        await auth.signOut();
         console.log('ログアウト成功');
         return { success: true };
         
@@ -139,10 +118,9 @@ async function getUserRole(userId) {
             return { success: false, error: 'ユーザーIDが無効です' };
         }
         
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
+        const userDoc = await db.collection('users').doc(userId).get();
         
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
             const userData = userDoc.data();
             return { 
                 success: true, 
@@ -171,91 +149,7 @@ function onAuthChanged(callback) {
         return () => {};
     }
     
-    return onAuthStateChanged(auth, callback);
-}
-
-/**
- * パスワードリセットメールを送信
- * @param {string} email メールアドレス
- * @returns {Object} { success: boolean, error?: string }
- */
-async function sendPasswordReset(email) {
-    try {
-        await sendPasswordResetEmail(auth, email);
-        console.log('パスワードリセットメール送信成功:', email);
-        return { success: true };
-        
-    } catch (error) {
-        console.error('パスワードリセットメール送信エラー:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * 現在のユーザーのプロフィールを更新
- * @param {Object} updates 更新する情報 { displayName?, email? }
- * @returns {Object} { success: boolean, error?: string }
- */
-async function updateUserProfile(updates) {
-    try {
-        const user = getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'ログインしていません' };
-        }
-        
-        // プロフィール更新
-        if (updates.displayName) {
-            await updateProfile(user, { displayName: updates.displayName });
-        }
-        
-        // メールアドレス更新
-        if (updates.email) {
-            await updateEmail(user, updates.email);
-        }
-        
-        // Firestoreのユーザー情報も更新
-        const updateData = {
-            updatedAt: serverTimestamp()
-        };
-        
-        if (updates.displayName) updateData.displayName = updates.displayName;
-        if (updates.email) updateData.email = updates.email;
-        
-        await updateDoc(doc(db, 'users', user.uid), updateData);
-        
-        console.log('プロフィール更新成功');
-        return { success: true };
-        
-    } catch (error) {
-        console.error('プロフィール更新エラー:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * ユーザーアカウントを削除
- * @returns {Object} { success: boolean, error?: string }
- */
-async function deleteUserAccount() {
-    try {
-        const user = getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'ログインしていません' };
-        }
-        
-        // Firestoreからユーザー情報を削除
-        await deleteDoc(doc(db, 'users', user.uid));
-        
-        // Authenticationからユーザーを削除
-        await deleteUser(user);
-        
-        console.log('アカウント削除成功');
-        return { success: true };
-        
-    } catch (error) {
-        console.error('アカウント削除エラー:', error);
-        return { success: false, error: error.message };
-    }
+    return auth.onAuthStateChanged(callback);
 }
 
 // DOMが読み込まれたら初期化
@@ -281,8 +175,5 @@ window.logoutUser = logoutUser;
 window.getCurrentUser = getCurrentUser;
 window.getUserRole = getUserRole;
 window.onAuthChanged = onAuthChanged;
-window.sendPasswordReset = sendPasswordReset;
-window.updateUserProfile = updateUserProfile;
-window.deleteUserAccount = deleteUserAccount;
 
 console.log('Auth関数をグローバルにエクスポートしました');
