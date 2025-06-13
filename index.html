@@ -131,32 +131,40 @@
                     </div>
                 </div>
 
-                <!-- 現場選択 -->
+                <!-- 現場選択（モックデータ削除版） -->
                 <div class="site-selection">
                     <div class="form-group">
-                        <label for="site-name">現場名：</label>
+                        <label for="site-name">🏢 現場名：</label>
                         <select id="site-name" required>
-                            <option value="">現場を選択してください</option>
-                            <option value="新宿オフィスビル改修工事">新宿オフィスビル改修工事</option>
-                            <option value="渋谷マンション建設現場">渋谷マンション建設現場</option>
-                            <option value="横浜倉庫補修工事">横浜倉庫補修工事</option>
+                            <option value="" disabled selected>現場を選択してください</option>
+                            <!-- 過去の勤怠記録から動的に生成されます -->
                             <option value="other">その他（直接入力）</option>
                         </select>
-                        <input type="text" id="other-site" placeholder="その他の現場名を入力" style="display: none; margin-top: 10px;">
+                        <input type="text" 
+                               id="other-site" 
+                               placeholder="現場名を入力してください" 
+                               style="display: none; margin-top: 10px;"
+                               maxlength="100">
+                    </div>
+                    <div class="site-loading" id="site-loading" style="display: none;">
+                        <small>🔄 現場リストを読み込み中...</small>
                     </div>
                 </div>
 
                 <!-- 作業メモ -->
                 <div class="form-group">
-                    <label for="work-notes">作業メモ：</label>
-                    <textarea id="work-notes" placeholder="作業内容を記入（任意）" rows="3"></textarea>
+                    <label for="work-notes">📝 作業メモ：</label>
+                    <textarea id="work-notes" placeholder="作業内容を記入（任意）" rows="3" maxlength="500"></textarea>
+                    <div class="form-hint">
+                        <small>💡 作業内容や特記事項を記録できます（任意）</small>
+                    </div>
                 </div>
 
                 <!-- 最近の記録 -->
                 <section class="recent-records">
-                    <h3>最近の記録</h3>
+                    <h3>📋 最近の記録</h3>
                     <div id="recent-list">
-                        <div class="loading-message">📋 記録を読み込み中...</div>
+                        <div class="loading-message">🔄 記録を読み込み中...</div>
                     </div>
                 </section>
             </main>
