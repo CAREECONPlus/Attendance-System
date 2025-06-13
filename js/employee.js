@@ -325,8 +325,6 @@ async function handleClockIn() {
         
         const siteName = getSiteNameFromSelection();
         
-        }
-        
         if (!siteName) {
             alert('現場を選択してください');
             return;
