@@ -30,7 +30,7 @@ function initEmployeePage() {
                 setupEmployeeEventListeners();
                 
                 // 現場選択の設定
-                await setupSiteSelectionImproved();
+                setupSiteSelection();
                 
                 // 今日の勤怠状態を復元
                 await restoreTodayAttendanceState();
@@ -323,10 +323,8 @@ async function handleClockIn() {
         const otherSiteElement = document.getElementById('other-site');
         const workNotesElement = document.getElementById('work-notes');
         
-        let siteName = siteNameElement ? siteNameElement.value : '';
+        const siteName = getSiteNameFromSelection();
         
-        if (siteName === 'other' && otherSiteElement) {
-            siteName = otherSiteElement.value.trim();
         }
         
         if (!siteName) {
