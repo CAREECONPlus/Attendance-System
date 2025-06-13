@@ -7,17 +7,17 @@ console.log('auth.js loaded');
  * ログイン、登録、ログアウト、認証状態管理の機能が含まれています。
  */
 
-// Firebase関連の参照を取得
-let auth;
-let db;
+// Firebase関連の参照を取得（グローバル変数を使用）
+let firebaseAuth;
+let firestoreDb;
 
 // 初期化関数
 function initAuth() {
-    // Firebase参照を取得
-    auth = window.auth;
-    db = window.db;
+    // Firebase参照を取得（firebase.js で定義されたものを使用）
+    firebaseAuth = window.auth;
+    firestoreDb = window.db;
     
-    if (!auth || !db) {
+    if (!firebaseAuth || !firestoreDb) {
         console.error('Firebase が初期化されていません');
         return;
     }
@@ -36,7 +36,7 @@ function initAuth() {
 async function registerUser(email, password, displayName, role = 'employee') {
     try {
         // Firebase Authenticationでユーザー作成
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
         // ユーザープロフィールを更新
@@ -45,7 +45,7 @@ async function registerUser(email, password, displayName, role = 'employee') {
         });
         
         // Firestoreにユーザー情報を保存
-        await db.collection('users').doc(user.uid).set({
+        await firestoreDb.collection('users').doc(user.uid).set({
             email: email,
             displayName: displayName,
             role: role,
@@ -71,7 +71,7 @@ async function registerUser(email, password, displayName, role = 'employee') {
  */
 async function loginUser(email, password) {
     try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
         console.log('ログイン成功:', user.email);
@@ -89,7 +89,7 @@ async function loginUser(email, password) {
  */
 async function logoutUser() {
     try {
-        await auth.signOut();
+        await firebaseAuth.signOut();
         console.log('ログアウト成功');
         return { success: true };
         
@@ -104,7 +104,7 @@ async function logoutUser() {
  * @returns {Object|null} ユーザー情報またはnull
  */
 function getCurrentUser() {
-    return auth ? auth.currentUser : null;
+    return firebaseAuth ? firebaseAuth.currentUser : null;
 }
 
 /**
@@ -118,7 +118,7 @@ async function getUserRole(userId) {
             return { success: false, error: 'ユーザーIDが無効です' };
         }
         
-        const userDoc = await db.collection('users').doc(userId).get();
+        const userDoc = await firestoreDb.collection('users').doc(userId).get();
         
         if (userDoc.exists) {
             const userData = userDoc.data();
@@ -144,12 +144,12 @@ async function getUserRole(userId) {
  * @returns {Function} アンサブスクライブ関数
  */
 function onAuthChanged(callback) {
-    if (!auth) {
+    if (!firebaseAuth) {
         console.error('Firebase Authが初期化されていません');
         return () => {};
     }
     
-    return auth.onAuthStateChanged(callback);
+    return firebaseAuth.onAuthStateChanged(callback);
 }
 
 // DOMが読み込まれたら初期化
