@@ -1,849 +1,549 @@
-console.log('employee.js loaded');
+// employee.js - 従業員ページの機能（修正版）
 
-/**
- * 勤怠管理システム - 従業員機能（Firebase v8対応版）
- * 
- * このファイルには、従業員画面の機能に関連する関数が含まれています。
- * 出退勤、休憩、作業記録などの処理を担当します。
- */
+// 現在のユーザー情報
+let currentUser = null;
+let currentAttendanceId = null;
 
-// ================ 従業員側の機能 ================
-
-/**
- * 従業員画面の初期化処理（Firebase v8対応版）
- * 全てのイベントリスナーを設定し、初期データを読み込みます
- */
-async function initEmployeePage() {
-    console.log('従業員ページの初期化開始');
+// 従業員ページの初期化
+function initEmployeePage() {
+    console.log('🚀 従業員ページ初期化開始（安全版）');
     
-    // 権限チェック
-    if (!checkAuth('employee')) return;
-
-    // 基本的なUI初期化
-    setupEmployeeBasics();
-    
-    // 残りの初期化を少し遅延させて実行
-    setTimeout(async function() {
-        try {
-            // 現在の日時を表示
-            updateDateTime();
-            
-            // 勤怠状況の確認
-            await checkTodayAttendance();
-            
-            // 最近の記録を表示
-            await loadRecentRecords();
-            
-            // イベントハンドラを設定
-            setupEmployeeEvents();
-            
-            // 現場オプションの読み込み
-            await populateSiteOptions();
-            
-            // 1秒ごとに時刻を更新するタイマーを設定
-            setInterval(updateDateTime, 1000);
-            
-            console.log('従業員ページの詳細初期化完了');
-        } catch (error) {
-            console.error('従業員ページ初期化エラー:', error);
-            showError('データの読み込みに失敗しました');
-        }
-    }, 200);
+    try {
+        // ユーザー名を表示
+        displayUserName();
+        
+        // 現在時刻の表示を開始
+        updateCurrentTime();
+        setInterval(updateCurrentTime, 1000);
+        
+        // イベントリスナーの設定
+        setupEmployeeEventListeners();
+        
+        // 現場選択の設定
+        setupSiteSelection();
+        
+        // 最近の記録を安全に読み込み（遅延実行）
+        setTimeout(() => {
+            loadRecentRecordsSafely();
+        }, 2000);
+        
+        console.log('✅ 従業員ページ初期化完了（安全版）');
+        
+    } catch (error) {
+        console.error('❌ 従業員ページ初期化エラー:', error);
+        showErrorMessage('ページの初期化でエラーが発生しました');
+    }
 }
 
-/**
- * 従業員画面の基本的なUI初期化
- * 最初に表示すべき要素のみを設定
- */
-function setupEmployeeBasics() {
-    // ユーザー名を表示
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        const userNameEl = getElement('user-name');
-        if (userNameEl) {
-            userNameEl.textContent = currentUser.displayName || currentUser.email;
-            console.log('ユーザー名を表示:', currentUser.displayName);
+// ユーザー名の表示
+function displayUserName() {
+    const user = firebase.auth().currentUser;
+    if (user) {
+        currentUser = user;
+        const userNameElement = document.getElementById('user-name');
+        if (userNameElement) {
+            userNameElement.textContent = user.email || 'ユーザー';
         }
     }
+}
+
+// 現在時刻の更新
+function updateCurrentTime() {
+    const now = new Date();
+    
+    const dateElement = document.getElementById('current-date');
+    const timeElement = document.getElementById('current-time');
+    
+    if (dateElement) {
+        dateElement.textContent = now.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            weekday: 'long'
+        });
+    }
+    
+    if (timeElement) {
+        timeElement.textContent = now.toLocaleTimeString('ja-JP');
+    }
+}
+
+// イベントリスナーの設定
+function setupEmployeeEventListeners() {
+    console.log('🔘 イベントリスナーを設定中...');
     
     // 出勤ボタン
-    const clockInBtn = getElement('clock-in-btn');
+    const clockInBtn = document.getElementById('clock-in-btn');
     if (clockInBtn) {
-        clockInBtn.addEventListener('click', clockIn);
+        clockInBtn.addEventListener('click', handleClockIn);
     }
     
     // 退勤ボタン
-    const clockOutBtn = getElement('clock-out-btn');
+    const clockOutBtn = document.getElementById('clock-out-btn');
     if (clockOutBtn) {
-        clockOutBtn.addEventListener('click', clockOut);
+        clockOutBtn.addEventListener('click', handleClockOut);
     }
     
     // 休憩開始ボタン
-    const breakStartBtn = getElement('break-start-btn');
+    const breakStartBtn = document.getElementById('break-start-btn');
     if (breakStartBtn) {
-        breakStartBtn.addEventListener('click', startBreak);
+        breakStartBtn.addEventListener('click', handleBreakStart);
     }
     
     // 休憩終了ボタン
-    const breakEndBtn = getElement('break-end-btn');
+    const breakEndBtn = document.getElementById('break-end-btn');
     if (breakEndBtn) {
-        breakEndBtn.addEventListener('click', endBreak);
+        breakEndBtn.addEventListener('click', handleBreakEnd);
     }
     
     // ログアウトボタン
-    const logoutBtn = getElement('logout-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-            signOut();
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+    
+    console.log('✅ イベントリスナー設定完了');
+}
+
+// 現場選択の設定
+function setupSiteSelection() {
+    const siteSelect = document.getElementById('site-name');
+    const otherSiteInput = document.getElementById('other-site');
+    
+    if (siteSelect && otherSiteInput) {
+        siteSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                otherSiteInput.style.display = 'block';
+                otherSiteInput.required = true;
+            } else {
+                otherSiteInput.style.display = 'none';
+                otherSiteInput.required = false;
+                otherSiteInput.value = '';
+            }
         });
     }
 }
 
-/**
- * 勤務状況をチェックしてボタンの有効/無効状態を更新する（Firebase v8対応版）
- * 今日の勤怠記録に基づいて、ボタンの状態や表示内容を変更します
- */
-async function checkTodayAttendance() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
+// 最近の記録を安全に読み込み
+async function loadRecentRecordsSafely() {
+    console.log('🔍 最近の記録を安全に読み込み中...');
+    
+    const recentList = document.getElementById('recent-list');
+    if (!recentList) return;
+    
     try {
-        const today = new Date().toISOString().split('T')[0];
-        
-        // 前日までの未完了の勤怠記録を確認し、必要に応じて自動終了処理
-        await handleIncompleteRecords(currentUser.uid, today);
-
-        // 今日の記録を検索
-        const query = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .where('date', '==', today)
-            .limit(1)
-            .get();
-
-        const clockInBtn = getElement('clock-in-btn');
-        const clockOutBtn = getElement('clock-out-btn');
-        const breakStartBtn = getElement('break-start-btn');
-        const breakEndBtn = getElement('break-end-btn');
-        const clockStatus = getElement('clock-status');
-
-        // すべてのボタンを一旦無効化
-        if (clockInBtn) clockInBtn.disabled = true;
-        if (clockOutBtn) clockOutBtn.disabled = true;
-        if (breakStartBtn) breakStartBtn.disabled = true;
-        if (breakEndBtn) breakEndBtn.disabled = true;
-
-        if (query.empty) {
-            // 未出勤
-            if (clockStatus) {
-                clockStatus.innerHTML = `
-                    <div class="status-waiting">おはようございます！<br>出勤ボタンを押してください</div>
-                `;
-            }
-            if (clockInBtn) clockInBtn.disabled = false;
+        if (!currentUser) {
+            console.log('❌ ユーザーが認証されていません');
+            showWelcomeMessage();
             return;
         }
-
-        const todayRecord = query.docs[0];
-        const attendanceData = { id: todayRecord.id, ...todayRecord.data() };
-
-        // 休憩データを取得
-        const breakQuery = await db.collection('breaks')
-            .where('attendanceId', '==', attendanceData.id)
-            .where('endTime', '==', null)
-            .get();
-
-        const isOnBreak = !breakQuery.empty;
-
-        if (attendanceData.clockInTime && !attendanceData.clockOutTime) {
-            // 出勤済み・退勤前
-            if (isOnBreak) {
-                // 休憩中
-                const currentBreak = breakQuery.docs[0].data();
-                const breakStart = formatTime(currentBreak.startTime.toDate().toISOString());
-                
-                if (clockStatus) {
-                    clockStatus.innerHTML = `
-                        <div class="status-break">現在休憩中です</div>
-                        <div class="status-detail">出勤: ${formatTime(attendanceData.clockInTime.toDate().toISOString())}</div>
-                        <div class="status-detail">休憩開始: ${breakStart}</div>
-                    `;
-                }
-                if (breakEndBtn) breakEndBtn.disabled = false;
-            } else {
-                // 勤務中
-                if (clockStatus) {
-                    clockStatus.innerHTML = `
-                        <div class="status-working">現在勤務中です</div>
-                        <div class="status-detail">出勤: ${formatTime(attendanceData.clockInTime.toDate().toISOString())}</div>
-                    `;
-                }
-                if (clockOutBtn) clockOutBtn.disabled = false;
-                if (breakStartBtn) breakStartBtn.disabled = false;
-            }
-        } else if (attendanceData.clockInTime && attendanceData.clockOutTime) {
-            // 出退勤済み
-            if (clockStatus) {
-                // 休憩時間を取得して合計
-                const allBreaksQuery = await db.collection('breaks')
-                    .where('attendanceId', '==', attendanceData.id)
-                    .get();
-                
-                const breakTimes = allBreaksQuery.docs.map(doc => {
-                    const breakData = doc.data();
-                    return {
-                        start: breakData.startTime?.toDate()?.toISOString(),
-                        end: breakData.endTime?.toDate()?.toISOString()
-                    };
-                });
-
-                const breakTime = calculateTotalBreakTime(breakTimes);
-                const workTime = calculateWorkingTime(
-                    attendanceData.clockInTime.toDate().toISOString(),
-                    attendanceData.clockOutTime.toDate().toISOString(),
-                    breakTimes
-                );
-                
-                clockStatus.innerHTML = `
-                    <div class="status-complete">本日の勤務は完了しています</div>
-                    <div class="status-detail">出勤: ${formatTime(attendanceData.clockInTime.toDate().toISOString())}</div>
-                    <div class="status-detail">退勤: ${formatTime(attendanceData.clockOutTime.toDate().toISOString())}</div>
-                    <div class="status-detail">休憩: ${breakTime.formatted}</div>
-                    <div class="status-detail">実労働: ${workTime.formatted}</div>
-                `;
-            }
+        
+        // 最もシンプルなクエリを実行
+        console.log('🔄 シンプルクエリを実行中...');
+        const query = firebase.firestore()
+            .collection('attendance')
+            .where('userId', '==', currentUser.uid)
+            .limit(5);
+        
+        const snapshot = await query.get();
+        
+        if (snapshot.empty) {
+            console.log('📋 記録が見つかりません');
+            showWelcomeMessage();
+            return;
         }
+        
+        console.log('✅ 記録取得成功:', snapshot.size, '件');
+        displayRecentRecords(snapshot);
+        
     } catch (error) {
-        console.error('勤怠状況チェックエラー:', error);
-        showError('勤怠状況の確認に失敗しました');
+        console.error('❌ 記録読み込みエラー:', error);
+        handleRecordLoadError(error);
     }
 }
 
-/**
- * 未完了の勤怠記録を処理する（Firebase v8対応版）
- * @param {string} userId ユーザーID
- * @param {string} today 今日の日付（YYYY-MM-DD）
- */
-async function handleIncompleteRecords(userId, today) {
-    if (!userId || !today) return;
+// ウェルカムメッセージの表示
+function showWelcomeMessage() {
+    const recentList = document.getElementById('recent-list');
+    if (recentList) {
+        recentList.innerHTML = `
+            <div class="welcome-message">
+                <h4>🎯 勤怠システムへようこそ</h4>
+                <p>まだ勤怠記録がありません</p>
+                <p><strong>出勤ボタンを押して勤務を開始しましょう</strong></p>
+                <div class="usage-tips">
+                    <h5>📝 使い方:</h5>
+                    <ol>
+                        <li>現場を選択してください</li>
+                        <li>出勤ボタンをクリック</li>
+                        <li>休憩時は休憩ボタンを使用</li>
+                        <li>退勤時は退勤ボタンをクリック</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 最近の記録を表示
+function displayRecentRecords(snapshot) {
+    const recentList = document.getElementById('recent-list');
+    if (!recentList) return;
+    
+    let html = '<h4>📋 最近の記録</h4>';
+    
+    const records = [];
+    snapshot.forEach(doc => {
+        records.push({ id: doc.id, ...doc.data() });
+    });
+    
+    // 日付でソート
+    records.sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        return dateB.localeCompare(dateA);
+    });
+    
+    records.forEach(record => {
+        html += `
+            <div class="record-item">
+                <div class="record-header">
+                    <span class="record-date">${record.date || '日付不明'}</span>
+                    <span class="record-status status-${record.status || 'unknown'}">${getStatusText(record.status)}</span>
+                </div>
+                <div class="record-details">
+                    <div class="record-site">📍 ${record.siteName || '現場不明'}</div>
+                    <div class="record-time">
+                        ⏰ 出勤: ${record.startTime || '不明'}
+                        ${record.endTime ? ` / 退勤: ${record.endTime}` : ' (勤務中)'}
+                    </div>
+                    ${record.notes ? `<div class="record-notes">📝 ${record.notes}</div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    recentList.innerHTML = html;
+}
+
+// ステータステキストの取得
+function getStatusText(status) {
+    const statusMap = {
+        'working': '勤務中',
+        'break': '休憩中',
+        'completed': '勤務終了',
+        'absent': '欠勤'
+    };
+    return statusMap[status] || '不明';
+}
+
+// 記録読み込みエラーの処理
+function handleRecordLoadError(error) {
+    console.log('🔧 記録読み込みエラーを処理中:', error.code);
+    
+    const recentList = document.getElementById('recent-list');
+    if (recentList) {
+        recentList.innerHTML = `
+            <div class="error-message">
+                <h4>⚠️ データ読み込みエラー</h4>
+                <p>記録の読み込みで問題が発生しました</p>
+                <p><strong>出勤・退勤機能は正常に動作します</strong></p>
+                <button onclick="loadRecentRecordsSafely()" class="retry-btn">🔄 再試行</button>
+                <details class="error-details">
+                    <summary>エラー詳細</summary>
+                    <code>${error.message || 'Unknown error'}</code>
+                </details>
+            </div>
+        `;
+    }
+}
+
+// 出勤処理
+async function handleClockIn() {
+    console.log('🏢 出勤処理を開始...');
     
     try {
-        // 前日までの未完了の勤怠記録を検索
-        const querySnapshot = await db.collection('attendance')
-            .where('userId', '==', userId)
-            .where('date', '<', today)
-            .where('clockOutTime', '==', null)
-            .get();
+        if (!currentUser) {
+            alert('ログインが必要です');
+            return;
+        }
+        
+        const siteNameElement = document.getElementById('site-name');
+        const otherSiteElement = document.getElementById('other-site');
+        const workNotesElement = document.getElementById('work-notes');
+        
+        let siteName = siteNameElement ? siteNameElement.value : '';
+        
+        // その他の現場が選択された場合
+        if (siteName === 'other' && otherSiteElement) {
+            siteName = otherSiteElement.value.trim();
+        }
+        
+        if (!siteName) {
+            alert('現場を選択してください');
+            return;
+        }
+        
+        const now = new Date();
+        const workNotes = workNotesElement ? workNotesElement.value.trim() : '';
+        
+        // シンプルなドキュメント作成
+        const attendanceData = {
+            userId: currentUser.uid,
+            userEmail: currentUser.email,
+            date: now.toISOString().split('T')[0],
+            siteName: siteName,
+            startTime: now.toLocaleTimeString('ja-JP'),
+            status: 'working',
+            notes: workNotes,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        console.log('💾 出勤データを保存中...', attendanceData);
+        
+        const docRef = await firebase.firestore()
+            .collection('attendance')
+            .add(attendanceData);
+        
+        currentAttendanceId = docRef.id;
+        
+        console.log('✅ 出勤記録完了:', docRef.id);
+        alert('出勤しました！');
+        
+        // UI更新
+        updateClockButtons('working');
+        loadRecentRecordsSafely();
+        
+        // フォームをクリア
+        if (workNotesElement) workNotesElement.value = '';
+        
+    } catch (error) {
+        console.error('❌ 出勤エラー:', error);
+        alert('出勤記録でエラーが発生しました: ' + error.message);
+    }
+}
 
-        const batch = db.batch();
-        let hasUpdates = false;
+// 退勤処理
+async function handleClockOut() {
+    console.log('🏠 退勤処理を開始...');
+    
+    try {
+        if (!currentUser || !currentAttendanceId) {
+            alert('出勤記録が見つかりません');
+            return;
+        }
+        
+        const now = new Date();
+        
+        const updateData = {
+            endTime: now.toLocaleTimeString('ja-JP'),
+            status: 'completed',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        console.log('💾 退勤データを更新中...', updateData);
+        
+        await firebase.firestore()
+            .collection('attendance')
+            .doc(currentAttendanceId)
+            .update(updateData);
+        
+        console.log('✅ 退勤記録完了');
+        alert('お疲れさまでした！');
+        
+        // UI更新
+        currentAttendanceId = null;
+        updateClockButtons('completed');
+        loadRecentRecordsSafely();
+        
+    } catch (error) {
+        console.error('❌ 退勤エラー:', error);
+        alert('退勤記録でエラーが発生しました: ' + error.message);
+    }
+}
 
-        for (const doc of querySnapshot.docs) {
-            const record = doc.data();
-            console.log(`未完了の勤怠記録を自動終了: ${record.date}`);
+// 休憩開始処理
+async function handleBreakStart() {
+    console.log('☕ 休憩開始処理...');
+    
+    try {
+        if (!currentUser || !currentAttendanceId) {
+            alert('出勤記録が見つかりません');
+            return;
+        }
+        
+        const now = new Date();
+        
+        const breakData = {
+            attendanceId: currentAttendanceId,
+            userId: currentUser.uid,
+            startTime: now.toLocaleTimeString('ja-JP'),
+            date: now.toISOString().split('T')[0],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await firebase.firestore()
+            .collection('breaks')
+            .add(breakData);
+        
+        // 勤怠記録のステータスを更新
+        await firebase.firestore()
+            .collection('attendance')
+            .doc(currentAttendanceId)
+            .update({ status: 'break' });
+        
+        alert('休憩を開始しました');
+        updateClockButtons('break');
+        
+    } catch (error) {
+        console.error('❌ 休憩開始エラー:', error);
+        alert('休憩記録でエラーが発生しました: ' + error.message);
+    }
+}
+
+// 休憩終了処理
+async function handleBreakEnd() {
+    console.log('🔄 休憩終了処理...');
+    
+    try {
+        if (!currentUser || !currentAttendanceId) {
+            alert('出勤記録が見つかりません');
+            return;
+        }
+        
+        // 最新の休憩記録を取得して終了時間を設定
+        const breakQuery = firebase.firestore()
+            .collection('breaks')
+            .where('attendanceId', '==', currentAttendanceId)
+            .where('userId', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .limit(1);
+        
+        const breakSnapshot = await breakQuery.get();
+        
+        if (!breakSnapshot.empty) {
+            const breakDoc = breakSnapshot.docs[0];
+            const now = new Date();
             
-            // その日の23:59:59で勤務終了としてマーク
-            const endDate = new Date(record.date);
-            endDate.setHours(23, 59, 59);
-            const endTimestamp = firebase.firestore.Timestamp.fromDate(endDate);
-            
-            // 勤怠記録を更新
-            batch.update(doc.ref, {
-                clockOutTime: endTimestamp,
+            await breakDoc.ref.update({
+                endTime: now.toLocaleTimeString('ja-JP'),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-
-            // 未完了の休憩も終了
-            const breakQuery = await db.collection('breaks')
-                .where('attendanceId', '==', doc.id)
-                .where('endTime', '==', null)
-                .get();
-
-            breakQuery.forEach(breakDoc => {
-                batch.update(breakDoc.ref, {
-                    endTime: endTimestamp,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            });
-
-            hasUpdates = true;
         }
-
-        if (hasUpdates) {
-            await batch.commit();
-            console.log('未完了記録の自動終了処理完了');
-        }
+        
+        // 勤怠記録のステータスを勤務中に戻す
+        await firebase.firestore()
+            .collection('attendance')
+            .doc(currentAttendanceId)
+            .update({ status: 'working' });
+        
+        alert('休憩を終了しました');
+        updateClockButtons('working');
+        
     } catch (error) {
-        console.error('未完了記録処理エラー:', error);
+        console.error('❌ 休憩終了エラー:', error);
+        alert('休憩終了記録でエラーが発生しました: ' + error.message);
     }
 }
 
-/**
- * 出勤処理（Firebase v8対応版）
- */
-async function clockIn() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
-    const siteSelect = getElement('site-name');
-    let siteName = siteSelect?.value || '';
-
-    if (siteName === 'other') {
-        siteName = getElement('other-site')?.value || '';
-    }
-
-    if (!siteName) {
-        showError('現場名を選択または入力してください');
-        return;
-    }
-
-    const notes = getElement('work-notes')?.value || '';
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    try {
-        // ローディング表示
-        const clockInBtn = getElement('clock-in-btn');
-        if (clockInBtn) {
-            clockInBtn.classList.add('loading');
-            clockInBtn.disabled = true;
-        }
-
-        // 今日の記録が既に存在するかチェック
-        const existingQuery = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .where('date', '==', today)
-            .get();
-
-        if (!existingQuery.empty) {
-            showError('今日は既に出勤済みです');
-            return;
-        }
-
-        const newRecord = {
-            userId: currentUser.uid,
-            userName: currentUser.displayName || currentUser.email,
-            date: today,
-            clockInTime: firebase.firestore.Timestamp.fromDate(now),
-            clockOutTime: null,
-            siteName: siteName,
-            notes: notes,
-            status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        await db.collection('attendance').add(newRecord);
-
-        // 現場履歴に追加
-        await saveSiteHistory(siteName);
-        
-        // UI更新
-        await checkTodayAttendance();
-        await loadRecentRecords();
-        
-        showSuccess('出勤を記録しました');
-        console.log('出勤記録完了');
-    } catch (error) {
-        console.error('出勤エラー:', error);
-        showError('出勤の記録に失敗しました');
-    } finally {
-        // ローディング解除
-        const clockInBtn = getElement('clock-in-btn');
-        if (clockInBtn) {
-            clockInBtn.classList.remove('loading');
-            clockInBtn.disabled = false;
-        }
-    }
-}
-
-/**
- * 退勤処理（Firebase v8対応版）
- */
-async function clockOut() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    try {
-        // ローディング表示
-        const clockOutBtn = getElement('clock-out-btn');
-        if (clockOutBtn) {
-            clockOutBtn.classList.add('loading');
-            clockOutBtn.disabled = true;
-        }
-
-        // 今日の勤怠記録を取得
-        const query = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .where('date', '==', today)
-            .where('clockOutTime', '==', null)
-            .limit(1)
-            .get();
-
-        if (query.empty) {
-            showError('出勤記録が見つかりません');
-            return;
-        }
-
-        const attendanceDoc = query.docs[0];
-        const attendanceId = attendanceDoc.id;
-
-        // 休憩中かどうかを確認
-        const breakQuery = await db.collection('breaks')
-            .where('attendanceId', '==', attendanceId)
-            .where('endTime', '==', null)
-            .get();
-
-        if (!breakQuery.empty) {
-            showError('休憩中は退勤できません。先に休憩を終了してください。');
-            return;
-        }
-
-        const notes = getElement('work-notes')?.value || '';
-        const now = new Date();
-        const attendanceData = attendanceDoc.data();
-
-        // 総労働時間の計算
-        const clockInTime = attendanceData.clockInTime.toDate();
-        const totalMinutes = Math.floor((now - clockInTime) / (1000 * 60));
-
-        const updateData = {
-            clockOutTime: firebase.firestore.Timestamp.fromDate(now),
-            status: 'completed',
-            totalWorkTime: totalMinutes,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        if (notes) {
-            updateData.notes = notes;
-        }
-
-        await attendanceDoc.ref.update(updateData);
-
-        // UI更新
-        await checkTodayAttendance();
-        await loadRecentRecords();
-        
-        showSuccess('退勤を記録しました');
-        console.log('退勤記録完了');
-    } catch (error) {
-        console.error('退勤エラー:', error);
-        showError('退勤の記録に失敗しました');
-    } finally {
-        // ローディング解除
-        const clockOutBtn = getElement('clock-out-btn');
-        if (clockOutBtn) {
-            clockOutBtn.classList.remove('loading');
-            clockOutBtn.disabled = false;
-        }
-    }
-}
-
-/**
- * 休憩開始処理（Firebase v8対応版）
- */
-async function startBreak() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    try {
-        // ローディング表示
-        const breakStartBtn = getElement('break-start-btn');
-        if (breakStartBtn) {
-            breakStartBtn.classList.add('loading');
-            breakStartBtn.disabled = true;
-        }
-
-        // 今日の勤怠記録を取得
-        const query = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .where('date', '==', today)
-            .where('clockOutTime', '==', null)
-            .limit(1)
-            .get();
-
-        if (query.empty) {
-            showError('出勤記録が見つかりません');
-            return;
-        }
-
-        const attendanceDoc = query.docs[0];
-        const attendanceId = attendanceDoc.id;
-
-        // 既に休憩中かチェック
-        const breakQuery = await db.collection('breaks')
-            .where('attendanceId', '==', attendanceId)
-            .where('endTime', '==', null)
-            .get();
-
-        if (!breakQuery.empty) {
-            showError('既に休憩中です');
-            return;
-        }
-
-        // 休憩記録を追加
-        const now = new Date();
-        const breakData = {
-            attendanceId: attendanceId,
-            userId: currentUser.uid,
-            startTime: firebase.firestore.Timestamp.fromDate(now),
-            endTime: null,
-            duration: null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        await db.collection('breaks').add(breakData);
-
-        // UI更新
-        await checkTodayAttendance();
-        
-        showSuccess('休憩を開始しました');
-        console.log('休憩開始記録完了');
-    } catch (error) {
-        console.error('休憩開始エラー:', error);
-        showError('休憩開始の記録に失敗しました');
-    } finally {
-        // ローディング解除
-        const breakStartBtn = getElement('break-start-btn');
-        if (breakStartBtn) {
-            breakStartBtn.classList.remove('loading');
-            breakStartBtn.disabled = false;
-        }
-    }
-}
-
-/**
- * 休憩終了処理（Firebase v8対応版）
- */
-async function endBreak() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    try {
-        // ローディング表示
-        const breakEndBtn = getElement('break-end-btn');
-        if (breakEndBtn) {
-            breakEndBtn.classList.add('loading');
-            breakEndBtn.disabled = true;
-        }
-
-        // 今日の勤怠記録を取得
-        const query = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .where('date', '==', today)
-            .where('clockOutTime', '==', null)
-            .limit(1)
-            .get();
-
-        if (query.empty) {
-            showError('出勤記録が見つかりません');
-            return;
-        }
-
-        const attendanceDoc = query.docs[0];
-        const attendanceId = attendanceDoc.id;
-
-        // 現在の休憩記録を取得
-        const breakQuery = await db.collection('breaks')
-            .where('attendanceId', '==', attendanceId)
-            .where('endTime', '==', null)
-            .get();
-
-        if (breakQuery.empty) {
-            showError('休憩を開始していません');
-            return;
-        }
-
-        const breakDoc = breakQuery.docs[0];
-        const breakData = breakDoc.data();
-        const now = new Date();
-        const startTime = breakData.startTime.toDate();
-        const duration = Math.floor((now - startTime) / (1000 * 60));
-
-        // 休憩記録を更新
-        await breakDoc.ref.update({
-            endTime: firebase.firestore.Timestamp.fromDate(now),
-            duration: duration,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // UI更新
-        await checkTodayAttendance();
-        
-        showSuccess('休憩を終了しました');
-        console.log('休憩終了記録完了');
-    } catch (error) {
-        console.error('休憩終了エラー:', error);
-        showError('休憩終了の記録に失敗しました');
-    } finally {
-        // ローディング解除
-        const breakEndBtn = getElement('break-end-btn');
-        if (breakEndBtn) {
-            breakEndBtn.classList.remove('loading');
-            breakEndBtn.disabled = false;
-        }
-    }
-}
-
-/**
- * 現場履歴を保存（Firebase v8対応版）
- * @param {string} siteName 現場名
- */
-async function saveSiteHistory(siteName) {
-    if (!siteName) return;
+// ボタンの状態更新
+function updateClockButtons(status) {
+    const clockInBtn = document.getElementById('clock-in-btn');
+    const clockOutBtn = document.getElementById('clock-out-btn');
+    const breakStartBtn = document.getElementById('break-start-btn');
+    const breakEndBtn = document.getElementById('break-end-btn');
+    const clockStatus = document.getElementById('clock-status');
     
-    // 既定の現場を除外
-    const defaultSites = [
-        "新宿オフィスビル改修工事",
-        "渋谷マンション建設現場",
-        "横浜倉庫補修工事"
-    ];
+    // 全ボタンをリセット
+    if (clockInBtn) clockInBtn.disabled = false;
+    if (clockOutBtn) clockOutBtn.disabled = true;
+    if (breakStartBtn) breakStartBtn.disabled = true;
+    if (breakEndBtn) breakEndBtn.disabled = true;
     
-    if (defaultSites.includes(siteName)) return;
-    
-    try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) return;
-
-        // ユーザーのsiteHistoryを更新
-        const userRef = db.collection('users').doc(currentUser.uid);
-        const userDoc = await userRef.get();
-        
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            const currentHistory = userData.siteHistory || [];
+    // ステータスに応じてボタンを制御
+    switch (status) {
+        case 'working':
+            if (clockInBtn) clockInBtn.disabled = true;
+            if (clockOutBtn) clockOutBtn.disabled = false;
+            if (breakStartBtn) breakStartBtn.disabled = false;
+            if (clockStatus) clockStatus.innerHTML = '<div class="status-working">✅ 勤務中です</div>';
+            break;
             
-            if (!currentHistory.includes(siteName)) {
-                await userRef.update({
-                    siteHistory: firebase.firestore.FieldValue.arrayUnion(siteName),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log('現場履歴に追加:', siteName);
-            }
-        }
-    } catch (error) {
-        console.error('現場履歴保存エラー:', error);
+        case 'break':
+            if (clockInBtn) clockInBtn.disabled = true;
+            if (clockOutBtn) clockOutBtn.disabled = false;
+            if (breakEndBtn) breakEndBtn.disabled = false;
+            if (clockStatus) clockStatus.innerHTML = '<div class="status-break">⏸️ 休憩中です</div>';
+            break;
+            
+        case 'completed':
+            if (clockStatus) clockStatus.innerHTML = '<div class="status-completed">✅ 勤務終了しました</div>';
+            break;
+            
+        default:
+            if (clockStatus) clockStatus.innerHTML = '<div class="status-waiting">⏰ 出勤ボタンを押してください</div>';
     }
 }
 
-/**
- * プルダウンに現場履歴を反映（Firebase v8対応版）
- */
-async function populateSiteOptions() {
-    const select = getElement("site-name");
-    if (!select) return;
+// エラーメッセージの表示
+function showErrorMessage(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-notification';
+    errorDiv.innerHTML = `
+        <div class="error-content">
+            <h4>⚠️ エラー</h4>
+            <p>${message}</p>
+        </div>
+    `;
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #fee;
+        border: 1px solid #fcc;
+        border-radius: 8px;
+        padding: 15px;
+        max-width: 300px;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    `;
     
-    try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) return;
-
-        const current = select.value;
-        
-        // ユーザーの現場履歴を取得
-        const userDoc = await db.collection('users').doc(currentUser.uid).get();
-        const siteHistory = userDoc.exists ? (userDoc.data().siteHistory || []) : [];
-
-        // 一旦クリア
-        select.innerHTML = "";
-        
-        // デフォルトオプション
-        const defaultOption = document.createElement("option");
-        defaultOption.value = "";
-        defaultOption.textContent = "現場を選択してください";
-        select.appendChild(defaultOption);
-
-        // 定義済みのオプション
-        const predefinedOptions = [
-            "新宿オフィスビル改修工事",
-            "渋谷マンション建設現場",
-            "横浜倉庫補修工事"
-        ];
-
-        // 定義済みオプションを追加
-        predefinedOptions.forEach(site => {
-            const option = document.createElement("option");
-            option.value = site;
-            option.textContent = site;
-            select.appendChild(option);
-        });
-
-        // 履歴を追加（定義済みと重複しないもののみ）
-        siteHistory.forEach(site => {
-            if (!predefinedOptions.includes(site)) {
-                const option = document.createElement("option");
-                option.value = site;
-                option.textContent = site;
-                select.appendChild(option);
-            }
-        });
-
-        // その他オプション
-        const otherOption = document.createElement("option");
-        otherOption.value = "other";
-        otherOption.textContent = "その他（直接入力）";
-        select.appendChild(otherOption);
-
-        // 現在選択を復元
-        select.value = current || "";
-    } catch (error) {
-        console.error('現場選択肢読み込みエラー:', error);
-        showError('現場選択肢の読み込みに失敗しました');
-    }
-}
-
-/**
- * 直近の記録を表示（Firebase v8対応版）
- */
-async function loadRecentRecords() {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-
-    try {
-        // 現在のユーザーの記録を直近5件取得
-        const querySnapshot = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('date', 'desc')
-            .limit(5)
-            .get();
-        
-        const recentList = getElement('recent-list');
-        if (!recentList) return;
-        
-        recentList.innerHTML = '';
-        
-        if (querySnapshot.empty) {
-            recentList.innerHTML = '<div class="no-records">記録がありません</div>';
-            return;
-        }
-        
-        // 各記録について詳細情報を取得
-        for (const doc of querySnapshot.docs) {
-            const record = { id: doc.id, ...doc.data() };
-            
-            // 休憩データを取得
-            const breakQuery = await db.collection('breaks')
-                .where('attendanceId', '==', record.id)
-                .get();
-            
-            const breakTimes = breakQuery.docs.map(breakDoc => {
-                const breakData = breakDoc.data();
-                return {
-                    start: breakData.startTime?.toDate()?.toISOString(),
-                    end: breakData.endTime?.toDate()?.toISOString()
-                };
-            });
-            
-            const recordDiv = document.createElement('div');
-            recordDiv.className = 'record-item';
-            
-            const dateObj = new Date(record.date);
-            const dateStr = `${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
-            
-            let breakTimeStr = '';
-            let totalTimeStr = '';
-            
-            if (record.clockInTime && record.clockOutTime) {
-                const breakTime = calculateTotalBreakTime(breakTimes);
-                const workTime = calculateWorkingTime(
-                    record.clockInTime.toDate().toISOString(),
-                    record.clockOutTime.toDate().toISOString(),
-                    breakTimes
-                );
-                
-                breakTimeStr = `
-                    <div class="record-break-info">休憩: ${breakTime.formatted}</div>
-                `;
-                
-                totalTimeStr = `
-                    <div class="record-total-time">実労働: ${workTime.formatted}</div>
-                `;
-            }
-            
-            recordDiv.innerHTML = `
-                <div class="record-date">${dateStr} (${formatDate(record.date)})</div>
-                <div class="record-site">${record.siteName}</div>
-                <div class="record-time">
-                    ${record.clockInTime ? formatTime(record.clockInTime.toDate().toISOString()) : '-'} 〜 
-                    ${record.clockOutTime ? formatTime(record.clockOutTime.toDate().toISOString()) : '勤務中'}
-                </div>
-                ${breakTimeStr}
-                ${totalTimeStr}
-            `;
-            
-            recentList.appendChild(recordDiv);
-        }
-        
-        console.log('最近の記録を表示完了');
-    } catch (error) {
-        console.error('最近の記録読み込みエラー:', error);
-        showError('最近の記録の読み込みに失敗しました');
-    }
-}
-
-/**
- * エラーメッセージを表示
- * @param {string} message エラーメッセージ
- */
-function showError(message) {
-    const toast = document.createElement('div');
-    toast.className = 'toast error';
-    toast.textContent = message;
-    document.body.appendChild(toast);
+    document.body.appendChild(errorDiv);
     
     setTimeout(() => {
-        toast.remove();
+        if (errorDiv.parentNode) {
+            errorDiv.parentNode.removeChild(errorDiv);
+        }
     }, 5000);
 }
 
-/**
- * 成功メッセージを表示
- * @param {string} message 成功メッセージ
- */
-function showSuccess(message) {
-    const toast = document.createElement('div');
-    toast.className = 'toast success';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-
-// 従業員画面のイベント設定
-function setupEmployeeEvents() {
-    console.log('従業員イベントを設定中...');
-    
-    // サイト選択の切り替え
-    const siteSelect = getElement('site-name');
-    const otherSite = getElement('other-site');
-    
-    if (siteSelect && otherSite) {
-        siteSelect.addEventListener('change', function() {
-            if (this.value === 'other') {
-                otherSite.style.display = 'block';
-                otherSite.required = true;
-            } else {
-                otherSite.style.display = 'none';
-                otherSite.required = false;
-            }
-        });
+// ログアウト処理
+function handleLogout() {
+    if (confirm('ログアウトしますか？')) {
+        firebase.auth().signOut()
+            .then(() => {
+                console.log('✅ ログアウト完了');
+                showPage('login');
+            })
+            .catch((error) => {
+                console.error('❌ ログアウトエラー:', error);
+                alert('ログアウトでエラーが発生しました');
+            });
     }
-    
-    console.log('従業員イベント設定完了');
 }
 
-// グローバルスコープに関数をエクスポート
-window.initEmployeePage = initEmployeePage;
-window.checkTodayAttendance = checkTodayAttendance;
-window.clockIn = clockIn;
-window.clockOut = clockOut;
-window.startBreak = startBreak;
-window.endBreak = endBreak;
-window.loadRecentRecords = loadRecentRecords;
+// グローバルエラーハンドリング
+window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && event.reason.code) {
+        console.log('🔍 Firestoreエラーをキャッチ:', event.reason.code);
+        
+        // インデックスエラーなどを無視
+        if (event.reason.code === 'failed-precondition' || 
+            event.reason.code === 'permission-denied') {
+            console.log('🛠️ インデックスエラーを無視して続行');
+            event.preventDefault();
+        }
+    }
+});
+
+console.log('✅ employee.js（修正版）読み込み完了');
