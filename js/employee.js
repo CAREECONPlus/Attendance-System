@@ -362,13 +362,35 @@ async function handleClockOut() {
     }
 }
 
-// 休憩開始処理
+// 休憩開始処理（インデックスエラー対策版）
 async function handleBreakStart() {
     console.log('☕ 休憩開始処理...');
     
     try {
         if (!currentUser || !currentAttendanceId) {
             alert('出勤記録が見つかりません');
+            return;
+        }
+        
+        // 既存の休憩記録をシンプルにチェック
+        const breakQuery = firebase.firestore()
+            .collection('breaks')
+            .where('attendanceId', '==', currentAttendanceId)
+            .where('userId', '==', currentUser.uid);
+        
+        const breakSnapshot = await breakQuery.get();
+        
+        // 終了時間が未設定の休憩記録があるかチェック
+        let hasActiveBreak = false;
+        breakSnapshot.docs.forEach(doc => {
+            const breakData = doc.data();
+            if (!breakData.endTime) {
+                hasActiveBreak = true;
+            }
+        });
+        
+        if (hasActiveBreak) {
+            alert('既に休憩中です');
             return;
         }
         
@@ -390,7 +412,10 @@ async function handleBreakStart() {
         await firebase.firestore()
             .collection('attendance')
             .doc(currentAttendanceId)
-            .update({ status: 'break' });
+            .update({ 
+                status: 'break',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
         
         alert('休憩を開始しました');
         updateClockButtons('break');
@@ -401,7 +426,7 @@ async function handleBreakStart() {
     }
 }
 
-// 休憩終了処理
+// 休憩終了処理（インデックスエラー対策版）
 async function handleBreakEnd() {
     console.log('🔄 休憩終了処理...');
     
@@ -411,34 +436,50 @@ async function handleBreakEnd() {
             return;
         }
         
-        // 最新の休憩記録を取得して終了時間を設定
+        // シンプルなクエリのみ使用（orderByを削除）
         const breakQuery = firebase.firestore()
             .collection('breaks')
             .where('attendanceId', '==', currentAttendanceId)
-            .where('userId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .limit(1);
+            .where('userId', '==', currentUser.uid);
         
         const breakSnapshot = await breakQuery.get();
         
-        if (!breakSnapshot.empty) {
-            const breakDoc = breakSnapshot.docs[0];
+        // 終了時間が未設定の休憩記録を探す
+        let activeBreakDoc = null;
+        breakSnapshot.docs.forEach(doc => {
+            const breakData = doc.data();
+            if (!breakData.endTime) {
+                activeBreakDoc = doc;
+            }
+        });
+        
+        if (activeBreakDoc) {
             const now = new Date();
             
-            await breakDoc.ref.update({
+            await activeBreakDoc.ref.update({
                 endTime: now.toLocaleTimeString('ja-JP'),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            
+            console.log('✅ 休憩終了記録完了');
+        } else {
+            console.log('⚠️ アクティブな休憩記録が見つかりません');
+            alert('休憩記録が見つかりませんでした');
+            return;
         }
         
         // 勤怠記録のステータスを勤務中に戻す
         await firebase.firestore()
             .collection('attendance')
             .doc(currentAttendanceId)
-            .update({ status: 'working' });
+            .update({ 
+                status: 'working',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
         
         alert('休憩を終了しました');
         updateClockButtons('working');
+        loadRecentRecordsSafely();
         
     } catch (error) {
         console.error('❌ 休憩終了エラー:', error);
