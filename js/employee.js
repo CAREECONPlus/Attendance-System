@@ -291,32 +291,39 @@ function getSiteNameFromSelection() {
     
     if (!siteNameElement) {
         console.error('❌ site-name要素が見つかりません');
+        alert('現場選択フォームに問題があります。\nページを再読み込みしてください。');
         return null;
     }
     
     let siteName = siteNameElement.value;
+    
+    // 空の値または未選択チェック
+    if (!siteName || siteName === '' || siteName === '現場を選択してください') {
+        alert('⚠️ 現場を選択してください');
+        // フォーカスを現場選択に移動
+        siteNameElement.focus();
+        return null;
+    }
     
     // 「その他」が選択された場合
     if (siteName === 'other') {
         if (otherSiteElement && otherSiteElement.value.trim()) {
             siteName = otherSiteElement.value.trim();
         } else {
-            alert('現場名を入力してください');
+            alert('⚠️ 現場名を入力してください');
+            // フォーカスをその他入力欄に移動
+            if (otherSiteElement) {
+                otherSiteElement.focus();
+            }
             return null;
         }
-    }
-    
-    // 空の値チェック
-    if (!siteName || siteName === '') {
-        alert('現場を選択してください');
-        return null;
     }
     
     console.log('✅ 選択された現場:', siteName);
     return siteName;
 }
 
-// 出勤処理（1日1回制限対応）
+// handleClockIn関数の修正版
 async function handleClockIn() {
     console.log('🚀 出勤処理開始');
     
@@ -333,11 +340,26 @@ async function handleClockIn() {
     const clockInBtn = document.getElementById('clock-in-btn');
     const originalText = clockInBtn ? clockInBtn.textContent : '出勤';
     
-    if (clockInBtn) {
-        clockInBtn.disabled = true;
-        clockInBtn.textContent = '処理中...';
-        clockInBtn.style.opacity = '0.5';
+    // ボタン状態を保存・変更する関数
+    function setButtonProcessing() {
+        if (clockInBtn) {
+            clockInBtn.disabled = true;
+            clockInBtn.textContent = '処理中...';
+            clockInBtn.style.opacity = '0.5';
+        }
     }
+    
+    // ボタン状態を復元する関数
+    function restoreButton() {
+        if (clockInBtn) {
+            clockInBtn.disabled = false;
+            clockInBtn.textContent = originalText;
+            clockInBtn.style.opacity = '1';
+        }
+        dailyLimitProcessing = false;
+    }
+    
+    setButtonProcessing();
     
     try {
         if (!currentUser) {
@@ -347,24 +369,23 @@ async function handleClockIn() {
         // 🚨 重要：1日1回制限チェック
         const canClockIn = await checkDailyLimit(currentUser.uid);
         if (!canClockIn) {
+            restoreButton(); // ボタンを復元
             return; // 出勤不可
         }
         
-        // 現場選択チェック
-        const siteNameElement = document.getElementById('site-name');
-        const otherSiteElement = document.getElementById('other-site');
-        const workNotesElement = document.getElementById('work-notes');
-        
+        // 現場選択チェック（ここでエラーになることが多い）
         const siteName = getSiteNameFromSelection();
         
         if (!siteName) {
-            alert('現場を選択してください');
+            // ⭐ 重要：現場未選択時にボタンを復元
+            restoreButton();
             return;
         }
         
         // 出勤データ作成
         const now = new Date();
         const today = now.toISOString().split('T')[0];
+        const workNotesElement = document.getElementById('work-notes');
         const workNotes = workNotesElement ? workNotesElement.value.trim() : '';
         
         const attendanceData = {
@@ -397,7 +418,7 @@ async function handleClockIn() {
             updatedAt: now
         };
         
-        // UI更新
+        // UI更新（成功時はボタン状態変更）
         updateClockButtons('working');
         updateStatusDisplay('working', todayAttendanceData);
         
@@ -409,18 +430,15 @@ async function handleClockIn() {
         // 最近の記録を更新
         loadRecentRecordsSafely();
         
+        // 処理完了
+        dailyLimitProcessing = false;
+        
     } catch (error) {
         console.error('❌ 出勤処理エラー:', error);
         alert('出勤処理中にエラーが発生しました。\n' + error.message);
         
-        // エラー時はボタンを復元
-        if (clockInBtn) {
-            clockInBtn.disabled = false;
-            clockInBtn.textContent = originalText;
-            clockInBtn.style.opacity = '1';
-        }
-    } finally {
-        dailyLimitProcessing = false;
+        // ⭐ エラー時は必ずボタンを復元
+        restoreButton();
     }
 }
 
