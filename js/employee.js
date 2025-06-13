@@ -757,8 +757,6 @@ function displayRecentRecords(snapshot) {
     const recentList = document.getElementById('recent-list');
     if (!recentList) return;
     
-    let html = '<h4>📋 最近の記録</h4>';
-    
     const records = [];
     snapshot.forEach(doc => {
         records.push({ id: doc.id, ...doc.data() });
