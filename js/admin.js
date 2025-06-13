@@ -2222,3 +2222,619 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ admin.js（完全版 - 編集機能統合）読み込み完了');
+
+
+// admin.js の修正版 - Firebase権限エラー対応
+
+// ================== Firebase権限エラー対応 ==================
+
+// 変更履歴の読み込み（権限エラー対応版）
+async function loadChangeHistory(attendanceId) {
+    console.log('📜 変更履歴を読み込み中...', attendanceId);
+    
+    const historyList = document.getElementById('change-history-list');
+    if (!historyList) return;
+    
+    // 初期状態で「読み込み中」を表示
+    historyList.innerHTML = `
+        <div class="loading-history">
+            <p>📋 変更履歴を読み込み中...</p>
+        </div>
+    `;
+    
+    try {
+        // シンプルなクエリで試行
+        const query = firebase.firestore()
+            .collection('attendance_history')
+            .where('attendanceId', '==', attendanceId);
+        
+        const snapshot = await query.get();
+        
+        changeHistory = [];
+        snapshot.forEach(doc => {
+            changeHistory.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        // 手動でソート（タイムスタンプの降順）
+        changeHistory.sort((a, b) => {
+            const timeA = a.timestamp ? a.timestamp.seconds : 0;
+            const timeB = b.timestamp ? b.timestamp.seconds : 0;
+            return timeB - timeA;
+        });
+        
+        displayChangeHistory();
+        
+    } catch (error) {
+        console.error('❌ 変更履歴読み込みエラー:', error);
+        
+        // 権限エラーの場合は適切なメッセージを表示
+        if (error.code === 'permission-denied' || error.code === 'missing-or-insufficient-permissions') {
+            displayChangeHistoryPermissionError();
+        } else {
+            displayChangeHistoryNotFound();
+        }
+    }
+}
+
+// 変更履歴の表示（改善版）
+function displayChangeHistory() {
+    const historyList = document.getElementById('change-history-list');
+    
+    if (changeHistory.length === 0) {
+        historyList.innerHTML = `
+            <div class="no-history">
+                <div class="no-history-icon">📋</div>
+                <h4>変更履歴がありません</h4>
+                <p>この記録はまだ編集されていません。</p>
+                <p>編集や削除を行うと、ここに変更履歴が表示されます。</p>
+                <div class="history-info">
+                    <small>💡 変更履歴には以下の情報が記録されます：</small>
+                    <ul>
+                        <li>変更日時</li>
+                        <li>変更者</li>
+                        <li>変更理由</li>
+                        <li>変更内容の詳細</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="history-header-info"><h4>📜 変更履歴 (全 ' + changeHistory.length + ' 件)</h4></div>';
+    
+    changeHistory.forEach((history, index) => {
+        const timestamp = history.timestamp ? 
+            new Date(history.timestamp.seconds * 1000).toLocaleString('ja-JP') : 
+            '不明';
+        
+        html += `
+            <div class="history-item">
+                <div class="history-number">#${index + 1}</div>
+                <div class="history-content">
+                    <div class="history-header">
+                        <span class="history-date">📅 ${timestamp}</span>
+                        <span class="history-user">👤 ${history.changedBy || '不明'}</span>
+                    </div>
+                    
+                    <div class="history-type">
+                        <span class="change-type-badge ${history.changeType}">
+                            ${getChangeTypeText(history.changeType)}
+                        </span>
+                    </div>
+                    
+                    <div class="history-reason">
+                        <strong>💭 変更理由:</strong> ${history.reason || '記載なし'}
+                    </div>
+                    
+                    <div class="history-changes">
+                        <strong>📝 変更内容:</strong>
+                        <div class="changes-detail">
+                            ${formatChangesImproved(history.changes, history.changeType)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    historyList.innerHTML = html;
+}
+
+// 変更タイプのテキスト変換
+function getChangeTypeText(changeType) {
+    const typeMap = {
+        'edit': '✏️ 編集',
+        'delete': '🗑️ 削除',
+        'create': '➕ 作成'
+    };
+    return typeMap[changeType] || '🔄 変更';
+}
+
+// 変更内容のフォーマット改善版
+function formatChangesImproved(changes, changeType) {
+    if (changeType === 'delete') {
+        return '<div class="delete-info">📋 この記録は削除されました</div>';
+    }
+    
+    if (!changes || Object.keys(changes).length === 0) {
+        return '<div class="no-changes">変更内容が記録されていません</div>';
+    }
+    
+    let html = '<div class="changes-list">';
+    Object.keys(changes).forEach(field => {
+        const change = changes[field];
+        const fieldName = getFieldDisplayName(field);
+        
+        html += `
+            <div class="change-item">
+                <div class="field-name">${fieldName}</div>
+                <div class="change-values">
+                    <span class="old-value">${change.before || '(空)'}</span>
+                    <span class="arrow">→</span>
+                    <span class="new-value">${change.after || '(空)'}</span>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    return html;
+}
+
+// 権限エラー時の表示
+function displayChangeHistoryPermissionError() {
+    const historyList = document.getElementById('change-history-list');
+    historyList.innerHTML = `
+        <div class="history-permission-error">
+            <div class="error-icon">🔒</div>
+            <h4>変更履歴へのアクセス権限がありません</h4>
+            <p>変更履歴を表示するには、Firebase セキュリティルールの設定が必要です。</p>
+            <div class="permission-info">
+                <details>
+                    <summary>🛠️ 解決方法</summary>
+                    <div class="solution-steps">
+                        <p><strong>Firebase Console での設定:</strong></p>
+                        <ol>
+                            <li>Firebase Console → Firestore Database → ルール</li>
+                            <li>attendance_history コレクションへの読み取り権限を追加</li>
+                        </ol>
+                    </div>
+                </details>
+            </div>
+            <p><strong>💡 編集機能は正常に動作します</strong></p>
+        </div>
+    `;
+}
+
+// 変更履歴が見つからない場合の表示
+function displayChangeHistoryNotFound() {
+    const historyList = document.getElementById('change-history-list');
+    historyList.innerHTML = `
+        <div class="no-history">
+            <div class="no-history-icon">📋</div>
+            <h4>変更履歴がありません</h4>
+            <p>この記録はまだ編集されていません。</p>
+            <p>編集や削除を行うと、ここに変更履歴が表示されます。</p>
+        </div>
+    `;
+}
+
+// ================== 保存処理の権限エラー対応 ==================
+
+// Firestoreへの保存（権限エラー対応版）
+async function saveChangesToFirestore(newData, changes, reason) {
+    console.log('💾 Firestore保存開始...');
+    
+    try {
+        // 基本的な保存（attendance_historyを除く）
+        await saveBasicChanges(newData, changes, reason);
+        
+        // テスト用に変更履歴も保存を試行
+        try {
+            await saveChangeHistory(changes, reason);
+            console.log('✅ 変更履歴も保存完了');
+        } catch (historyError) {
+            console.warn('⚠️ 変更履歴の保存に失敗（権限不足の可能性）:', historyError);
+            // 変更履歴の保存に失敗しても、基本的な保存は成功として扱う
+        }
+        
+        console.log('✅ 基本的な保存は完了');
+        
+    } catch (error) {
+        console.error('❌ 保存エラー:', error);
+        throw error;
+    }
+}
+
+// 基本的な変更の保存
+async function saveBasicChanges(newData, changes, reason) {
+    const batch = firebase.firestore().batch();
+    
+    // 1. 勤怠記録の更新
+    const attendanceRef = firebase.firestore()
+        .collection('attendance')
+        .doc(currentEditRecord.id);
+    
+    const updateData = {
+        ...newData,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastModifiedBy: firebase.auth().currentUser?.email || 'unknown'
+    };
+    
+    batch.update(attendanceRef, updateData);
+    
+    // 2. 休憩記録の処理
+    for (let breakRecord of editBreakRecords) {
+        if (breakRecord.isDeleted && !breakRecord.isNew) {
+            // 既存記録の削除
+            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            batch.delete(breakRef);
+            
+        } else if (breakRecord.isNew && !breakRecord.isDeleted) {
+            // 新規記録の追加
+            const newBreakRef = firebase.firestore().collection('breaks').doc();
+            const breakData = {
+                attendanceId: currentEditRecord.id,
+                userId: currentEditRecord.userId,
+                startTime: breakRecord.startTime,
+                endTime: breakRecord.endTime,
+                date: currentEditRecord.date,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            batch.set(newBreakRef, breakData);
+            
+        } else if (!breakRecord.isNew && !breakRecord.isDeleted && breakRecord.isModified) {
+            // 既存記録の更新
+            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakUpdateData = {
+                startTime: breakRecord.startTime,
+                endTime: breakRecord.endTime,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            batch.update(breakRef, breakUpdateData);
+        }
+    }
+    
+    // 基本的な保存を実行
+    await batch.commit();
+}
+
+// 変更履歴の保存（分離版）
+async function saveChangeHistory(changes, reason) {
+    if (!changes || Object.keys(changes).length === 0) {
+        return; // 変更がない場合はスキップ
+    }
+    
+    const historyRef = firebase.firestore().collection('attendance_history').doc();
+    
+    const historyData = {
+        attendanceId: currentEditRecord.id,
+        changes: changes,
+        reason: reason,
+        changedBy: firebase.auth().currentUser?.email || 'unknown',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        changeType: 'edit'
+    };
+    
+    await historyRef.set(historyData);
+}
+
+// ================== 削除処理の権限エラー対応 ==================
+
+// 勤怠記録の削除（権限エラー対応版）
+async function deleteEditAttendanceRecord() {
+    if (!currentEditRecord) return;
+    
+    const confirmMessage = `⚠️ 以下の勤怠記録を完全に削除しますか？\n\n` +
+                          `日付: ${currentEditRecord.date}\n` +
+                          `現場: ${currentEditRecord.siteName}\n` +
+                          `従業員: ${currentEditRecord.userEmail || currentEditRecord.userName}\n\n` +
+                          `この操作は取り消せません。`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    const reason = prompt('削除理由を入力してください（必須）:');
+    if (!reason || reason.trim() === '') {
+        alert('削除理由を入力してください');
+        return;
+    }
+    
+    try {
+        // 基本的な削除を実行
+        await deleteBasicRecord(reason);
+        
+        // 変更履歴の保存を試行
+        try {
+            await saveDeleteHistory(reason);
+            console.log('✅ 削除履歴も保存完了');
+        } catch (historyError) {
+            console.warn('⚠️ 削除履歴の保存に失敗（権限不足の可能性）:', historyError);
+        }
+        
+        alert('✅ 記録を削除しました');
+        closeEditDialog();
+        
+        // 管理者画面のデータを再読み込み
+        await loadAttendanceData();
+        
+    } catch (error) {
+        console.error('❌ 削除エラー:', error);
+        
+        if (error.code === 'permission-denied') {
+            alert('削除権限がありません。Firebase のセキュリティルールを確認してください。');
+        } else {
+            alert('削除中にエラーが発生しました: ' + error.message);
+        }
+    }
+}
+
+// 基本的なレコード削除
+async function deleteBasicRecord(reason) {
+    const batch = firebase.firestore().batch();
+    
+    // 1. 勤怠記録の削除
+    const attendanceRef = firebase.firestore()
+        .collection('attendance')
+        .doc(currentEditRecord.id);
+    batch.delete(attendanceRef);
+    
+    // 2. 関連する休憩記録の削除
+    for (let breakRecord of editBreakRecords) {
+        if (!breakRecord.isNew) {
+            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            batch.delete(breakRef);
+        }
+    }
+    
+    await batch.commit();
+}
+
+// 削除履歴の保存
+async function saveDeleteHistory(reason) {
+    const historyRef = firebase.firestore().collection('attendance_history').doc();
+    const historyData = {
+        attendanceId: currentEditRecord.id,
+        originalData: currentEditRecord,
+        reason: reason.trim(),
+        changedBy: firebase.auth().currentUser?.email || 'unknown',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        changeType: 'delete'
+    };
+    
+    await historyRef.set(historyData);
+}
+
+// ================== 追加CSSスタイル ==================
+function addImprovedHistoryStyles() {
+    const additionalStyles = `
+        <style>
+        .loading-history {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-history {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .no-history-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .no-history h4 {
+            color: #495057;
+            margin-bottom: 12px;
+        }
+        
+        .history-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            text-align: left;
+        }
+        
+        .history-info ul {
+            margin: 8px 0 0 20px;
+            padding: 0;
+        }
+        
+        .history-info li {
+            margin-bottom: 4px;
+            color: #6c757d;
+        }
+        
+        .history-permission-error {
+            text-align: center;
+            padding: 40px 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            color: #856404;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .permission-info {
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .solution-steps {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        .solution-steps ol {
+            margin: 10px 0 0 20px;
+        }
+        
+        .history-header-info {
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background: #e9f7ef;
+            border-radius: 6px;
+            color: #155724;
+        }
+        
+        .history-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-left: 4px solid #007bff;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .history-number {
+            background: #007bff;
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .history-content {
+            padding: 15px;
+        }
+        
+        .history-type {
+            margin-bottom: 10px;
+        }
+        
+        .change-type-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .change-type-badge.edit {
+            background: #cce5ff;
+            color: #0056b3;
+        }
+        
+        .change-type-badge.delete {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .change-type-badge.create {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .changes-list {
+            background: white;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 8px;
+        }
+        
+        .change-item {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .change-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .field-name {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+        
+        .change-values {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .old-value {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .new-value {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .arrow {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        
+        .delete-info {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .no-changes {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+        }
+        </style>
+    `;
+    
+    // スタイルを追加
+    if (!document.getElementById('improved-history-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'improved-history-styles';
+        styleElement.innerHTML = additionalStyles.replace('<style>', '').replace('</style>', '');
+        document.head.appendChild(styleElement);
+    }
+}
+
+// 編集機能の初期化時にスタイルを追加
+function initAdminEditFeaturesImproved() {
+    console.log('🔧 管理者編集機能を初期化中（改善版）...');
+    
+    // 既存のスタイルを適用
+    initEditFunctionStyles();
+    
+    // 改善されたスタイルを追加
+    addImprovedHistoryStyles();
+    
+    console.log('✅ 管理者編集機能（改善版）が利用可能になりました');
+}
+
+// 既存の初期化関数を上書き
+window.initAdminEditFeatures = initAdminEditFeaturesImproved;
+
+console.log('✅ admin.js 権限エラー対応版 読み込み完了');
