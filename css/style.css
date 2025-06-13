@@ -810,7 +810,7 @@ textarea:focus {
     color: var(--careecon-primary-blue);
 }
 
-/* ローディング状態 */
+/* ローディング状態（無効化済み）
 .loading {
     display: inline-block;
     width: 20px;
@@ -844,6 +844,7 @@ textarea:focus {
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
+*/
 
 /* トースト通知 */
 .toast {
