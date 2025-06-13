@@ -284,6 +284,38 @@ function setupSiteSelection() {
     }
 }
 
+// 現場名取得関数
+function getSiteNameFromSelection() {
+    const siteNameElement = document.getElementById('site-name');
+    const otherSiteElement = document.getElementById('other-site');
+    
+    if (!siteNameElement) {
+        console.error('❌ site-name要素が見つかりません');
+        return null;
+    }
+    
+    let siteName = siteNameElement.value;
+    
+    // 「その他」が選択された場合
+    if (siteName === 'other') {
+        if (otherSiteElement && otherSiteElement.value.trim()) {
+            siteName = otherSiteElement.value.trim();
+        } else {
+            alert('現場名を入力してください');
+            return null;
+        }
+    }
+    
+    // 空の値チェック
+    if (!siteName || siteName === '') {
+        alert('現場を選択してください');
+        return null;
+    }
+    
+    console.log('✅ 選択された現場:', siteName);
+    return siteName;
+}
+
 // 出勤処理（1日1回制限対応）
 async function handleClockIn() {
     console.log('🚀 出勤処理開始');
