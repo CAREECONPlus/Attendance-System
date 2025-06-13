@@ -6,6 +6,9 @@
     <title>勤怠管理システム</title>
     <link rel="stylesheet" href="css/style.css">
     
+    <!-- Favicon追加 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    
     <!-- Firebase v8 SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -22,6 +25,77 @@
     <script src="js/admin.js"></script>
 </head>
 <body>
+    <!-- ログインページ -->
+    <div id="login-page" class="page">
+        <div class="container login-container">
+            <div class="login-card">
+                <h1>勤怠管理システム</h1>
+                <p class="login-subtitle">ログイン</p>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">メールアドレス</label>
+                        <input type="email" id="email" name="email" autocomplete="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">パスワード</label>
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+                    </div>
+                    
+                    <div id="error-message" class="error-text hidden"></div>
+                </form>
+                
+                <div class="login-footer">
+                    <p>アカウントをお持ちでない方は</p>
+                    <a href="#" id="go-to-register" class="link">新規登録はこちら</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新規登録ページ -->
+    <div id="register-page" class="page hidden">
+        <div class="login-container">
+            <div class="login-card">
+                <h1>勤怠管理システム</h1>
+                <h2>新規ユーザー登録</h2>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="reg-fullname">氏名</label>
+                        <input type="text" id="reg-fullname" name="fullname" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">メールアドレス</label>
+                        <input type="email" id="reg-email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">パスワード</label>
+                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                        <div class="form-hint">6文字以上で入力してください</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-role">役割</label>
+                        <select id="reg-role" name="role">
+                            <option value="employee">従業員</option>
+                            <option value="admin">管理者</option>
+                        </select>
+                    </div>
+                    <div id="register-message" class="error-text"></div>
+                    <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                </form>
+                <p style="text-align: center; margin-top: 20px;">
+                    すでにアカウントをお持ちの方は<br>
+                    <a href="#" id="back-to-login">ログインはこちら</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- 従業員画面 -->
     <div id="employee-page" class="page hidden">
         <div class="container">
@@ -34,7 +108,7 @@
             </header>
 
             <main class="employee-main">
-                <!-- 現在時刻表示 - 追加 -->
+                <!-- 現在時刻表示 -->
                 <div class="date-display">
                     <div class="date" id="current-date">日付読み込み中...</div>
                     <div class="time" id="current-time">時刻読み込み中...</div>
@@ -232,5 +306,16 @@
             </div>
         </div>
     </div>
+
+    <!-- ページ固有のJavaScript -->
+    <script src="js/login.js"></script>
+    
+    <script>
+        // ページの初期設定
+        document.addEventListener('DOMContentLoaded', function() {
+            // ログインページを表示
+            showPage('login');
+        });
+    </script>
 </body>
 </html>
