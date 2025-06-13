@@ -30,7 +30,7 @@ function initEmployeePage() {
                 setupEmployeeEventListeners();
                 
                 // 現場選択の設定
-                setupSiteSelection();
+                await setupSiteSelectionImproved();
                 
                 // 今日の勤怠状態を復元
                 await restoreTodayAttendanceState();
@@ -768,7 +768,8 @@ function displayRecentRecords(snapshot) {
         const dateB = b.date || '';
         return dateB.localeCompare(dateA);
     });
-    
+
+    let html = '';
     records.forEach(record => {
         html += `
             <div class="record-item">
