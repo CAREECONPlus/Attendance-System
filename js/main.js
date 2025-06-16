@@ -1,47 +1,57 @@
 /**
- * 勤怠管理システム - メインスクリプト（Firebase v8対応版）
- * 
- * システムの初期化と全体の連携を担当します。
- * Firebase初期化完了後にシステムを初期化し、適切な画面を表示します。
+ * 勤怠管理システム - メインスクリプト（マルチテナント対応版）
  */
 
-console.log('main.js loaded - Firebase v8 version');
+console.log('main.js loaded - Multi-tenant version');
 
 /**
- * システム初期化の中心関数（Firebase v8対応版）
+ * システム初期化の中心関数（マルチテナント対応版）
  */
 async function initializeSystem() {
-    console.log('勤怠管理システムを初期化中...');
+    console.log('🚀 勤怠管理システムを初期化中（マルチテナント版）...');
     
     try {
         // Firebase初期化待ち
         await waitForFirebaseInit();
+        console.log('✅ Firebase初期化完了');
         
-        console.log('Firebase初期化完了 - 認証状態を確認中...');
+        // 🆕 テナント初期化
+        const tenantInitialized = await initializeTenant();
         
-        // Firebase Auth状態の監視は login.js で行われているため、
-        // ここでは現在の認証状態をチェックするのみ
-        const currentUser = firebase.auth().currentUser;
-        
-        if (currentUser) {
-            console.log(`Firebase認証済みユーザー: ${currentUser.uid}`);
-            // 認証済みユーザーの処理は login.js の onAuthStateChanged で処理される
+        if (tenantInitialized) {
+            // テナントが選択済みの場合、通常のログインフローに進む
+            console.log('✅ テナント初期化完了 - ログイン画面へ');
+            
+            // Firebase認証状態の確認
+            const currentUser = firebase.auth().currentUser;
+            if (currentUser) {
+                console.log(`✅ 既存認証ユーザー: ${currentUser.uid}`);
+                // 認証済みユーザーの処理は login.js で行われる
+            } else {
+                console.log('❌ 未認証 - ログイン画面を表示');
+                showPage('login');
+            }
         } else {
-            console.log('Firebase未認証 - ログイン画面を表示準備中...');
-            // 未認証の場合の処理も login.js で行われる
+            // テナント選択が必要な場合、テナント選択画面が既に表示されている
+            console.log('⏳ テナント選択待ち');
         }
         
     } catch (error) {
-        console.error('システム初期化エラー:', error);
+        console.error('❌ システム初期化エラー:', error);
         showError('システムの初期化に失敗しました');
-        // フォールバック: ログイン画面を表示
-        showPage('login');
+        
+        // フォールバック: テナント選択画面を表示
+        if (typeof showTenantSelection === 'function') {
+            showTenantSelection();
+        } else {
+            showPage('login');
+        }
     }
     
     // エラーハンドリングの設定
     setupErrorHandling();
     
-    console.log('勤怠管理システムの初期化が完了しました');
+    console.log('✅ 勤怠管理システムの初期化が完了しました（マルチテナント版）');
 }
 
 /**
@@ -93,12 +103,14 @@ function setupErrorHandling() {
         console.error('未処理のPromiseエラー:', e.reason);
         
         // Firebase関連のエラーかどうかをチェック
-        if (e.reason && e.reason.code && e.reason.code.startsWith('auth/')) {
-            console.error('Firebase Auth エラー:', e.reason);
-            // auth/* エラーは login.js で処理されるため、ここでは表示しない
-        } else if (e.reason && e.reason.code && e.reason.code.startsWith('firestore/')) {
-            console.error('Firestore エラー:', e.reason);
-            showError('データベースエラーが発生しました');
+        if (e.reason && e.reason.code) {
+            if (e.reason.code.startsWith('auth/')) {
+                console.error('Firebase Auth エラー:', e.reason);
+                // auth/* エラーは login.js で処理されるため、ここでは表示しない
+            } else if (e.reason.code.startsWith('firestore/')) {
+                console.error('Firestore エラー:', e.reason);
+                showError('データベースエラーが発生しました');
+            }
         } else {
             showError('システムエラーが発生しました');
         }
@@ -117,10 +129,27 @@ function showError(message) {
     const toast = document.createElement('div');
     toast.className = 'toast error';
     toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 8px;
+        padding: 15px;
+        max-width: 300px;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-weight: 600;
+    `;
+    
     document.body.appendChild(toast);
     
     setTimeout(() => {
-        toast.remove();
+        if (toast.parentNode) {
+            toast.remove();
+        }
     }, 5000);
     
     console.error(message);
@@ -134,108 +163,67 @@ function showSuccess(message) {
     const toast = document.createElement('div');
     toast.className = 'toast success';
     toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        padding: 15px;
+        max-width: 300px;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-weight: 600;
+    `;
+    
     document.body.appendChild(toast);
     
     setTimeout(() => {
-        toast.remove();
+        if (toast.parentNode) {
+            toast.remove();
+        }
     }, 3000);
     
     console.log(message);
 }
 
 /**
- * Firebase接続状態の監視
- */
-function monitorFirebaseConnection() {
-    // Firestore接続状態の監視
-    if (typeof db !== 'undefined') {
-        db.enableNetwork().then(() => {
-            console.log('Firestore接続が有効です');
-        }).catch((error) => {
-            console.error('Firestore接続エラー:', error);
-            showError('データベース接続に問題があります');
-        });
-        
-        // 定期的な接続チェック（5分ごと）
-        setInterval(async () => {
-            try {
-                // 簡単なクエリでFirestore接続をテスト
-                await db.collection('users').limit(1).get();
-                console.log('Firestore接続確認完了');
-            } catch (error) {
-                console.error('Firestore接続チェック失敗:', error);
-                // 接続エラーの場合は再接続を試行
-                try {
-                    await db.enableNetwork();
-                    console.log('Firestore再接続成功');
-                } catch (reconnectError) {
-                    console.error('Firestore再接続失敗:', reconnectError);
-                    showError('データベース接続が不安定です');
-                }
-            }
-        }, 5 * 60 * 1000); // 5分間隔
-    }
-}
-
-/**
- * アプリケーションの状態をリセット（緊急時用）
- */
-window.resetApplication = function() {
-    if (confirm('アプリケーションをリセットしますか？ログアウトされます。')) {
-        firebase.auth().signOut().then(() => {
-            localStorage.clear();
-            sessionStorage.clear();
-            location.reload();
-        }).catch(error => {
-            console.error('リセット時のログアウトエラー:', error);
-            // 強制リロード
-            location.reload();
-        });
-    }
-};
-
-/**
- * オフライン状態の監視
- */
-function setupOfflineDetection() {
-    function updateOnlineStatus() {
-        if (navigator.onLine) {
-            console.log('オンライン状態です');
-            // オンライン復帰時にFirebaseに再接続
-            if (typeof db !== 'undefined') {
-                db.enableNetwork().catch(error => {
-                    console.error('オンライン復帰時の再接続エラー:', error);
-                });
-            }
-        } else {
-            console.log('オフライン状態です');
-            showError('インターネット接続が切断されました');
-        }
-    }
-    
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    
-    // 初期状態をチェック
-    updateOnlineStatus();
-}
-
-/**
- * ページヘルパー関数
+ * ページ切り替え関数（マルチテナント対応版）
+ * @param {string} pageName 表示するページ名
  */
 function showPage(pageName) {
     try {
-        // 全てのページを非表示
-        document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+        // 全てのページを非表示（テナント選択画面も含む）
+        document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #tenant-selection-page')
             .forEach(el => el.classList.add('hidden'));
         
         // 指定されたページを表示
         const targetPage = document.getElementById(`${pageName}-page`);
         if (targetPage) {
             targetPage.classList.remove('hidden');
-            console.log(`ページ切り替え: ${pageName}`);
+            console.log(`✅ ページ切り替え: ${pageName}`);
+            
+            // 🆕 テナント情報をページタイトルに反映
+            const currentTenant = getCurrentTenant();
+            if (currentTenant && pageName !== 'tenant-selection') {
+                document.title = `${currentTenant.companyName} - 勤怠管理システム`;
+            } else if (pageName === 'tenant-selection') {
+                document.title = '会社選択 - 勤怠管理システム';
+            }
         } else {
-            console.error(`ページが見つかりません: ${pageName}`);
+            console.error(`❌ ページが見つかりません: ${pageName}-page`);
+            
+            // フォールバック処理
+            if (pageName === 'tenant-selection') {
+                // テナント選択ページが見つからない場合は動的作成を試行
+                if (typeof showTenantSelection === 'function') {
+                    showTenantSelection();
+                } else {
+                    showPage('login');
+                }
+            }
         }
     } catch (error) {
         console.error('ページ切り替えエラー:', error);
@@ -243,29 +231,43 @@ function showPage(pageName) {
 }
 
 /**
- * バックアップ認証チェック関数
+ * 認証チェック（マルチテナント対応版）
  */
 function checkAuthStatus() {
     const currentUser = firebase.auth().currentUser;
+    const currentTenant = getCurrentTenant();
+    
+    if (!currentTenant) {
+        console.log('❌ テナントが選択されていません');
+        if (typeof showTenantSelection === 'function') {
+            showTenantSelection();
+        }
+        return false;
+    }
+    
     if (currentUser) {
-        console.log('認証済み:', currentUser.email);
+        console.log('✅ 認証済み:', currentUser.email, 'テナント:', currentTenant.companyName);
         return true;
     } else {
-        console.log('未認証');
+        console.log('❌ 未認証');
         showPage('login');
         return false;
     }
 }
 
 /**
- * アプリケーション状態の診断（デバッグ用）
+ * アプリケーション状態の診断（マルチテナント対応版）
  */
 function diagnoseApplication() {
-    console.log('=== アプリケーション診断 ===');
+    console.log('=== アプリケーション診断（マルチテナント版） ===');
     console.log('Firebase App:', typeof firebase !== 'undefined' && firebase.app() ? '初期化済み' : '未初期化');
     console.log('Firestore:', typeof db !== 'undefined' ? '利用可能' : '未定義');
     console.log('Auth:', typeof firebase !== 'undefined' && firebase.auth() ? '利用可能' : '未定義');
     console.log('Current User:', firebase.auth()?.currentUser ? firebase.auth().currentUser.email : 'なし');
+    
+    // 🆕 テナント情報
+    const currentTenant = typeof getCurrentTenant === 'function' ? getCurrentTenant() : null;
+    console.log('Current Tenant:', currentTenant ? `${currentTenant.companyName} (${currentTenant.id})` : 'なし');
     
     // 表示されているページをチェック
     const visiblePage = document.querySelector('.page:not(.hidden)');
@@ -275,7 +277,8 @@ function diagnoseApplication() {
     console.log('initEmployeePage:', typeof window.initEmployeePage);
     console.log('initAdminPage:', typeof window.initAdminPage);
     console.log('getCurrentUser:', typeof window.getCurrentUser);
-    console.log('showPage:', typeof window.showPage);
+    console.log('getCurrentTenant:', typeof window.getCurrentTenant);
+    console.log('initializeTenant:', typeof window.initializeTenant);
     console.log('==============================');
     
     return {
@@ -283,18 +286,19 @@ function diagnoseApplication() {
         firestore: typeof db !== 'undefined',
         auth: typeof firebase !== 'undefined' && firebase.auth(),
         currentUser: firebase.auth()?.currentUser,
+        currentTenant: currentTenant,
         visiblePage: visiblePage?.id
     };
 }
 
 /**
- * DOMContentLoadedイベントでの初期化
+ * DOMContentLoadedイベントでの初期化（マルチテナント対応版）
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM読み込み完了 - Firebase v8 version');
+    console.log('📄 DOM読み込み完了 - Multi-tenant version');
     
     // 初期状態では全ページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #tenant-selection-page')
         .forEach(el => el.classList.add('hidden'));
     
     // ローディング画面を表示（もしあれば）
@@ -313,21 +317,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(error => {
             console.error('システム初期化に失敗:', error);
             // フォールバック処理
-            showPage('login');
+            if (typeof showTenantSelection === 'function') {
+                showTenantSelection();
+            } else {
+                showPage('login');
+            }
             if (loadingScreen) {
                 loadingScreen.classList.add('hidden');
             }
         });
-        
-        // Firebase接続監視を開始（少し遅延）
-        setTimeout(() => {
-            if (typeof db !== 'undefined') {
-                monitorFirebaseConnection();
-            }
-        }, 2000);
-        
-        // オフライン検出を設定
-        setupOfflineDetection();
     }, 100);
 });
 
@@ -335,64 +333,17 @@ document.addEventListener('DOMContentLoaded', function() {
  * window.onloadイベントでのバックアップ初期化
  */
 window.onload = function() {
-    console.log('ページが完全に読み込まれました - Firebase v8 version');
+    console.log('📄 ページが完全に読み込まれました - Multi-tenant version');
     
     // DOMContentLoadedで初期化されていない場合のバックアップ
     if (!firebase.apps || firebase.apps.length === 0) {
         console.warn('Firebase未初期化 - バックアップ初期化を実行');
         setTimeout(initializeSystem, 500);
     }
-    
-    // 3秒後にもチェック（最終的なフォールバック）
-    setTimeout(() => {
-        if (!window.currentUser && firebase.auth().currentUser) {
-            console.warn('認証状態の不整合を検出 - 修正を試行');
-            firebase.auth().onAuthStateChanged(user => {
-                if (user && !window.currentUser) {
-                    console.log('認証状態を修復中...');
-                    location.reload();
-                }
-            });
-        }
-    }, 3000);
 };
 
-/**
- * ページ離脱時の警告（必要に応じて）
- */
-window.addEventListener('beforeunload', function(e) {
-    // Firebase使用時は自動保存されるため、基本的に警告は不要
-    // ただし、重要な処理中の場合は警告を表示することも可能
-    
-    // 例: 現在編集中のデータがある場合の警告
-    /*
-    const confirmationMessage = 'ページを離れると編集中のデータが失われる可能性があります。';
-    e.returnValue = confirmationMessage;
-    return confirmationMessage;
-    */
-});
-
-/**
- * Service Worker登録（PWA対応の準備）
- */
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-                console.log('Service Worker登録成功:', registration);
-            })
-            .catch(error => {
-                console.log('Service Worker登録失敗:', error);
-            });
-    }
-}
-
-// Service Worker登録（必要に応じて有効化）
-// registerServiceWorker();
-
-// デバッグ用のグローバル関数
+// デバッグ用のグローバル関数（開発環境のみ）
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // 開発環境でのデバッグ関数
     window.debugInfo = function() {
         return diagnoseApplication();
     };
@@ -401,16 +352,16 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         showPage('login');
     };
     
-    window.testAuth = function() {
-        return checkAuthStatus();
+    window.forceTenantSelection = function() {
+        if (typeof showTenantSelection === 'function') {
+            showTenantSelection();
+        }
     };
     
-    window.clearData = function() {
-        if (confirm('ローカルデータをクリアしますか？')) {
-            localStorage.clear();
-            sessionStorage.clear();
-            console.log('ローカルデータをクリアしました');
-        }
+    window.testTenant = function() {
+        const tenant = getCurrentTenant();
+        console.log('Current Tenant:', tenant);
+        return tenant;
     };
 }
 
