@@ -165,14 +165,14 @@
         }
     </style>
 </head>
-</head>
 <body>
     <!-- ログインページ -->
     <div id="login-page" class="page">
         <div class="container login-container">
             <div class="login-card">
-                <h1>勤怠管理システム</h1
+                <h1>勤怠管理システム</h1>
                 
+                <!-- ログインフォーム -->
                 <form id="loginForm">
                     <div class="form-group">
                         <label for="email">メールアドレス</label>
@@ -191,48 +191,44 @@
                     <div id="error-message" class="error-text hidden"></div>
                 </form>
                 
-                <div class="login-footer">
-                    <p>アカウントをお持ちでない方は</p>
-                    <a href="#" id="go-to-register" class="link">新規登録はこちら</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 新規登録ページ -->
-    <div id="register-page" class="page hidden">
-        <div class="login-container">
-            <div class="login-card">
-                <h1>勤怠管理システム</h1>
-                <h2>新規ユーザー登録</h2>
-                <form id="registerForm">
+                <!-- 登録フォーム（同一ページに追加） -->
+                <form id="registerForm" class="register-form" style="display: none;">
                     <div class="form-group">
-                        <label for="reg-fullname">氏名</label>
-                        <input type="text" id="reg-fullname" name="fullname" required>
+                        <label for="registerEmail">メールアドレス</label>
+                        <input type="email" id="registerEmail" name="email" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label for="reg-email">メールアドレス</label>
-                        <input type="email" id="reg-email" name="email" autocomplete="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-password">パスワード</label>
-                        <input type="password" id="reg-password" name="password" autocomplete="new-password" required>
+                        <label for="registerPassword">パスワード</label>
+                        <input type="password" id="registerPassword" name="password" required>
                         <div class="form-hint">6文字以上で入力してください</div>
                     </div>
+                    
                     <div class="form-group">
-                        <label for="reg-role">役割</label>
-                        <select id="reg-role" name="role">
+                        <label for="displayName">氏名</label>
+                        <input type="text" id="displayName" name="displayName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">役割</label>
+                        <select id="role" name="role">
                             <option value="employee">従業員</option>
                             <option value="admin">管理者</option>
                         </select>
                     </div>
-                    <div id="register-message" class="error-text"></div>
-                    <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                    </div>
+                    
+                    <div id="register-error-message" class="error-text hidden"></div>
                 </form>
-                <p style="text-align: center; margin-top: 20px;">
-                    すでにアカウントをお持ちの方は<br>
-                    <a href="#" id="back-to-login">ログインはこちら</a>
-                </p>
+                
+                <div class="login-footer">
+                    <p id="toggle-text">アカウントをお持ちでない方は</p>
+                    <a href="#" id="showRegisterButton" class="link">新規登録はこちら</a>
+                    <a href="#" id="showLoginButton" class="link" style="display: none;">ログインはこちら</a>
+                </div>
             </div>
         </div>
     </div>
@@ -272,13 +268,12 @@
                     </div>
                 </div>
 
-                <!-- 現場選択（モックデータ削除版） -->
+                <!-- 現場選択 -->
                 <div class="site-selection">
                     <div class="form-group">
                         <label for="site-name">🏢 現場名：</label>
                         <select id="site-name" required>
                             <option value="" disabled selected>現場を選択してください</option>
-                            <!-- 過去の勤怠記録から動的に生成されます -->
                             <option value="other">その他（直接入力）</option>
                         </select>
                         <input type="text" 
