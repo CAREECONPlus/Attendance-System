@@ -127,7 +127,7 @@ function initEmployeePage() {
     });
 }
 
-// restoreTodayAttendanceState関数を以下で置き換え
+// 改良版 restoreTodayAttendanceState関数
 async function restoreTodayAttendanceState() {
     console.log('🔄 今日の勤怠状態を復元中...');
     
@@ -138,57 +138,102 @@ async function restoreTodayAttendanceState() {
         }
         
         const today = new Date().toISOString().split('T')[0];
-        console.log('📅 検索対象日付:', today);
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        console.log('📅 検索対象日付:', { today, yesterday });
         console.log('👤 検索対象ユーザー:', currentUser.uid);
         
-        const query = firebase.firestore()
+        // まず今日のデータを検索
+        let query = firebase.firestore()
             .collection('attendance')
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today);
         
-        console.log('🔍 Firestoreクエリ実行中...');
-        const snapshot = await query.get();
+        console.log('🔍 今日のデータをFirestoreで検索中...');
+        let snapshot = await query.get();
         
-        console.log('📊 クエリ結果:', {
+        console.log('📊 今日のクエリ結果:', {
             empty: snapshot.empty,
             size: snapshot.size
         });
         
+        // 今日のデータがない場合は昨日のデータを検索
+        if (snapshot.empty) {
+            console.log('⚠️ 今日のデータなし - 昨日のデータを検索中...');
+            
+            query = firebase.firestore()
+                .collection('attendance')
+                .where('userId', '==', currentUser.uid)
+                .where('date', '==', yesterday);
+            
+            snapshot = await query.get();
+            
+            console.log('📊 昨日のクエリ結果:', {
+                empty: snapshot.empty,
+                size: snapshot.size
+            });
+        }
+        
+        // 最新の未完了データがあるかチェック
         if (!snapshot.empty) {
-            const doc = snapshot.docs[0];
-            const recordData = doc.data();
+            let latestRecord = null;
+            let latestDoc = null;
             
-            console.log('📋 取得した記録データ:', recordData);
-            
-            // グローバル変数に設定
-            currentAttendanceId = doc.id;
-            todayAttendanceData = {
-                id: doc.id,
-                ...recordData
-            };
-            
-            console.log('✅ グローバル変数設定完了:', {
-                currentAttendanceId,
-                todayAttendanceData
+            // 複数ある場合は最新のものを選択
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (!latestRecord || 
+                    (data.createdAt && (!latestRecord.createdAt || data.createdAt > latestRecord.createdAt))) {
+                    latestRecord = data;
+                    latestDoc = doc;
+                }
             });
             
-            // 現在の状態に応じてUIを更新
-            await restoreCurrentState(recordData);
+            console.log('📋 取得した最新記録:', latestRecord);
             
-            // データ設定後の確認
-            setTimeout(() => {
-                console.log('🔍 設定後確認:', {
+            // 勤務が完了していない場合のみ復元
+            if (latestRecord.status !== 'completed' || !latestRecord.endTime) {
+                console.log('🔄 未完了の勤務を復元中...');
+                
+                // グローバル変数に設定
+                currentAttendanceId = latestDoc.id;
+                todayAttendanceData = {
+                    id: latestDoc.id,
+                    ...latestRecord
+                };
+                
+                console.log('✅ グローバル変数設定完了:', {
                     currentAttendanceId,
                     todayAttendanceData
                 });
-            }, 100);
+                
+                // 現在の状態に応じてUIを更新
+                await restoreCurrentState(latestRecord);
+                
+                console.log('✅ 勤怠状態復元完了');
+            } else {
+                console.log('✅ 勤務完了済み - 新規出勤待ち状態');
+                currentAttendanceId = null;
+                todayAttendanceData = null;
+                updateClockButtons('waiting');
+            }
             
         } else {
-            console.log('📋 今日の勤怠記録なし - 出勤待ち状態');
+            console.log('📋 勤怠記録なし - 出勤待ち状態');
             currentAttendanceId = null;
             todayAttendanceData = null;
             updateClockButtons('waiting');
         }
+        
+        // データ設定後の確認
+        setTimeout(() => {
+            console.log('🔍 設定後確認:', {
+                currentAttendanceId,
+                todayAttendanceData: todayAttendanceData ? 
+                    { id: todayAttendanceData.id, status: todayAttendanceData.status, date: todayAttendanceData.date } : null
+            });
+        }, 100);
+        
     } catch (error) {
         console.error('❌ 勤怠状態復元エラー:', error);
         console.error('エラー詳細:', error.message);
