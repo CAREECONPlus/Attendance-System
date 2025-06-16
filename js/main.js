@@ -1,57 +1,46 @@
 /**
- * 勤怠管理システム - メインスクリプト（マルチテナント対応版）
+ * 勤怠管理システム - メインスクリプト（フォールバック版）
+ * テナント機能を無効化して従来のシステムとして動作
  */
 
-console.log('main.js loaded - Multi-tenant version');
+console.log('main.js loaded - Fallback version (テナント機能無効)');
 
 /**
- * システム初期化の中心関数（マルチテナント対応版）
+ * システム初期化の中心関数（フォールバック版）
  */
 async function initializeSystem() {
-    console.log('🚀 勤怠管理システムを初期化中（マルチテナント版）...');
+    console.log('🚀 勤怠管理システムを初期化中（フォールバック版）...');
     
     try {
         // Firebase初期化待ち
         await waitForFirebaseInit();
         console.log('✅ Firebase初期化完了');
         
-        // 🆕 テナント初期化
-        const tenantInitialized = await initializeTenant();
+        // 🆕 テナント機能をスキップして直接ログイン画面へ
+        console.log('⏭️ テナント機能をスキップ - ログイン画面へ');
         
-        if (tenantInitialized) {
-            // テナントが選択済みの場合、通常のログインフローに進む
-            console.log('✅ テナント初期化完了 - ログイン画面へ');
-            
-            // Firebase認証状態の確認
-            const currentUser = firebase.auth().currentUser;
-            if (currentUser) {
-                console.log(`✅ 既存認証ユーザー: ${currentUser.uid}`);
-                // 認証済みユーザーの処理は login.js で行われる
-            } else {
-                console.log('❌ 未認証 - ログイン画面を表示');
-                showPage('login');
-            }
+        // Firebase認証状態の確認
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser) {
+            console.log(`✅ 既存認証ユーザー: ${currentUser.uid}`);
+            // 認証済みユーザーの処理は login.js で行われる
         } else {
-            // テナント選択が必要な場合、テナント選択画面が既に表示されている
-            console.log('⏳ テナント選択待ち');
+            console.log('❌ 未認証 - ログイン画面を表示');
+            showPage('login');
         }
         
     } catch (error) {
         console.error('❌ システム初期化エラー:', error);
         showError('システムの初期化に失敗しました');
         
-        // フォールバック: テナント選択画面を表示
-        if (typeof showTenantSelection === 'function') {
-            showTenantSelection();
-        } else {
-            showPage('login');
-        }
+        // フォールバック: ログイン画面を表示
+        showPage('login');
     }
     
     // エラーハンドリングの設定
     setupErrorHandling();
     
-    console.log('✅ 勤怠管理システムの初期化が完了しました（マルチテナント版）');
+    console.log('✅ 勤怠管理システムの初期化が完了しました（フォールバック版）');
 }
 
 /**
@@ -190,7 +179,7 @@ function showSuccess(message) {
 }
 
 /**
- * ページ切り替え関数（マルチテナント対応版）
+ * ページ切り替え関数（フォールバック版）
  * @param {string} pageName 表示するページ名
  */
 function showPage(pageName) {
@@ -205,25 +194,10 @@ function showPage(pageName) {
             targetPage.classList.remove('hidden');
             console.log(`✅ ページ切り替え: ${pageName}`);
             
-            // 🆕 テナント情報をページタイトルに反映
-            const currentTenant = getCurrentTenant();
-            if (currentTenant && pageName !== 'tenant-selection') {
-                document.title = `${currentTenant.companyName} - 勤怠管理システム`;
-            } else if (pageName === 'tenant-selection') {
-                document.title = '会社選択 - 勤怠管理システム';
-            }
+            // ページタイトルを更新
+            document.title = '勤怠管理システム';
         } else {
             console.error(`❌ ページが見つかりません: ${pageName}-page`);
-            
-            // フォールバック処理
-            if (pageName === 'tenant-selection') {
-                // テナント選択ページが見つからない場合は動的作成を試行
-                if (typeof showTenantSelection === 'function') {
-                    showTenantSelection();
-                } else {
-                    showPage('login');
-                }
-            }
         }
     } catch (error) {
         console.error('ページ切り替えエラー:', error);
@@ -231,22 +205,13 @@ function showPage(pageName) {
 }
 
 /**
- * 認証チェック（マルチテナント対応版）
+ * 認証チェック（フォールバック版）
  */
 function checkAuthStatus() {
     const currentUser = firebase.auth().currentUser;
-    const currentTenant = getCurrentTenant();
-    
-    if (!currentTenant) {
-        console.log('❌ テナントが選択されていません');
-        if (typeof showTenantSelection === 'function') {
-            showTenantSelection();
-        }
-        return false;
-    }
     
     if (currentUser) {
-        console.log('✅ 認証済み:', currentUser.email, 'テナント:', currentTenant.companyName);
+        console.log('✅ 認証済み:', currentUser.email);
         return true;
     } else {
         console.log('❌ 未認証');
@@ -256,18 +221,14 @@ function checkAuthStatus() {
 }
 
 /**
- * アプリケーション状態の診断（マルチテナント対応版）
+ * アプリケーション状態の診断（フォールバック版）
  */
 function diagnoseApplication() {
-    console.log('=== アプリケーション診断（マルチテナント版） ===');
+    console.log('=== アプリケーション診断（フォールバック版） ===');
     console.log('Firebase App:', typeof firebase !== 'undefined' && firebase.app() ? '初期化済み' : '未初期化');
     console.log('Firestore:', typeof db !== 'undefined' ? '利用可能' : '未定義');
     console.log('Auth:', typeof firebase !== 'undefined' && firebase.auth() ? '利用可能' : '未定義');
     console.log('Current User:', firebase.auth()?.currentUser ? firebase.auth().currentUser.email : 'なし');
-    
-    // 🆕 テナント情報
-    const currentTenant = typeof getCurrentTenant === 'function' ? getCurrentTenant() : null;
-    console.log('Current Tenant:', currentTenant ? `${currentTenant.companyName} (${currentTenant.id})` : 'なし');
     
     // 表示されているページをチェック
     const visiblePage = document.querySelector('.page:not(.hidden)');
@@ -277,8 +238,6 @@ function diagnoseApplication() {
     console.log('initEmployeePage:', typeof window.initEmployeePage);
     console.log('initAdminPage:', typeof window.initAdminPage);
     console.log('getCurrentUser:', typeof window.getCurrentUser);
-    console.log('getCurrentTenant:', typeof window.getCurrentTenant);
-    console.log('initializeTenant:', typeof window.initializeTenant);
     console.log('==============================');
     
     return {
@@ -286,45 +245,28 @@ function diagnoseApplication() {
         firestore: typeof db !== 'undefined',
         auth: typeof firebase !== 'undefined' && firebase.auth(),
         currentUser: firebase.auth()?.currentUser,
-        currentTenant: currentTenant,
         visiblePage: visiblePage?.id
     };
 }
 
 /**
- * DOMContentLoadedイベントでの初期化（マルチテナント対応版）
+ * DOMContentLoadedイベントでの初期化（フォールバック版）
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM読み込み完了 - Multi-tenant version');
+    console.log('📄 DOM読み込み完了 - Fallback version');
     
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #tenant-selection-page')
         .forEach(el => el.classList.add('hidden'));
     
-    // ローディング画面を表示（もしあれば）
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
-        loadingScreen.classList.remove('hidden');
-    }
-    
     // 少し遅延させてからシステム初期化
     setTimeout(() => {
         initializeSystem().then(() => {
-            // ローディング画面を非表示
-            if (loadingScreen) {
-                loadingScreen.classList.add('hidden');
-            }
+            console.log('✅ フォールバック版初期化完了');
         }).catch(error => {
             console.error('システム初期化に失敗:', error);
             // フォールバック処理
-            if (typeof showTenantSelection === 'function') {
-                showTenantSelection();
-            } else {
-                showPage('login');
-            }
-            if (loadingScreen) {
-                loadingScreen.classList.add('hidden');
-            }
+            showPage('login');
         });
     }, 100);
 });
@@ -333,13 +275,26 @@ document.addEventListener('DOMContentLoaded', function() {
  * window.onloadイベントでのバックアップ初期化
  */
 window.onload = function() {
-    console.log('📄 ページが完全に読み込まれました - Multi-tenant version');
+    console.log('📄 ページが完全に読み込まれました - Fallback version');
     
     // DOMContentLoadedで初期化されていない場合のバックアップ
     if (!firebase.apps || firebase.apps.length === 0) {
         console.warn('Firebase未初期化 - バックアップ初期化を実行');
         setTimeout(initializeSystem, 500);
     }
+};
+
+// 🆕 テナント関連の空実装（互換性維持）
+window.getCurrentTenant = function() {
+    return null; // 常にnullを返す
+};
+
+window.getTenantCollection = function(collection) {
+    return collection; // 元のコレクション名をそのまま返す
+};
+
+window.getTenantFirestore = function(collection) {
+    return firebase.firestore().collection(collection);
 };
 
 // デバッグ用のグローバル関数（開発環境のみ）
@@ -352,16 +307,8 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         showPage('login');
     };
     
-    window.forceTenantSelection = function() {
-        if (typeof showTenantSelection === 'function') {
-            showTenantSelection();
-        }
-    };
-    
-    window.testTenant = function() {
-        const tenant = getCurrentTenant();
-        console.log('Current Tenant:', tenant);
-        return tenant;
+    window.testAuth = function() {
+        return checkAuthStatus();
     };
 }
 
