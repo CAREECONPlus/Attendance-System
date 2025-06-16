@@ -129,13 +129,19 @@ async function restoreCurrentState(recordData) {
             updateStatusDisplay('working', recordData);
         }
         
+        // 🎯 重要：状態復元後に強制的にボタン表示を更新
+        setTimeout(() => {
+            console.log('🔄 ボタン表示を再更新');
+            const currentStatus = activeBreakData ? 'break' : 'working';
+            updateClockButtons(currentStatus);
+        }, 100);
+        
     } catch (error) {
         console.error('❌ 状態復元エラー:', error);
         updateClockButtons('working');
         updateStatusDisplay('working', recordData);
     }
 }
-
 // 1日1回制限チェック
 async function checkDailyLimit(userId) {
     console.log('🔍 1日1回制限チェック開始');
@@ -630,62 +636,131 @@ function updateClockButtons(status) {
     const breakStartBtn = document.getElementById('break-start-btn');
     const breakEndBtn = document.getElementById('break-end-btn');
     
-    // 全ボタンをリセット
-    [clockInBtn, clockOutBtn, breakStartBtn, breakEndBtn].forEach(btn => {
+    // 全ボタンをデフォルトに戻す
+    resetAllButtons();
+    
+    switch (status) {
+        case 'waiting':
+            console.log('📋 出勤待ち状態');
+            if (clockInBtn) {
+                clockInBtn.disabled = false;
+                clockInBtn.textContent = '出勤';
+                clockInBtn.style.backgroundColor = '#007bff'; // 青
+                clockInBtn.style.color = 'white';
+            }
+            disableButton(clockOutBtn, '退勤');
+            disableButton(breakStartBtn, '休憩開始');
+            disableButton(breakEndBtn, '休憩終了');
+            break;
+            
+        case 'working':
+            console.log('💼 勤務中状態');
+            if (clockInBtn) {
+                clockInBtn.disabled = true;
+                clockInBtn.textContent = '出勤済み';
+                clockInBtn.style.backgroundColor = '#28a745'; // 緑
+                clockInBtn.style.color = 'white';
+                clockInBtn.style.opacity = '0.8';
+            }
+            if (clockOutBtn) {
+                clockOutBtn.disabled = false;
+                clockOutBtn.textContent = '退勤';
+                clockOutBtn.style.backgroundColor = '#dc3545'; // 赤
+                clockOutBtn.style.color = 'white';
+            }
+            if (breakStartBtn) {
+                breakStartBtn.disabled = false;
+                breakStartBtn.textContent = '休憩開始';
+                breakStartBtn.style.backgroundColor = '#ffc107'; // 黄
+                breakStartBtn.style.color = 'black';
+            }
+            disableButton(breakEndBtn, '休憩終了');
+            break;
+            
+        case 'break':
+            console.log('⏸️ 休憩中状態');
+            if (clockInBtn) {
+                clockInBtn.disabled = true;
+                clockInBtn.textContent = '出勤済み';
+                clockInBtn.style.backgroundColor = '#28a745'; // 緑
+                clockInBtn.style.color = 'white';
+                clockInBtn.style.opacity = '0.8';
+            }
+            if (clockOutBtn) {
+                clockOutBtn.disabled = false;
+                clockOutBtn.textContent = '退勤';
+                clockOutBtn.style.backgroundColor = '#dc3545'; // 赤
+                clockOutBtn.style.color = 'white';
+            }
+            if (breakStartBtn) {
+                breakStartBtn.disabled = true;
+                breakStartBtn.textContent = '休憩中';
+                breakStartBtn.style.backgroundColor = '#17a2b8'; // 水色
+                breakStartBtn.style.color = 'white';
+                breakStartBtn.style.opacity = '0.8';
+            }
+            if (breakEndBtn) {
+                breakEndBtn.disabled = false;
+                breakEndBtn.textContent = '休憩終了';
+                breakEndBtn.style.backgroundColor = '#fd7e14'; // オレンジ
+                breakEndBtn.style.color = 'white';
+            }
+            break;
+            
+        case 'completed':
+            console.log('🔒 勤務完了状態');
+            if (clockInBtn) {
+                clockInBtn.disabled = true;
+                clockInBtn.textContent = '本日勤務完了';
+                clockInBtn.style.backgroundColor = '#6c757d'; // グレー
+                clockInBtn.style.color = 'white';
+                clockInBtn.style.opacity = '0.8';
+            }
+            if (clockOutBtn) {
+                clockOutBtn.disabled = true;
+                clockOutBtn.textContent = '退勤済み';
+                clockOutBtn.style.backgroundColor = '#28a745'; // 緑
+                clockOutBtn.style.color = 'white';
+                clockOutBtn.style.opacity = '0.8';
+            }
+            disableButton(breakStartBtn, '勤務終了');
+            disableButton(breakEndBtn, '勤務終了');
+            break;
+    }
+    
+    console.log('✅ ボタン状態更新完了');
+}
+
+// ボタンを無効化するヘルパー関数
+function disableButton(button, text) {
+    if (button) {
+        button.disabled = true;
+        button.textContent = text;
+        button.style.backgroundColor = '#6c757d'; // グレー
+        button.style.color = 'white';
+        button.style.opacity = '0.6';
+        button.style.cursor = 'not-allowed';
+    }
+}
+
+// 全ボタンをリセットするヘルパー関数
+function resetAllButtons() {
+    const buttons = [
+        document.getElementById('clock-in-btn'),
+        document.getElementById('clock-out-btn'),
+        document.getElementById('break-start-btn'),
+        document.getElementById('break-end-btn')
+    ];
+    
+    buttons.forEach(btn => {
         if (btn) {
             btn.disabled = false;
             btn.style.opacity = '1';
             btn.style.cursor = 'pointer';
             btn.style.backgroundColor = '';
+            btn.style.color = '';
         }
     });
-    
-    switch (status) {
-        case 'waiting':
-            console.log('📋 出勤待ち状態 - 出勤ボタンのみ有効');
-            if (clockInBtn) clockInBtn.disabled = false;
-            if (clockOutBtn) clockOutBtn.disabled = true;
-            if (breakStartBtn) breakStartBtn.disabled = true;
-            if (breakEndBtn) breakEndBtn.disabled = true;
-            break;
-            
-        case 'working':
-            console.log('💼 勤務中状態 - 退勤・休憩開始ボタンが有効');
-            if (clockInBtn) clockInBtn.disabled = true;
-            if (clockOutBtn) clockOutBtn.disabled = false;
-            if (breakStartBtn) breakStartBtn.disabled = false;
-            if (breakEndBtn) breakEndBtn.disabled = true;
-            break;
-            
-        case 'break':
-            console.log('⏸️ 休憩中状態 - 退勤・休憩終了ボタンが有効');
-            if (clockInBtn) clockInBtn.disabled = true;
-            if (clockOutBtn) clockOutBtn.disabled = false;
-            if (breakStartBtn) breakStartBtn.disabled = true;
-            if (breakEndBtn) breakEndBtn.disabled = false;
-            break;
-            
-        case 'completed':
-            console.log('🔒 勤務完了状態 - 全ボタン無効（1日制限）');
-            // 全ボタンを視覚的に無効化
-            [clockInBtn, clockOutBtn, breakStartBtn, breakEndBtn].forEach(btn => {
-                if (btn) {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                    btn.style.backgroundColor = '#6c757d';
-                }
-            });
-            
-            // ボタンテキストを変更
-            if (clockInBtn) clockInBtn.textContent = '本日勤務完了';
-            if (clockOutBtn) clockOutBtn.textContent = '退勤済み';
-            if (breakStartBtn) breakStartBtn.textContent = '勤務終了';
-            if (breakEndBtn) breakEndBtn.textContent = '勤務終了';
-            break;
-    }
-    
-    console.log('✅ ボタン状態更新完了');
 }
 
 // ステータス表示更新
