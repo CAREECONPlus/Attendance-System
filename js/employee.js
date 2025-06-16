@@ -45,6 +45,7 @@ Object.defineProperty(window, 'currentAttendanceId', {
 // let todayAttendanceData = null;  ← これを削除
 
 // 従業員ページの初期化
+// initEmployeePage関数を以下で置き換え
 function initEmployeePage() {
     console.log('🚀 従業員ページ初期化開始（完全版）');
     
@@ -52,24 +53,49 @@ function initEmployeePage() {
     firebase.auth().onAuthStateChanged(async function(user) {
         if (user) {
             console.log('✅ ユーザー認証確認:', user.email);
+            
+            // 🎯 重要：既にログイン済みの場合は変数をリセットしない
+            const wasAlreadyLoggedIn = (currentUser && currentUser.uid === user.uid);
             currentUser = user;
+            
+            if (wasAlreadyLoggedIn) {
+                console.log('🔄 既存ユーザーの再認証 - データを保持');
+                // データがある場合は保持
+                if (todayAttendanceData) {
+                    console.log('📋 既存データを維持:', todayAttendanceData);
+                    const status = todayAttendanceData.status === 'completed' ? 'completed' : 
+                                  todayAttendanceData.status === 'break' ? 'break' : 'working';
+                    updateClockButtons(status);
+                    return; // 初期化をスキップ
+                }
+            } else {
+                console.log('🆕 新規ログインまたは初回認証');
+            }
             
             try {
                 // ユーザー名を表示
                 displayUserName();
                 
-                // 現在時刻の表示を開始
-                updateCurrentTime();
-                setInterval(updateCurrentTime, 1000);
+                // 現在時刻の表示を開始（重複チェック）
+                if (!window.timeIntervalSet) {
+                    updateCurrentTime();
+                    setInterval(updateCurrentTime, 1000);
+                    window.timeIntervalSet = true;
+                }
                 
-                // イベントリスナーの設定
-                setupEmployeeEventListeners();
+                // イベントリスナーの設定（重複チェック）
+                if (!window.eventListenersSet) {
+                    setupEmployeeEventListeners();
+                    window.eventListenersSet = true;
+                }
                 
                 // 現場選択の設定
                 setupSiteSelection();
                 
-                // 今日の勤怠状態を復元
-                await restoreTodayAttendanceState();
+                // 今日の勤怠状態を復元（データがない場合のみ）
+                if (!todayAttendanceData || !currentAttendanceId) {
+                    await restoreTodayAttendanceState();
+                }
                 
                 // 最近の記録を読み込み（遅延実行）
                 setTimeout(() => {
@@ -83,7 +109,19 @@ function initEmployeePage() {
                 showErrorMessage('ページの初期化でエラーが発生しました');
             }
         } else {
-            console.log('❌ ユーザー未認証');
+            console.log('❌ ユーザー未認証 - ログアウト処理');
+            // 🎯 明示的なログアウトの場合のみ変数をクリア
+            if (window.explicitLogout) {
+                currentUser = null;
+                currentAttendanceId = null;
+                todayAttendanceData = null;
+                dailyLimitProcessing = false;
+                window.explicitLogout = false;
+            } else {
+                console.log('⚠️ 自動ログアウト検出 - データを保持');
+                // Firebase認証の一時的な切断の場合はデータを保持
+                currentUser = null; // currentUserのみクリア
+            }
             showPage('login');
         }
     });
@@ -1081,24 +1119,22 @@ function showErrorMessage(message) {
 // ログアウト処理
 function handleLogout() {
     if (confirm('ログアウトしますか？')) {
+        // 🎯 明示的なログアウトフラグを設定
+        window.explicitLogout = true;
+        
         firebase.auth().signOut()
             .then(() => {
                 console.log('✅ ログアウト完了');
-                // グローバル変数をリセット
-                currentUser = null;
-                currentAttendanceId = null;
-                todayAttendanceData = null;
-                dailyLimitProcessing = false;
-                
+                // 変数クリアは onAuthStateChanged で実行される
                 showPage('login');
             })
             .catch((error) => {
                 console.error('❌ ログアウトエラー:', error);
                 alert('ログアウトでエラーが発生しました');
+                window.explicitLogout = false; // エラー時はフラグをリセット
             });
     }
 }
-
 // グローバルエラーハンドリング
 window.addEventListener('unhandledrejection', function(event) {
     if (event.reason && event.reason.code) {
