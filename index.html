@@ -23,6 +23,7 @@
     <script src="js/main.js"></script>
     <script src="js/employee.js"></script>
     <script src="js/admin.js"></script>
+    <script src="js/tenant.js"></script>
 
     <style>
         /* 勤怠ボタンの状態別色設定（強制適用） */
@@ -163,11 +164,353 @@
                 min-width: 80px !important;
             }
         }
+
+        /* ========== テナント選択画面のスタイル ========== */
+        .tenant-selection-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .tenant-selection-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .tenant-header h1 {
+            color: var(--careecon-primary-blue, #2C5DFF);
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .tenant-header h2 {
+            color: #666;
+            margin-bottom: 30px;
+            font-weight: 400;
+        }
+
+        .tenant-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .tenant-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .tenant-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(44, 93, 255, 0.15);
+            border-color: var(--careecon-primary-blue, #2C5DFF);
+        }
+
+        .tenant-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .tenant-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .tenant-card p {
+            color: #666;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .tenant-users {
+            font-weight: 600;
+            color: var(--careecon-primary-blue, #2C5DFF);
+        }
+
+        .tenant-status {
+            margin-top: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .tenant-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .tenant-actions {
+            margin: 30px 0;
+        }
+
+        .tenant-info {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .tenant-info h3 {
+            color: var(--careecon-secondary-blue, #0133D8);
+            margin-bottom: 15px;
+        }
+
+        .tenant-info p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .loading-tenants, .no-tenants, .error-tenants {
+            padding: 60px 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        .loading-tenants .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--careecon-primary-blue, #2C5DFF);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-tenants h3, .error-tenants h3 {
+            color: #999;
+            margin-bottom: 15px;
+        }
+
+        /* ========== モーダルスタイル ========== */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h3 {
+            color: var(--careecon-primary-blue, #2C5DFF);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--careecon-primary-blue, #2C5DFF);
+            box-shadow: 0 0 0 2px rgba(44, 93, 255, 0.2);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--careecon-primary-blue, #2C5DFF);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--careecon-secondary-blue, #0133D8);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .tenant-selection-container {
+                margin: 20px auto;
+                padding: 10px;
+            }
+            
+            .tenant-selection-card {
+                padding: 20px;
+            }
+            
+            .tenant-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .tenant-header h1 {
+                font-size: 2rem;
+            }
+            
+            .modal-content {
+                padding: 20px;
+                margin: 20px;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- テナント選択ページ -->
+    <div id="tenant-selection-page" class="page">
+        <div class="container tenant-selection-container">
+            <div class="tenant-selection-card">
+                <div class="tenant-header">
+                    <h1>🏢 勤怠管理システム</h1>
+                    <h2>会社を選択してください</h2>
+                </div>
+                
+                <div class="tenant-list" id="tenant-list">
+                    <div class="loading-tenants">
+                        <div class="spinner"></div>
+                        <p>会社リストを読み込み中...</p>
+                    </div>
+                </div>
+                
+                <div class="tenant-actions">
+                    <button id="create-new-tenant" class="btn btn-primary">
+                        ➕ 新しい会社を登録
+                    </button>
+                </div>
+                
+                <div class="tenant-info">
+                    <h3>💡 初回利用の方へ</h3>
+                    <p>
+                        1. 「新しい会社を登録」をクリック<br>
+                        2. 会社名を入力して専用URLを生成<br>
+                        3. URLを従業員の皆さんと共有
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 新規テナント作成モーダル -->
+        <div id="create-tenant-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>🏢 新しい会社の登録</h3>
+                <form id="create-tenant-form">
+                    <div class="form-group">
+                        <label for="company-name">会社名</label>
+                        <input type="text" id="company-name" name="companyName" required maxlength="100">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="company-id">会社ID（英数字のみ）</label>
+                        <input type="text" id="company-id" name="companyId" required pattern="[a-zA-Z0-9-]+" maxlength="50">
+                        <small>例: branu-corp, abc-company</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="admin-email">管理者メールアドレス</label>
+                        <input type="email" id="admin-email" name="adminEmail" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">作成</button>
+                        <button type="button" id="cancel-create-tenant" class="btn btn-secondary">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- ログインページ -->
-    <div id="login-page" class="page">
+    <div id="login-page" class="page hidden">
         <div class="container login-container">
             <div class="login-card">
                 <h1>勤怠管理システム</h1>
@@ -391,7 +734,40 @@
                     
                     <div class="form-row">
                         <div class="form-col">
-                            <label for="edit-clock-in">出勤時間:</label>
+                            <label for="break-end">終了時間:</label>
+                            <input type="datetime-local" id="break-end" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">追加</button>
+                        <button type="button" id="cancel-break" class="btn btn-secondary">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ページ固有のJavaScript -->
+    <script src="js/login.js"></script>
+    
+    <script>
+        // ページの初期設定（マルチテナント対応版）
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 DOM読み込み完了 - マルチテナント版');
+            
+            // 初期状態では全ページを非表示
+            document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+            
+            // システム初期化を待つ
+            setTimeout(() => {
+                // main.jsでテナント初期化が実行される
+                console.log('⏳ システム初期化を開始...');
+            }, 100);
+        });
+    </script>
+
+</body>
+</html> for="edit-clock-in">出勤時間:</label>
                             <input type="datetime-local" id="edit-clock-in" required>
                         </div>
                         <div class="form-col">
@@ -438,29 +814,4 @@
                             <input type="datetime-local" id="break-start" required>
                         </div>
                         <div class="form-col">
-                            <label for="break-end">終了時間:</label>
-                            <input type="datetime-local" id="break-end" required>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">追加</button>
-                        <button type="button" id="cancel-break" class="btn btn-secondary">キャンセル</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- ページ固有のJavaScript -->
-    <script src="js/login.js"></script>
-    
-    <script>
-        // ページの初期設定
-        document.addEventListener('DOMContentLoaded', function() {
-            // ログインページを表示
-            showPage('login');
-        });
-    </script>
-
-</body>
-</html>
+                            <label
