@@ -4,9 +4,45 @@ console.log('employee.js loading...');
 
 // 現在のユーザー情報とグローバル変数
 let currentUser = null;
-let currentAttendanceId = null;
-let todayAttendanceData = null;
 let dailyLimitProcessing = false;
+
+// 変数監視用のプロキシ設定
+let _todayAttendanceData = null;
+let _currentAttendanceId = null;
+
+// todayAttendanceDataの監視
+Object.defineProperty(window, 'todayAttendanceData', {
+    get: function() {
+        return _todayAttendanceData;
+    },
+    set: function(value) {
+        console.log('🔍 todayAttendanceData変更:', {
+            old: _todayAttendanceData,
+            new: value,
+            stack: new Error().stack
+        });
+        _todayAttendanceData = value;
+    }
+});
+
+// currentAttendanceIdの監視
+Object.defineProperty(window, 'currentAttendanceId', {
+    get: function() {
+        return _currentAttendanceId;
+    },
+    set: function(value) {
+        console.log('🔍 currentAttendanceId変更:', {
+            old: _currentAttendanceId,
+            new: value,
+            stack: new Error().stack
+        });
+        _currentAttendanceId = value;
+    }
+});
+
+// 既存のグローバル変数宣言を削除または置き換え
+// let currentAttendanceId = null; ← これを削除
+// let todayAttendanceData = null;  ← これを削除
 
 // 従業員ページの初期化
 function initEmployeePage() {
