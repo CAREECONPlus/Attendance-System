@@ -506,7 +506,7 @@ function getSiteNameFromSelection() {
     return siteName;
 }
 
-// handleClockIn関数の修正版
+// 修正版 handleClockIn関数（日付問題修正）
 async function handleClockIn() {
     console.log('🚀 出勤処理開始');
     
@@ -552,35 +552,49 @@ async function handleClockIn() {
         // 🚨 重要：1日1回制限チェック
         const canClockIn = await checkDailyLimit(currentUser.uid);
         if (!canClockIn) {
-            restoreButton(); // ボタンを復元
-            return; // 出勤不可
-        }
-        
-        // 現場選択チェック（ここでエラーになることが多い）
-        const siteName = getSiteNameFromSelection();
-        
-        if (!siteName) {
-            // ⭐ 重要：現場未選択時にボタンを復元
             restoreButton();
             return;
         }
         
-        // 出勤データ作成
+        // 現場選択チェック
+        const siteName = getSiteNameFromSelection();
+        
+        if (!siteName) {
+            restoreButton();
+            return;
+        }
+        
+        // 🎯 日付生成を修正（JST確実対応）
         const now = new Date();
-        const today = now.toISOString().split('T')[0];
+        
+        // 日本時間で確実に今日の日付を取得
+        const jstDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+        const today = jstDate.toISOString().split('T')[0];
+        
+        // デバッグ用ログ
+        console.log('🕐 時刻情報:', {
+            originalTime: now.toString(),
+            jstTime: jstDate.toString(),
+            savedDate: today,
+            startTime: now.toLocaleTimeString('ja-JP')
+        });
+        
         const workNotesElement = document.getElementById('work-notes');
         const workNotes = workNotesElement ? workNotesElement.value.trim() : '';
         
         const attendanceData = {
             userId: currentUser.uid,
             userEmail: currentUser.email,
-            date: today,
+            date: today,  // 修正された日付
             siteName: siteName,
             startTime: now.toLocaleTimeString('ja-JP'),
             status: 'working',
             notes: workNotes,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            // デバッグ用
+            clientTimestamp: now.toISOString(),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         };
         
         console.log('💾 出勤データ保存中...', attendanceData);
@@ -601,11 +615,11 @@ async function handleClockIn() {
             updatedAt: now
         };
         
-        // UI更新（成功時はボタン状態変更）
+        // UI更新
         updateClockButtons('working');
         updateStatusDisplay('working', todayAttendanceData);
         
-        alert(`✅ 出勤しました！\n現場: ${siteName}\n時刻: ${attendanceData.startTime}`);
+        alert(`✅ 出勤しました！\n現場: ${siteName}\n時刻: ${attendanceData.startTime}\n日付: ${today}`);
         
         // フォームをクリア
         if (workNotesElement) workNotesElement.value = '';
@@ -620,7 +634,6 @@ async function handleClockIn() {
         console.error('❌ 出勤処理エラー:', error);
         alert('出勤処理中にエラーが発生しました。\n' + error.message);
         
-        // ⭐ エラー時は必ずボタンを復元
         restoreButton();
     }
 }
