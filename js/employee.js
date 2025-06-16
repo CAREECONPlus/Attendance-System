@@ -1027,3 +1027,90 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ employee.js（完全版 - 1日1回制限対応）読み込み完了');
+
+// employee.jsの最後に以下の関数を追加
+
+// デバッグ用：現在の状態を強制チェックする関数
+function debugCurrentState() {
+    console.log('🔍 デバッグ：現在の状態');
+    console.log('currentUser:', currentUser?.email);
+    console.log('currentAttendanceId:', currentAttendanceId);
+    console.log('todayAttendanceData:', todayAttendanceData);
+    
+    // ボタンの現在の状態を確認
+    const clockInBtn = document.getElementById('clock-in-btn');
+    const clockOutBtn = document.getElementById('clock-out-btn');
+    const breakStartBtn = document.getElementById('break-start-btn');
+    const breakEndBtn = document.getElementById('break-end-btn');
+    
+    console.log('ボタン状態:', {
+        clockIn: { disabled: clockInBtn?.disabled, text: clockInBtn?.textContent },
+        clockOut: { disabled: clockOutBtn?.disabled, text: clockOutBtn?.textContent },
+        breakStart: { disabled: breakStartBtn?.disabled, text: breakStartBtn?.textContent },
+        breakEnd: { disabled: breakEndBtn?.disabled, text: breakEndBtn?.textContent }
+    });
+    
+    // 今日の日付チェック
+    const today = new Date().toISOString().split('T')[0];
+    console.log('今日の日付:', today);
+    console.log('記録の日付:', todayAttendanceData?.date);
+}
+
+// 強制的に勤務中状態に修正する緊急関数
+function forceWorkingState() {
+    console.log('🚨 緊急：勤務中状態に強制修正');
+    
+    if (todayAttendanceData) {
+        updateClockButtons('working');
+        updateStatusDisplay('working', todayAttendanceData);
+        console.log('✅ 勤務中状態に修正完了');
+    } else {
+        console.error('❌ todayAttendanceData が存在しません');
+        
+        // todayAttendanceDataがない場合は再取得を試行
+        console.log('🔄 勤怠データ再取得を試行...');
+        restoreTodayAttendanceState();
+    }
+}
+
+// 状態を強制リセットして再初期化する関数
+function forceStateReset() {
+    console.log('🔄 状態を強制リセット');
+    
+    // グローバル変数をクリア
+    currentAttendanceId = null;
+    todayAttendanceData = null;
+    
+    // 状態を再取得
+    setTimeout(() => {
+        restoreTodayAttendanceState();
+    }, 100);
+}
+
+// 緊急時の手動状態設定関数
+function setManualWorkingState(siteName = 'BRANU') {
+    console.log('🛠️ 手動で勤務中状態を設定');
+    
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    // 手動でtodayAttendanceDataを作成
+    todayAttendanceData = {
+        id: 'manual_' + Date.now(),
+        userId: currentUser?.uid,
+        userEmail: currentUser?.email,
+        date: today,
+        siteName: siteName,
+        startTime: '8:56:50', // 画面に表示されている時間
+        status: 'working',
+        notes: '打刻1日目'
+    };
+    
+    currentAttendanceId = todayAttendanceData.id;
+    
+    // UI更新
+    updateClockButtons('working');
+    updateStatusDisplay('working', todayAttendanceData);
+    
+    console.log('✅ 手動状態設定完了:', todayAttendanceData);
+}
