@@ -23,6 +23,148 @@
     <script src="js/main.js"></script>
     <script src="js/employee.js"></script>
     <script src="js/admin.js"></script>
+
+    <style>
+        /* 勤怠ボタンの状態別色設定（強制適用） */
+        #clock-in-btn,
+        #clock-out-btn, 
+        #break-start-btn,
+        #break-end-btn {
+            transition: all 0.3s ease !important;
+            border: none !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 18px !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            cursor: pointer !important;
+            box-shadow: var(--shadow-sm) !important;
+            min-width: 120px !important;
+        }
+
+        /* 出勤ボタン - 待機状態（青） */
+        #clock-in-btn:not(:disabled) {
+            background: linear-gradient(135deg, #007bff, #0056b3) !important;
+            color: white !important;
+        }
+
+        /* 出勤ボタン - 出勤済み状態（緑） */
+        #clock-in-btn:disabled {
+            background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+            color: white !important;
+            opacity: 0.85 !important;
+        }
+
+        /* 退勤ボタン - 有効状態（赤） */
+        #clock-out-btn:not(:disabled) {
+            background: linear-gradient(135deg, #dc3545, #c82333) !important;
+            color: white !important;
+        }
+
+        /* 退勤ボタン - 無効状態（グレー） */
+        #clock-out-btn:disabled {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* 休憩開始ボタン - 有効状態（黄色） */
+        #break-start-btn:not(:disabled) {
+            background: linear-gradient(135deg, #ffc107, #e0a800) !important;
+            color: black !important;
+        }
+
+        /* 休憩開始ボタン - 休憩中状態（水色） */
+        #break-start-btn.break-active {
+            background: linear-gradient(135deg, #17a2b8, #138496) !important;
+            color: white !important;
+            opacity: 0.85 !important;
+        }
+
+        /* 休憩開始ボタン - 無効状態（グレー） */
+        #break-start-btn:disabled:not(.break-active) {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* 休憩終了ボタン - 有効状態（オレンジ） */
+        #break-end-btn:not(:disabled) {
+            background: linear-gradient(135deg, #fd7e14, #e8650e) !important;
+            color: white !important;
+        }
+
+        /* 休憩終了ボタン - 無効状態（グレー） */
+        #break-end-btn:disabled {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* ホバー効果（有効なボタンのみ） */
+        .clock-btn:not(:disabled):hover {
+            transform: translateY(-2px) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        /* 無効ボタンの統一スタイル */
+        .clock-btn:disabled {
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+
+        /* 処理中ボタンのスタイル */
+        .clock-btn.processing {
+            opacity: 0.7 !important;
+            cursor: wait !important;
+            pointer-events: none !important;
+        }
+
+        /* 状態表示の強化 */
+        .status-working {
+            background: rgba(40, 167, 69, 0.1) !important;
+            color: #28a745 !important;
+            border-left: 4px solid #28a745 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-break {
+            background: rgba(255, 193, 7, 0.1) !important;
+            color: #ffc107 !important;
+            border-left: 4px solid #ffc107 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-completed {
+            background: rgba(23, 162, 184, 0.1) !important;
+            color: #17a2b8 !important;
+            border-left: 4px solid #17a2b8 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-waiting {
+            background: rgba(108, 117, 125, 0.1) !important;
+            color: #6c757d !important;
+            border-left: 4px solid #6c757d !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* 小画面対応 */
+        @media (max-width: 480px) {
+            #clock-in-btn,
+            #clock-out-btn, 
+            #break-start-btn,
+            #break-end-btn {
+                padding: 14px 8px !important;
+                font-size: 16px !important;
+                min-width: 80px !important;
+            }
+        }
+    </style>
+</head>
 </head>
 <body>
     <!-- ログインページ -->
