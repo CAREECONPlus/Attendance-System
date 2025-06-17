@@ -1,4 +1,4 @@
-// employee.js - 従業員ページの機能（完全版 - 1日1回制限対応）
+// employee.js - 従業員ページの機能（完全版 - 日付修正版）
 
 console.log('employee.js loading...');
 
@@ -40,14 +40,27 @@ Object.defineProperty(window, 'currentAttendanceId', {
     }
 });
 
-// 既存のグローバル変数宣言を削除または置き換え
-// let currentAttendanceId = null; ← これを削除
-// let todayAttendanceData = null;  ← これを削除
+// 🆕 日本時間で確実に今日の日付を取得する関数
+function getTodayJST() {
+    const now = new Date();
+    
+    // 日本時間で確実に計算（UTC + 9時間）
+    const jstDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+    const today = jstDate.toISOString().split('T')[0];
+    
+    console.log('🕐 日付計算詳細:', {
+        現在時刻_UTC: now.toISOString(),
+        現在時刻_JST: jstDate.toISOString(),
+        今日の日付: today,
+        タイムゾーンオフセット: now.getTimezoneOffset()
+    });
+    
+    return today;
+}
 
 // 従業員ページの初期化
-// initEmployeePage関数を以下で置き換え
 function initEmployeePage() {
-    console.log('🚀 従業員ページ初期化開始（完全版）');
+    console.log('🚀 従業員ページ初期化開始（日付修正版）');
     
     // Firebase認証状態の監視
     firebase.auth().onAuthStateChanged(async function(user) {
@@ -127,7 +140,7 @@ function initEmployeePage() {
     });
 }
 
-// 改良版 restoreTodayAttendanceState関数
+// 🔧 修正版 restoreTodayAttendanceState関数（日付修正）
 async function restoreTodayAttendanceState() {
     console.log('🔄 今日の勤怠状態を復元中...');
     
@@ -137,51 +150,36 @@ async function restoreTodayAttendanceState() {
             return;
         }
         
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        // 🎯 修正: JST確実取得
+        const today = getTodayJST();
         
-        console.log('📅 検索対象日付:', { today, yesterday });
+        console.log('📅 正確な今日の日付:', today);
         console.log('👤 検索対象ユーザー:', currentUser.uid);
         
-        // まず今日のデータを検索
-        let query = firebase.firestore()
+        // 今日のデータのみを検索
+        const todayQuery = firebase.firestore()
             .collection('attendance')
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today);
         
         console.log('🔍 今日のデータをFirestoreで検索中...');
-        let snapshot = await query.get();
+        const todaySnapshot = await todayQuery.get();
         
         console.log('📊 今日のクエリ結果:', {
-            empty: snapshot.empty,
-            size: snapshot.size
+            検索日付: today,
+            empty: todaySnapshot.empty,
+            size: todaySnapshot.size
         });
         
-        // 今日のデータがない場合は昨日のデータを検索
-        if (snapshot.empty) {
-            console.log('⚠️ 今日のデータなし - 昨日のデータを検索中...');
-            
-            query = firebase.firestore()
-                .collection('attendance')
-                .where('userId', '==', currentUser.uid)
-                .where('date', '==', yesterday);
-            
-            snapshot = await query.get();
-            
-            console.log('📊 昨日のクエリ結果:', {
-                empty: snapshot.empty,
-                size: snapshot.size
-            });
-        }
-        
-        // 最新の未完了データがあるかチェック
-        if (!snapshot.empty) {
+        if (!todaySnapshot.empty) {
+            // 今日のデータが見つかった場合
             let latestRecord = null;
             let latestDoc = null;
             
-            // 複数ある場合は最新のものを選択
-            snapshot.docs.forEach(doc => {
+            todaySnapshot.docs.forEach(doc => {
                 const data = doc.data();
+                console.log('📋 今日のデータ詳細:', data);
+                
                 if (!latestRecord || 
                     (data.createdAt && (!latestRecord.createdAt || data.createdAt > latestRecord.createdAt))) {
                     latestRecord = data;
@@ -189,40 +187,24 @@ async function restoreTodayAttendanceState() {
                 }
             });
             
-            console.log('📋 取得した最新記録:', latestRecord);
+            // 今日のデータを復元
+            currentAttendanceId = latestDoc.id;
+            todayAttendanceData = {
+                id: latestDoc.id,
+                ...latestRecord
+            };
             
-            // 勤務が完了していない場合のみ復元
-            if (latestRecord.status !== 'completed' || !latestRecord.endTime) {
-                console.log('🔄 未完了の勤務を復元中...');
-                
-                // グローバル変数に設定
-                currentAttendanceId = latestDoc.id;
-                todayAttendanceData = {
-                    id: latestDoc.id,
-                    ...latestRecord
-                };
-                
-                console.log('✅ グローバル変数設定完了:', {
-                    currentAttendanceId,
-                    todayAttendanceData
-                });
-                
-                // 現在の状態に応じてUIを更新
-                await restoreCurrentState(latestRecord);
-                
-                console.log('✅ 勤怠状態復元完了');
-            } else {
-                console.log('✅ 勤務完了済み - 新規出勤待ち状態');
-                currentAttendanceId = null;
-                todayAttendanceData = null;
-                updateClockButtons('waiting');
-            }
+            console.log('✅ 今日のデータ復元完了');
+            await restoreCurrentState(latestRecord);
             
         } else {
-            console.log('📋 勤怠記録なし - 出勤待ち状態');
+            // 今日のデータがない場合は新規出勤待ち状態
+            console.log('📋 今日の勤怠記録なし - 新規出勤待ち状態');
+            
             currentAttendanceId = null;
             todayAttendanceData = null;
             updateClockButtons('waiting');
+            updateStatusDisplay('waiting', null);
         }
         
         // データ設定後の確認
@@ -243,29 +225,10 @@ async function restoreTodayAttendanceState() {
         currentAttendanceId = null;
         todayAttendanceData = null;
         updateClockButtons('waiting');
+        updateStatusDisplay('waiting', null);
     }
 }
 
-// データ取得を強制実行する関数
-async function forceDataReload() {
-    console.log('🔄 データを強制再読み込み');
-    
-    // 現在の変数をクリア
-    currentAttendanceId = null;
-    todayAttendanceData = null;
-    
-    // 状態復元を実行
-    await restoreTodayAttendanceState();
-    
-    // 結果確認
-    setTimeout(() => {
-        console.log('🔍 再読み込み後の状態:', {
-            currentAttendanceId,
-            todayAttendanceData,
-            currentUser: currentUser?.email
-        });
-    }, 200);
-}
 // 現在の状態を復元
 async function restoreCurrentState(recordData) {
     console.log('🔄 現在の状態を復元中...', recordData);
@@ -319,11 +282,13 @@ async function restoreCurrentState(recordData) {
         updateStatusDisplay('working', recordData);
     }
 }
-// 1日1回制限チェック
+
+// 🔧 修正版 1日1回制限チェック（日付修正）
 async function checkDailyLimit(userId) {
     console.log('🔍 1日1回制限チェック開始');
     
-    const today = new Date().toISOString().split('T')[0];
+    // 🎯 修正: JST確実取得
+    const today = getTodayJST();
     console.log('📅 今日の日付:', today);
     
     try {
@@ -506,7 +471,7 @@ function getSiteNameFromSelection() {
     return siteName;
 }
 
-// 修正版 handleClockIn関数（日付問題修正）
+// 🔧 修正版 handleClockIn関数（日付修正完全版）
 async function handleClockIn() {
     console.log('🚀 出勤処理開始');
     
@@ -567,14 +532,12 @@ async function handleClockIn() {
         // 🎯 日付生成を修正（JST確実対応）
         const now = new Date();
         
-        // 日本時間で確実に今日の日付を取得
-        const jstDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
-        const today = jstDate.toISOString().split('T')[0];
+        // 🆕 修正: getTodayJST()を使用
+        const today = getTodayJST();
         
         // デバッグ用ログ
         console.log('🕐 時刻情報:', {
             originalTime: now.toString(),
-            jstTime: jstDate.toString(),
             savedDate: today,
             startTime: now.toLocaleTimeString('ja-JP')
         });
@@ -585,7 +548,7 @@ async function handleClockIn() {
         const attendanceData = {
             userId: currentUser.uid,
             userEmail: currentUser.email,
-            date: today,  // 修正された日付
+            date: today,  // 🎯 修正された日付
             siteName: siteName,
             startTime: now.toLocaleTimeString('ja-JP'),
             status: 'working',
@@ -687,7 +650,7 @@ async function handleClockOut() {
     }
 }
 
-// 休憩開始処理
+// 🔧 修正版 休憩開始処理（日付修正）
 async function handleBreakStart() {
     console.log('☕ 休憩開始処理...');
     
@@ -725,7 +688,7 @@ async function handleBreakStart() {
             attendanceId: currentAttendanceId,
             userId: currentUser.uid,
             startTime: now.toLocaleTimeString('ja-JP'),
-            date: now.toISOString().split('T')[0],
+            date: getTodayJST(), // 🎯 修正: JST確実取得
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
@@ -817,7 +780,7 @@ async function handleBreakEnd() {
     }
 }
 
-// employee.jsのupdateClockButtons関数を以下で置き換え
+// updateClockButtons関数
 function updateClockButtons(status) {
     console.log('🔘 ボタン状態更新:', status);
     
@@ -937,38 +900,6 @@ function updateClockButtons(status) {
     }, 50);
     
     console.log('✅ ボタン状態更新完了');
-}
-
-// ボタンを無効化するヘルパー関数
-function disableButton(button, text) {
-    if (button) {
-        button.disabled = true;
-        button.textContent = text;
-        button.style.backgroundColor = '#6c757d'; // グレー
-        button.style.color = 'white';
-        button.style.opacity = '0.6';
-        button.style.cursor = 'not-allowed';
-    }
-}
-
-// 全ボタンをリセットするヘルパー関数
-function resetAllButtons() {
-    const buttons = [
-        document.getElementById('clock-in-btn'),
-        document.getElementById('clock-out-btn'),
-        document.getElementById('break-start-btn'),
-        document.getElementById('break-end-btn')
-    ];
-    
-    buttons.forEach(btn => {
-        if (btn) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.style.backgroundColor = '';
-            btn.style.color = '';
-        }
-    });
 }
 
 // ステータス表示更新
@@ -1193,6 +1124,28 @@ function handleLogout() {
             });
     }
 }
+
+// データ取得を強制実行する関数
+async function forceDataReload() {
+    console.log('🔄 データを強制再読み込み');
+    
+    // 現在の変数をクリア
+    currentAttendanceId = null;
+    todayAttendanceData = null;
+    
+    // 状態復元を実行
+    await restoreTodayAttendanceState();
+    
+    // 結果確認
+    setTimeout(() => {
+        console.log('🔍 再読み込み後の状態:', {
+            currentAttendanceId,
+            todayAttendanceData,
+            currentUser: currentUser?.email
+        });
+    }, 200);
+}
+
 // グローバルエラーハンドリング
 window.addEventListener('unhandledrejection', function(event) {
     if (event.reason && event.reason.code) {
@@ -1214,11 +1167,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(initEmployeePage, 500);
 });
 
-console.log('✅ employee.js（完全版 - 1日1回制限対応）読み込み完了');
-
-// employee.jsの最後に以下の関数を追加
-
-// デバッグ用：現在の状態を強制チェックする関数
+// デバッグ用関数
 function debugCurrentState() {
     console.log('🔍 デバッグ：現在の状態');
     console.log('currentUser:', currentUser?.email);
@@ -1238,9 +1187,9 @@ function debugCurrentState() {
         breakEnd: { disabled: breakEndBtn?.disabled, text: breakEndBtn?.textContent }
     });
     
-    // 今日の日付チェック
-    const today = new Date().toISOString().split('T')[0];
-    console.log('今日の日付:', today);
+    // 🆕 正確な今日の日付チェック
+    const today = getTodayJST();
+    console.log('正確な今日の日付:', today);
     console.log('記録の日付:', todayAttendanceData?.date);
 }
 
@@ -1275,30 +1224,28 @@ function forceStateReset() {
     }, 100);
 }
 
-// 緊急時の手動状態設定関数
-function setManualWorkingState(siteName = 'BRANU') {
-    console.log('🛠️ 手動で勤務中状態を設定');
+// 🆕 正確な日付でのテスト関数
+function testTodayDate() {
+    const today = getTodayJST();
+    console.log('🧪 今日の日付テスト:', today);
     
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    // 今日のデータを検索
+    const query = firebase.firestore()
+        .collection('attendance')
+        .where('userId', '==', currentUser.uid)
+        .where('date', '==', today);
     
-    // 手動でtodayAttendanceDataを作成
-    todayAttendanceData = {
-        id: 'manual_' + Date.now(),
-        userId: currentUser?.uid,
-        userEmail: currentUser?.email,
-        date: today,
-        siteName: siteName,
-        startTime: '8:56:50', // 画面に表示されている時間
-        status: 'working',
-        notes: '打刻1日目'
-    };
-    
-    currentAttendanceId = todayAttendanceData.id;
-    
-    // UI更新
-    updateClockButtons('working');
-    updateStatusDisplay('working', todayAttendanceData);
-    
-    console.log('✅ 手動状態設定完了:', todayAttendanceData);
+    query.get().then(snapshot => {
+        console.log('📊 今日のデータ件数:', snapshot.size);
+        if (snapshot.empty) {
+            console.log('✅ 今日は出勤可能');
+        } else {
+            console.log('❌ 今日は既に出勤済み');
+            snapshot.docs.forEach(doc => {
+                console.log('今日のデータ:', doc.data());
+            });
+        }
+    });
 }
+
+console.log('✅ employee.js（完全版 - 日付修正版）読み込み完了');
