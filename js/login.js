@@ -91,6 +91,11 @@ async function initLogin() {
         // Firebase認証状態の監視
         firebase.auth().onAuthStateChanged(handleAuthStateChange);
         
+        // 管理者登録依頼フォーム関連のイベントリスナー設定（少し遅延）
+        setTimeout(() => {
+            setupAdminRequestListeners();
+        }, 100);
+        
         loginInitialized = true;
         console.log('🎉 ログイン機能初期化完了');
         
@@ -439,9 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
         .forEach(el => el.classList.add('hidden'));
-    
-    // 管理者登録依頼フォーム関連のイベントリスナー設定
-    setupAdminRequestListeners();
     
     // 少し遅延させてFirebase初期化を確実に待つ
     setTimeout(() => {
