@@ -17,10 +17,14 @@
     <!-- Firebase設定 -->
     <script src="js/firebase.js"></script>
     
+    <!-- テナント管理 -->
+    <script src="js/tenant.js"></script>
+    
     <!-- システムのJavaScript -->
     <script src="js/utils.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/tenant-settings.js"></script>
     <script src="js/employee.js"></script>
     <script src="js/admin.js"></script>
 
@@ -341,11 +345,15 @@
                 <div class="site-selection">
                     <div class="form-group">
                         <label for="site-name">🏢 現場名：</label>
+                        <select id="site-name" required>
+                            <option value="">現場を選択してください</option>
+                            <option value="manual-input" style="color: #666; font-style: italic;">📝 手動入力する</option>
+                        </select>
                         <input type="text" 
-                               id="site-name" 
+                               id="site-name-manual" 
                                placeholder="現場名を入力してください" 
-                               required
-                               maxlength="100">
+                               maxlength="100"
+                               style="display: none; margin-top: 8px;">
                     </div>
                 </div>
 
@@ -540,6 +548,43 @@
         </div>
     </div>
 
+    <!-- テナント管理画面（スーパー管理者用） -->
+    <div id="tenant-management-page" class="page hidden">
+        <div class="container">
+            <header class="app-header">
+                <h1>勤怠管理システム - テナント管理</h1>
+                <div class="user-info">
+                    <span id="super-admin-user-name"></span>
+                    <button id="tenant-logout-btn" class="btn btn-secondary btn-small">ログアウト</button>
+                </div>
+            </header>
+
+            <main class="tenant-main">
+                <div id="tenant-list-container">
+                    <div class="loading-message">🔄 テナント情報を読み込み中...</div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- テナント選択画面 -->
+    <div id="tenant-selection-page" class="page hidden">
+        <div class="container">
+            <div class="tenant-selection-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏢 テナント選択</h2>
+                        <p>ご利用のテナントを選択してください</p>
+                    </div>
+                    <div class="card-body">
+                        <div id="tenant-selection-container">
+                            <div class="loading-message">🔄 テナント情報を読み込み中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ページ固有のJavaScript -->
     <script src="js/login.js"></script>

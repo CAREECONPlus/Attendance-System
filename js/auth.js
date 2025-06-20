@@ -44,8 +44,9 @@ async function registerUser(email, password, displayName, role = 'employee') {
             displayName: displayName
         });
         
-        // Firestoreにユーザー情報を保存
-        await firestoreDb.collection('users').doc(user.uid).set({
+        // Firestoreにユーザー情報を保存（テナント対応）
+        const userCollection = window.getUserCollection ? window.getUserCollection() : firestoreDb.collection('users');
+        await userCollection.doc(user.uid).set({
             email: email,
             displayName: displayName,
             role: role,
@@ -118,7 +119,9 @@ async function getUserRole(userId) {
             return { success: false, error: 'ユーザーIDが無効です' };
         }
         
-        const userDoc = await firestoreDb.collection('users').doc(userId).get();
+        // テナント対応のユーザー情報取得
+        const userCollection = window.getUserCollection ? window.getUserCollection() : firestoreDb.collection('users');
+        const userDoc = await userCollection.doc(userId).get();
         
         if (userDoc.exists) {
             const userData = userDoc.data();

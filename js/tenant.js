@@ -1,547 +1,376 @@
 /**
- * 勤怠管理システム - マルチテナント機能（エラー処理強化版）
+ * マルチテナント管理ユーティリティ
+ * URLパラメータ方式でテナント識別
  */
 
-console.log('tenant.js loaded - Robust Multi-tenant support');
+console.log('tenant.js loaded');
 
-// 現在のテナント情報
-let currentTenant = null;
-let tenantInitialized = false;
+// テナント情報をグローバルに保持
+window.currentTenant = null;
 
 /**
- * URLパラメータからテナントIDを取得
+ * URLからテナントIDを取得
  */
 function getTenantFromURL() {
     const urlParams = new URLSearchParams(window.location.search);
-    const tenantId = urlParams.get('tenant');
-    console.log('🏢 URLからテナントID取得:', tenantId);
-    return tenantId;
+    return urlParams.get('tenant');
 }
 
 /**
- * テナント選択画面を表示
+ * テナントIDを生成（管理者登録時）
+ * 会社名から安全なIDを生成
  */
-function showTenantSelection() {
-    console.log('🏢 テナント選択画面を表示');
+function generateTenantId(companyName) {
+    // 会社名を安全なID形式に変換
+    const baseId = companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-') // 英数字以外をハイフンに
+        .replace(/-+/g, '-') // 連続するハイフンを1つに
+        .replace(/^-|-$/g, ''); // 先頭末尾のハイフンを削除
     
+    // タイムスタンプを追加してユニーク性を確保
+    const timestamp = Date.now().toString(36);
+    return `${baseId}-${timestamp}`;
+}
+
+/**
+ * 現在のテナントIDを取得
+ */
+function getCurrentTenantId() {
+    if (window.currentTenant) {
+        return window.currentTenant.id;
+    }
+    return getTenantFromURL();
+}
+
+/**
+ * テナント情報をFirestoreから取得
+ */
+async function loadTenantInfo(tenantId) {
     try {
-        // 既存のページを非表示
-        document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+        if (!tenantId) return null;
         
-        // テナント選択画面があるかチェック
-        let tenantSelectionPage = document.getElementById('tenant-selection-page');
-        if (tenantSelectionPage) {
-            tenantSelectionPage.classList.remove('hidden');
-        } else {
-            console.warn('⚠️ テナント選択ページが見つかりません - 作成します');
-            tenantSelectionPage = createTenantSelectionPage();
-            document.body.appendChild(tenantSelectionPage);
-        }
-        
-        // テナントリストを読み込み（エラーハンドリング付き）
-        setTimeout(() => {
-            loadTenantListSafely();
-        }, 500);
-        
-    } catch (error) {
-        console.error('❌ テナント選択画面表示エラー:', error);
-        
-        // フォールバック: ログイン画面を表示
-        if (typeof showPage === 'function') {
-            showPage('login');
-        }
-    }
-}
-
-/**
- * 安全なテナントリスト読み込み
- */
-async function loadTenantListSafely() {
-    console.log('📋 安全なテナントリスト読み込み開始');
-    
-    const tenantList = document.getElementById('tenant-list');
-    if (!tenantList) {
-        console.warn('⚠️ tenant-list要素が見つかりません');
-        return;
-    }
-    
-    try {
-        // Firebase初期化確認
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            throw new Error('Firebase未初期化');
-        }
-        
-        // 最もシンプルなクエリ
-        const tenantsRef = firebase.firestore().collection('tenants');
-        const snapshot = await tenantsRef.get();
-        
-        console.log('✅ Firestore接続成功:', snapshot.size, '件取得');
-        
-        if (snapshot.empty) {
-            showNoTenantsMessage();
-            return;
-        }
-        
-        // テナントリストを表示
-        const tenants = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.isActive !== false) {
-                tenants.push({
-                    id: doc.id,
-                    ...data
-                });
-            }
-        });
-        
-        displayTenantList(tenants);
-        
-    } catch (error) {
-        console.error('❌ テナントリスト読み込みエラー:', error);
-        showTenantListError(error);
-    }
-}
-
-/**
- * テナントがない場合の表示
- */
-function showNoTenantsMessage() {
-    const tenantList = document.getElementById('tenant-list');
-    if (tenantList) {
-        tenantList.innerHTML = `
-            <div class="no-tenants">
-                <h3>🏢 登録された会社がありません</h3>
-                <p>「新しい会社を登録」ボタンから最初の会社を作成してください</p>
-                <button onclick="showCreateTenantModal()" class="btn btn-primary" style="margin-top: 15px;">
-                    ➕ 今すぐ作成
-                </button>
-            </div>
-        `;
-    }
-}
-
-/**
- * テナントリスト表示
- */
-function displayTenantList(tenants) {
-    const tenantList = document.getElementById('tenant-list');
-    if (!tenantList) return;
-    
-    let html = '<div class="tenant-grid">';
-    tenants.forEach(tenant => {
-        html += `
-            <div class="tenant-card" onclick="selectTenant('${tenant.id}')">
-                <div class="tenant-icon">🏢</div>
-                <h3>${escapeHtml(tenant.companyName || 'Unknown Company')}</h3>
-                <p>ID: ${escapeHtml(tenant.id)}</p>
-                <p class="tenant-users">👥 ${tenant.userCount || 0}名</p>
-                <div class="tenant-status active">✅ 利用可能</div>
-            </div>
-        `;
-    });
-    html += '</div>';
-    
-    tenantList.innerHTML = html;
-    console.log(`✅ ${tenants.length}件のテナントを表示`);
-}
-
-/**
- * テナントリストエラー表示
- */
-function showTenantListError(error) {
-    const tenantList = document.getElementById('tenant-list');
-    if (!tenantList) return;
-    
-    let errorMessage = 'データの読み込みに失敗しました';
-    let solution = '';
-    
-    if (error.code === 'permission-denied') {
-        errorMessage = 'データベースへのアクセス権限がありません';
-        solution = `
-            <div style="margin: 15px 0; font-size: 12px; text-align: left;">
-                <strong>解決方法:</strong><br>
-                1. Firebase Console → Firestore → ルール<br>
-                2. 以下をコピー&ペースト:<br>
-                <code style="background: rgba(0,0,0,0.1); padding: 5px; display: block; margin: 5px 0; font-size: 11px;">
-rules_version = '2';<br>
-service cloud.firestore {<br>
-&nbsp;&nbsp;match /databases/{database}/documents {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;}<br>
-}
-                </code>
-                3. 「公開」をクリック
-            </div>
-        `;
-    } else if (error.code === 'unavailable') {
-        errorMessage = 'Firestoreサービスに接続できません';
-        solution = '<p>インターネット接続を確認してください</p>';
-    }
-    
-    tenantList.innerHTML = `
-        <div class="error-tenants">
-            <h3>⚠️ エラー</h3>
-            <p>${errorMessage}</p>
-            ${solution}
-            <button onclick="loadTenantListSafely()" class="btn btn-secondary" style="margin-top: 15px;">
-                🔄 再試行
-            </button>
-            <button onclick="proceedWithoutTenant()" class="btn btn-primary" style="margin-top: 15px; margin-left: 10px;">
-                🚀 従来モードで続行
-            </button>
-        </div>
-    `;
-}
-
-/**
- * HTMLエスケープ
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * テナントなしで続行
- */
-function proceedWithoutTenant() {
-    console.log('🚀 テナントなしで従来モードで続行');
-    
-    // currentTenantをnullに設定
-    currentTenant = null;
-    
-    // ログイン画面に遷移
-    if (typeof showPage === 'function') {
-        showPage('login');
-    }
-    
-    // ページタイトルを更新
-    document.title = '勤怠管理システム';
-    
-    showToast('従来モードで続行します', 'info');
-}
-
-/**
- * テナント選択画面のHTML作成（最小限）
- */
-function createTenantSelectionPage() {
-    const page = document.createElement('div');
-    page.id = 'tenant-selection-page';
-    page.className = 'page';
-    page.innerHTML = `
-        <div style="max-width: 800px; margin: 50px auto; padding: 20px; text-align: center;">
-            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 40px;">
-                <h1 style="color: #2C5DFF; margin-bottom: 10px; font-size: 2.5rem;">🏢 勤怠管理システム</h1>
-                <h2 style="color: #666; margin-bottom: 30px; font-weight: 400;">会社を選択してください</h2>
-                
-                <div id="tenant-list">
-                    <div style="padding: 60px 20px; color: #666;">
-                        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #2C5DFF; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-                        <p>会社リストを読み込み中...</p>
-                    </div>
-                </div>
-                
-                <div style="margin: 30px 0;">
-                    <button id="create-new-tenant" onclick="showCreateTenantModal()" style="background: #2C5DFF; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;">
-                        ➕ 新しい会社を登録
-                    </button>
-                </div>
-                
-                <div style="background: #e3f2fd; border-radius: 8px; padding: 20px; margin-top: 30px; text-align: left;">
-                    <h3 style="color: #0133D8; margin-bottom: 15px;">💡 初回利用の方へ</h3>
-                    <p style="color: #666; line-height: 1.6;">
-                        1. 「新しい会社を登録」をクリック<br>
-                        2. 会社名を入力して専用URLを生成<br>
-                        3. URLを従業員の皆さんと共有
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    return page;
-}
-
-/**
- * テナント選択処理（エラーハンドリング強化）
- */
-async function selectTenant(tenantId) {
-    console.log('🏢 テナント選択:', tenantId);
-    
-    try {
-        // Firebase確認
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            throw new Error('Firebase未初期化');
-        }
-        
-        // テナント情報を取得
         const tenantDoc = await firebase.firestore()
             .collection('tenants')
             .doc(tenantId)
             .get();
         
-        if (!tenantDoc.exists) {
-            throw new Error('選択された会社が見つかりません');
+        if (tenantDoc.exists) {
+            const tenantData = tenantDoc.data();
+            window.currentTenant = {
+                id: tenantId,
+                ...tenantData
+            };
+            console.log('✅ テナント情報読み込み完了:', window.currentTenant);
+            return window.currentTenant;
+        } else {
+            console.error('❌ テナントが見つかりません:', tenantId);
+            return null;
         }
-        
-        const tenantData = tenantDoc.data();
-        
-        // 現在のテナントを設定
-        currentTenant = {
+    } catch (error) {
+        console.error('❌ テナント情報読み込みエラー:', error);
+        return null;
+    }
+}
+
+/**
+ * 新しいテナントを作成（管理者登録時）
+ */
+async function createTenant(tenantData) {
+    try {
+        const tenantId = generateTenantId(tenantData.companyName);
+        const tenantInfo = {
             id: tenantId,
-            ...tenantData
+            companyName: tenantData.companyName,
+            adminEmail: tenantData.adminEmail,
+            adminName: tenantData.adminName,
+            department: tenantData.department || '',
+            phone: tenantData.phone || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'active'
         };
         
-        console.log('✅ テナント設定完了:', currentTenant);
-        
-        // URLを更新
-        const newUrl = `${window.location.pathname}?tenant=${tenantId}`;
-        window.history.pushState({}, '', newUrl);
-        
-        // ページタイトルを更新
-        document.title = `${tenantData.companyName} - 勤怠管理システム`;
-        
-        // ログイン画面に遷移
-        if (typeof showPage === 'function') {
-            showPage('login');
-        } else {
-            // showPage関数がない場合のフォールバック
-            document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
-            const loginPage = document.getElementById('login-page');
-            if (loginPage) {
-                loginPage.classList.remove('hidden');
-            }
-        }
-        
-        // 成功メッセージ
-        showToast(`${tenantData.companyName} を選択しました`, 'success');
-        
-    } catch (error) {
-        console.error('❌ テナント選択エラー:', error);
-        alert('テナント選択でエラーが発生しました: ' + error.message);
-    }
-}
-
-/**
- * 新規テナント作成モーダル表示（簡易版）
- */
-function showCreateTenantModal() {
-    const companyName = prompt('会社名を入力してください:');
-    if (!companyName || companyName.trim() === '') {
-        return;
-    }
-    
-    const companyId = companyName.toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, '-')
-        .substring(0, 30);
-    
-    const adminEmail = prompt('管理者メールアドレスを入力してください:');
-    if (!adminEmail || adminEmail.trim() === '') {
-        return;
-    }
-    
-    createTenantSimple(companyName.trim(), companyId, adminEmail.trim());
-}
-
-/**
- * 簡易テナント作成
- */
-async function createTenantSimple(companyName, companyId, adminEmail) {
-    console.log('🏢 簡易テナント作成:', { companyName, companyId, adminEmail });
-    
-    try {
-        // Firebase確認
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            throw new Error('Firebase未初期化');
-        }
-        
-        // 重複チェック
-        const existingTenant = await firebase.firestore()
+        // Firestoreにテナント情報を保存
+        await firebase.firestore()
             .collection('tenants')
-            .doc(companyId)
-            .get();
+            .doc(tenantId)
+            .set(tenantInfo);
         
-        if (existingTenant.exists) {
-            alert('この会社IDは既に使用されています');
+        console.log('✅ 新しいテナント作成完了:', tenantId);
+        return tenantId;
+    } catch (error) {
+        console.error('❌ テナント作成エラー:', error);
+        throw error;
+    }
+}
+
+/**
+ * テナント対応のFirestoreコレクション参照を取得
+ */
+function getTenantCollection(collection) {
+    const tenantId = getCurrentTenantId();
+    if (!tenantId) {
+        throw new Error('テナントIDが設定されていません');
+    }
+    return `tenants/${tenantId}/${collection}`;
+}
+
+/**
+ * テナント対応のFirestore参照を取得
+ */
+function getTenantFirestore(collection) {
+    const tenantPath = getTenantCollection(collection);
+    return firebase.firestore().collection(tenantPath);
+}
+
+/**
+ * スーパー管理者かどうかの判定
+ */
+function isSuperAdmin() {
+    return window.currentUser && window.currentUser.role === 'super_admin';
+}
+
+/**
+ * テナント選択画面の表示（セキュア実装）
+ */
+async function showTenantSelection(user = null) {
+    try {
+        console.log('🏢 テナント選択機能を開始');
+        
+        // 現在のユーザーを取得
+        const currentUser = user || firebase.auth().currentUser;
+        if (!currentUser) {
+            console.log('❌ 未認証ユーザー - ログイン画面へリダイレクト');
+            showPage('login');
             return;
         }
         
-        // テナントデータ作成
-        const tenantData = {
-            companyName: companyName,
-            adminEmail: adminEmail,
-            isActive: true,
-            userCount: 0,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
+        // ユーザー情報を取得
+        const userDoc = await firebase.firestore().collection('global_users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
         
-        // Firestoreに保存
-        await firebase.firestore()
-            .collection('tenants')
-            .doc(companyId)
-            .set(tenantData);
+        if (!userData) {
+            console.log('❌ ユーザーデータが見つからない - ログイン画面へ');
+            showPage('login');
+            return;
+        }
         
-        console.log('✅ テナント作成完了:', companyId);
+        console.log('📊 ユーザーロール:', userData.role);
         
-        // 成功メッセージ
-        const successUrl = `${window.location.origin}${window.location.pathname}?tenant=${companyId}`;
-        alert(`🎉 ${companyName} の登録が完了しました！\n\n専用URL: ${successUrl}\n\nこのURLを従業員の皆さんと共有してください。`);
+        // super_adminの場合：テナント管理ダッシュボードを表示
+        if (userData.role === 'super_admin') {
+            console.log('👑 super_admin - テナント管理ダッシュボードを表示');
+            await showSuperAdminDashboard();
+            return;
+        }
         
-        // テナントリストを再読み込み
-        await loadTenantListSafely();
+        // 通常ユーザーの場合：自分のテナントに直接リダイレクト
+        if (userData.tenantId) {
+            console.log('🏢 通常ユーザー - 自分のテナントにリダイレクト:', userData.tenantId);
+            const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${userData.tenantId}`;
+            window.location.href = tenantUrl;
+            return;
+        }
         
-        // 自動的に作成したテナントを選択
-        await selectTenant(companyId);
+        // テナントIDがない場合：エラー処理
+        console.error('❌ テナントIDが見つからない');
+        showError('テナント情報が見つかりません。管理者にお問い合わせください。');
+        showPage('login');
         
     } catch (error) {
-        console.error('❌ テナント作成エラー:', error);
-        alert('テナントの作成に失敗しました: ' + error.message);
+        console.error('❌ テナント選択エラー:', error);
+        showError('テナント情報の取得に失敗しました');
+        showPage('login');
     }
 }
 
 /**
- * テナント初期化（エラーハンドリング強化）
+ * スーパー管理者用テナント管理ダッシュボードを表示
  */
-async function initializeTenant() {
-    if (tenantInitialized) {
-        console.log('⚠️ テナント初期化済み');
-        return currentTenant !== null;
+async function showSuperAdminDashboard() {
+    try {
+        console.log('👑 スーパー管理者ダッシュボードを初期化');
+        
+        // 全テナント一覧を取得
+        const tenantsSnapshot = await firebase.firestore()
+            .collection('tenants')
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const tenants = [];
+        tenantsSnapshot.forEach(doc => {
+            tenants.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        console.log('📊 取得テナント数:', tenants.length);
+        
+        // テナント管理画面を表示
+        showPage('tenant-management');
+        
+        // テナント一覧を描画
+        renderTenantList(tenants);
+        
+    } catch (error) {
+        console.error('❌ スーパー管理者ダッシュボードエラー:', error);
+        showError('テナント管理画面の読み込みに失敗しました');
+    }
+}
+
+/**
+ * テナント一覧を描画
+ */
+function renderTenantList(tenants) {
+    const container = document.getElementById('tenant-list-container');
+    if (!container) {
+        console.error('❌ tenant-list-containerが見つかりません');
+        return;
     }
     
-    console.log('🏢 テナント初期化開始');
-    
+    container.innerHTML = `
+        <div class="tenant-management-header">
+            <h2>🏢 テナント管理ダッシュボード</h2>
+            <p>登録テナント数: ${tenants.length}件</p>
+        </div>
+        
+        <div class="tenant-list">
+            ${tenants.map(tenant => `
+                <div class="tenant-card" data-tenant-id="${tenant.id}">
+                    <div class="tenant-info">
+                        <h3>${tenant.companyName}</h3>
+                        <p><strong>管理者:</strong> ${tenant.adminName} (${tenant.adminEmail})</p>
+                        <p><strong>部署:</strong> ${tenant.department || '未設定'}</p>
+                        <p><strong>電話:</strong> ${tenant.phone || '未設定'}</p>
+                        <p><strong>作成日:</strong> ${tenant.createdAt ? new Date(tenant.createdAt.toDate()).toLocaleDateString('ja-JP') : '不明'}</p>
+                        <p><strong>ステータス:</strong> <span class="status-${tenant.status}">${tenant.status === 'active' ? '有効' : '無効'}</span></p>
+                    </div>
+                    <div class="tenant-actions">
+                        <button class="btn btn-primary" onclick="accessTenant('${tenant.id}')">
+                            🔍 テナントにアクセス
+                        </button>
+                        <button class="btn btn-secondary" onclick="editTenant('${tenant.id}')">
+                            ⚙️ 設定編集
+                        </button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        
+        ${tenants.length === 0 ? `
+            <div class="no-tenants">
+                <p>📭 登録されているテナントがありません</p>
+            </div>
+        ` : ''}
+    `;
+}
+
+/**
+ * テナントにアクセス（スーパー管理者用）
+ */
+function accessTenant(tenantId) {
+    console.log('🔍 テナントアクセス:', tenantId);
+    const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${tenantId}`;
+    window.location.href = tenantUrl;
+}
+
+/**
+ * テナント設定編集
+ */
+function editTenant(tenantId) {
+    console.log('⚙️ テナント設定編集:', tenantId);
+    // TODO: テナント設定編集モーダルを実装
+    showInfo('テナント設定編集機能は準備中です');
+}
+
+/**
+ * URLにテナントパラメータを追加してリダイレクト
+ */
+function redirectWithTenant(tenantId) {
+    const newUrl = `${window.location.pathname}?tenant=${tenantId}`;
+    window.history.replaceState({}, '', newUrl);
+}
+
+/**
+ * テナント情報をURLから読み込んで初期化
+ */
+async function initializeTenant() {
     try {
         const tenantId = getTenantFromURL();
         
         if (tenantId) {
-            console.log('🔍 URLテナントID検出:', tenantId);
+            console.log('🏢 テナントID検出:', tenantId);
+            const tenantInfo = await loadTenantInfo(tenantId);
             
-            // Firebase確認
-            if (typeof firebase === 'undefined' || !firebase.firestore) {
-                console.warn('⚠️ Firebase未初期化 - テナント選択画面を表示');
-                showTenantSelection();
-                return false;
-            }
-            
-            // テナント情報を取得
-            const tenantDoc = await firebase.firestore()
-                .collection('tenants')
-                .doc(tenantId)
-                .get();
-            
-            if (tenantDoc.exists && tenantDoc.data().isActive !== false) {
-                // 有効なテナント
-                currentTenant = {
-                    id: tenantId,
-                    ...tenantDoc.data()
-                };
-                
-                console.log('✅ テナント初期化完了:', currentTenant);
-                
-                // ページタイトルを更新
-                document.title = `${currentTenant.companyName} - 勤怠管理システム`;
-                
-                tenantInitialized = true;
-                return true;
+            if (tenantInfo) {
+                console.log('✅ テナント初期化完了');
+                return tenantInfo;
             } else {
-                // 無効なテナント
-                console.warn('⚠️ 無効なテナントID:', tenantId);
-                
-                // URLパラメータをクリア
+                console.error('❌ 無効なテナントID:', tenantId);
+                // 無効なテナントIDの場合はパラメータを削除
                 window.history.replaceState({}, '', window.location.pathname);
-                
-                // テナント選択画面を表示
-                showTenantSelection();
-                return false;
             }
         } else {
-            // URLにテナントIDがない場合
-            console.log('🔍 テナントID未指定 - 選択画面を表示');
-            showTenantSelection();
-            return false;
+            console.log('📄 テナント未指定 - 通常モード');
         }
+        
+        return null;
     } catch (error) {
         console.error('❌ テナント初期化エラー:', error);
+        return null;
+    }
+}
+
+/**
+ * ユーザーのテナント判定（ログイン時）
+ */
+async function determineUserTenant(userEmail) {
+    try {
+        // global_usersコレクションからユーザーのテナント情報を取得
+        const globalUserDoc = await firebase.firestore()
+            .collection('global_users')
+            .doc(userEmail)
+            .get();
         
-        // エラー時はテナント選択画面を表示
-        showTenantSelection();
-        return false;
-    }
-}
-
-/**
- * 現在のテナント情報を取得
- */
-function getCurrentTenant() {
-    return currentTenant;
-}
-
-/**
- * テナント固有のコレクション名を生成
- */
-function getTenantCollection(collection) {
-    if (!currentTenant) {
-        console.warn('⚠️ currentTenantが設定されていません - 従来のコレクション名を使用');
-        return collection;
-    }
-    
-    return `tenants_${currentTenant.id}_${collection}`;
-}
-
-/**
- * テナント固有のFirestoreリファレンスを取得
- */
-function getTenantFirestore(collection) {
-    const tenantCollection = getTenantCollection(collection);
-    return firebase.firestore().collection(tenantCollection);
-}
-
-/**
- * トースト通知を表示
- */
-function showToast(message, type = 'info') {
-    console.log(`📢 ${type.toUpperCase()}: ${message}`);
-    
-    const toast = document.createElement('div');
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#d1ecf1'};
-        color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460'};
-        border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : '#bee5eb'};
-        border-radius: 8px;
-        padding: 15px;
-        max-width: 300px;
-        z-index: 9999;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        font-weight: 500;
-    `;
-    
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.remove();
+        if (globalUserDoc.exists) {
+            const userData = globalUserDoc.data();
+            return userData.tenantId;
         }
-    }, type === 'error' ? 5000 : 3000);
+        
+        return null;
+    } catch (error) {
+        console.error('❌ ユーザーテナント判定エラー:', error);
+        return null;
+    }
 }
 
-// グローバル関数のエクスポート
-window.initializeTenant = initializeTenant;
-window.getCurrentTenant = getCurrentTenant;
+/**
+ * 成功時のリダイレクト先URLを生成
+ */
+function generateSuccessUrl(tenantId) {
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    return `${baseUrl}?tenant=${tenantId}`;
+}
+
+// グローバル関数として公開
+window.getTenantFromURL = getTenantFromURL;
+window.generateTenantId = generateTenantId;
+window.getCurrentTenantId = getCurrentTenantId;
+window.loadTenantInfo = loadTenantInfo;
+window.createTenant = createTenant;
 window.getTenantCollection = getTenantCollection;
 window.getTenantFirestore = getTenantFirestore;
-window.selectTenant = selectTenant;
+window.isSuperAdmin = isSuperAdmin;
 window.showTenantSelection = showTenantSelection;
-window.loadTenantListSafely = loadTenantListSafely;
-window.showCreateTenantModal = showCreateTenantModal;
-window.proceedWithoutTenant = proceedWithoutTenant;
+window.showSuperAdminDashboard = showSuperAdminDashboard;
+window.renderTenantList = renderTenantList;
+window.accessTenant = accessTenant;
+window.editTenant = editTenant;
+window.redirectWithTenant = redirectWithTenant;
+window.initializeTenant = initializeTenant;
+window.determineUserTenant = determineUserTenant;
+window.generateSuccessUrl = generateSuccessUrl;
 
-console.log('✅ tenant.js 読み込み完了（エラー処理強化版）');
+console.log('✅ tenant.js ユーティリティ初期化完了');

@@ -26,7 +26,9 @@ function getCurrentUser() {
  */
 async function getAttendanceRecords(userId = null, date = null) {
     try {
-        let query = db.collection('attendance');
+        // テナント対応のコレクションアクセス
+        const attendanceCollection = window.getTenantFirestore ? window.getTenantFirestore('attendance') : db.collection('attendance');
+        let query = attendanceCollection;
         
         // ユーザーIDでフィルタ
         if (userId) {
@@ -53,7 +55,9 @@ async function getAttendanceRecords(userId = null, date = null) {
         
         // 各レコードの休憩データも取得
         await Promise.all(records.map(async (record) => {
-            const breakQuery = await db.collection('breaks')
+            // テナント対応の休憩データ取得
+            const breakCollection = window.getTenantFirestore ? window.getTenantFirestore('breaks') : db.collection('breaks');
+            const breakQuery = await breakCollection
                 .where('attendanceId', '==', record.id)
                 .orderBy('startTime')
                 .get();
@@ -82,7 +86,9 @@ async function getAttendanceRecords(userId = null, date = null) {
  */
 async function getUsers(role = null) {
     try {
-        let query = db.collection('users');
+        // テナント対応のユーザーコレクションアクセス
+        const userCollection = window.getUserCollection ? window.getUserCollection() : db.collection('users');
+        let query = userCollection;
         
         // ロールでフィルタ
         if (role) {
@@ -114,7 +120,9 @@ async function getUsers(role = null) {
  */
 async function getUserById(userId) {
     try {
-        const userDoc = await db.collection('users').doc(userId).get();
+        // テナント対応のユーザー情報取得
+        const userCollection = window.getUserCollection ? window.getUserCollection() : db.collection('users');
+        const userDoc = await userCollection.doc(userId).get();
         
         if (userDoc.exists) {
             return {

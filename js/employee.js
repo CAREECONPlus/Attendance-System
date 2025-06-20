@@ -6,6 +6,15 @@ console.log('employee.js loading...');
 let currentUser = null;
 let dailyLimitProcessing = false;
 
+// テナント対応のFirestoreコレクション取得関数（main.jsの統一関数を使用）
+function getAttendanceCollection() {
+    return window.getTenantFirestore ? window.getTenantFirestore('attendance') : firebase.firestore().collection('attendance');
+}
+
+function getBreaksCollection() {
+    return window.getTenantFirestore ? window.getTenantFirestore('breaks') : firebase.firestore().collection('breaks');
+}
+
 // 変数監視用のプロキシ設定
 let _todayAttendanceData = null;
 let _currentAttendanceId = null;
@@ -110,6 +119,10 @@ function initEmployeePage() {
                     await restoreTodayAttendanceState();
                 }
                 
+                // サイト管理機能を初期化
+                setupSiteSelection();
+                await loadSiteOptions();
+                
                 // 最近の記録を読み込み（遅延実行）
                 setTimeout(() => {
                     loadRecentRecordsSafely();
@@ -157,8 +170,7 @@ async function restoreTodayAttendanceState() {
         console.log('👤 検索対象ユーザー:', currentUser.uid);
         
         // 今日のデータのみを検索
-        const todayQuery = firebase.firestore()
-            .collection('attendance')
+        const todayQuery = getAttendanceCollection()
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today);
         
@@ -243,8 +255,7 @@ async function restoreCurrentState(recordData) {
         }
         
         // 休憩中かどうかチェック
-        const breakQuery = firebase.firestore()
-            .collection('breaks')
+        const breakQuery = getBreaksCollection()
             .where('attendanceId', '==', currentAttendanceId)
             .where('userId', '==', currentUser.uid);
         
@@ -309,8 +320,7 @@ async function checkDailyLimit(userId) {
         }
         
         // データベースチェック
-        const query = firebase.firestore()
-            .collection('attendance')
+        const query = getAttendanceCollection()
             .where('userId', '==', userId)
             .where('date', '==', today);
         
@@ -419,26 +429,98 @@ function setupSiteSelection() {
     console.log('現場名は直接入力形式です');
 }
 
-// 現場名取得関数（直接入力対応）
+// サイト一覧を読み込み（テナント設定から）
+async function loadSiteOptions() {
+    try {
+        const tenantId = window.getCurrentTenantId ? window.getCurrentTenantId() : null;
+        if (!tenantId) {
+            console.log('テナントID未設定 - デフォルトサイト設定を使用');
+            return;
+        }
+        
+        const sites = await window.getTenantSites(tenantId);
+        const siteSelect = document.getElementById('site-name');
+        
+        if (siteSelect && sites && sites.length > 0) {
+            // 既存のオプションをクリア（最初の2つは残す）
+            while (siteSelect.children.length > 2) {
+                siteSelect.removeChild(siteSelect.lastChild);
+            }
+            
+            // アクティブなサイトのみを追加
+            sites.filter(site => site.active).forEach(site => {
+                const option = document.createElement('option');
+                option.value = site.name;
+                option.textContent = `🏢 ${site.name}`;
+                if (site.address) {
+                    option.textContent += ` (${site.address})`;
+                }
+                siteSelect.appendChild(option);
+            });
+            
+            console.log('✅ サイト一覧読み込み完了:', sites.length);
+        }
+    } catch (error) {
+        console.error('サイト一覧読み込みエラー:', error);
+    }
+}
+
+// サイト選択の変更イベント
+function setupSiteSelection() {
+    const siteSelect = document.getElementById('site-name');
+    const manualInput = document.getElementById('site-name-manual');
+    
+    if (siteSelect && manualInput) {
+        siteSelect.addEventListener('change', function() {
+            if (this.value === 'manual-input') {
+                manualInput.style.display = 'block';
+                manualInput.required = true;
+                manualInput.focus();
+            } else {
+                manualInput.style.display = 'none';
+                manualInput.required = false;
+                manualInput.value = '';
+            }
+        });
+    }
+}
+
+// 現場名取得関数（選択式+手動入力対応）
 function getSiteNameFromSelection() {
-    const siteNameElement = document.getElementById('site-name');
+    const siteSelect = document.getElementById('site-name');
+    const manualInput = document.getElementById('site-name-manual');
     
-    if (!siteNameElement) {
+    if (!siteSelect) {
         console.error('❌ site-name要素が見つかりません');
-        alert('現場名入力フォームに問題があります。\nページを再読み込みしてください。');
+        alert('現場名選択フォームに問題があります。\nページを再読み込みしてください。');
         return null;
     }
     
-    const siteName = siteNameElement.value.trim();
+    let siteName = '';
     
-    // 空の値チェック
-    if (!siteName) {
-        alert('⚠️ 現場名を入力してください');
-        siteNameElement.focus();
-        return null;
+    if (siteSelect.value === 'manual-input') {
+        // 手動入力の場合
+        if (!manualInput) {
+            console.error('❌ 手動入力フィールドが見つかりません');
+            return null;
+        }
+        siteName = manualInput.value.trim();
+        if (!siteName) {
+            alert('⚠️ 現場名を入力してください');
+            manualInput.focus();
+            return null;
+        }
+    } else {
+        // 選択式の場合
+        siteName = siteSelect.value.trim();
+        if (!siteName) {
+            alert('⚠️ 現場を選択してください');
+            siteSelect.focus();
+            return null;
+        }
     }
     
-    console.log('✅ 入力された現場:', siteName);
+    console.log('✅ 選択された現場:', siteName);
     return siteName;
 }
 
@@ -534,8 +616,7 @@ async function handleClockIn() {
         console.log('💾 出勤データ保存中...', attendanceData);
         
         // Firestoreに保存
-        const docRef = await firebase.firestore()
-            .collection('attendance')
+        const docRef = await getAttendanceCollection()
             .add(attendanceData);
         
         console.log('✅ 出勤記録完了:', docRef.id);
@@ -592,8 +673,7 @@ async function handleClockOut() {
         
         console.log('💾 退勤データを更新中...', updateData);
         
-        await firebase.firestore()
-            .collection('attendance')
+        await getAttendanceCollection()
             .doc(currentAttendanceId)
             .update(updateData);
         
@@ -632,8 +712,7 @@ async function handleBreakStart() {
         }
         
         // 既存の休憩記録チェック
-        const breakQuery = firebase.firestore()
-            .collection('breaks')
+        const breakQuery = getBreaksCollection()
             .where('attendanceId', '==', currentAttendanceId)
             .where('userId', '==', currentUser.uid);
         
@@ -663,13 +742,11 @@ async function handleBreakStart() {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        await firebase.firestore()
-            .collection('breaks')
+        await getBreaksCollection()
             .add(breakData);
         
         // 勤怠記録のステータスを更新
-        await firebase.firestore()
-            .collection('attendance')
+        await getAttendanceCollection()
             .doc(currentAttendanceId)
             .update({ 
                 status: 'break',
@@ -699,8 +776,7 @@ async function handleBreakEnd() {
             return;
         }
         
-        const breakQuery = firebase.firestore()
-            .collection('breaks')
+        const breakQuery = getBreaksCollection()
             .where('attendanceId', '==', currentAttendanceId)
             .where('userId', '==', currentUser.uid);
         
@@ -730,8 +806,7 @@ async function handleBreakEnd() {
         }
         
         // 勤怠記録のステータスを勤務中に戻す
-        await firebase.firestore()
-            .collection('attendance')
+        await getAttendanceCollection()
             .doc(currentAttendanceId)
             .update({ 
                 status: 'working',
@@ -947,8 +1022,7 @@ async function loadRecentRecordsSafely() {
         console.log('📅 検索範囲:', threeDaysAgoString, '〜', today);
         
         // インデックス不要の簡素化クエリ（ユーザーIDのみでフィルター）
-        const query = firebase.firestore()
-            .collection('attendance')
+        const query = getAttendanceCollection()
             .where('userId', '==', currentUser.uid)
             .limit(20); // 多めに取得してクライアント側でフィルター
         
@@ -1235,8 +1309,7 @@ function testTodayDate() {
     console.log('🧪 今日の日付テスト:', today);
     
     // 今日のデータを検索
-    const query = firebase.firestore()
-        .collection('attendance')
+    const query = getAttendanceCollection()
         .where('userId', '==', currentUser.uid)
         .where('date', '==', today);
     
