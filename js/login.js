@@ -148,23 +148,32 @@ async function handleLogin(e) {
         const userData = userDoc.data();
         console.log('✅ ユーザーデータ取得:', userData);
         
-        // スーパー管理者の判定
-        const isSuperAdmin = user.email === 'dxconsulting.branu2@gmail.com';
+        // ユーザーのロールを決定
+        let userRole = userData.role || 'employee';
+        
+        // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
+        if (user.email === 'dxconsulting.branu2@gmail.com') {
+            userRole = 'super_admin';
+            // Firestoreのroleも更新（初回ログイン時）
+            if (userData.role !== 'super_admin') {
+                await userRef.update({ role: 'super_admin' });
+                console.log('✅ super_adminロールに自動更新');
+            }
+        }
         
         // グローバル変数設定
         window.currentUser = {
             uid: user.uid,
             email: user.email,
             displayName: userData.displayName || user.displayName,
-            role: userData.role || 'employee',
-            isSuperAdmin: isSuperAdmin
+            role: userRole
         };
         
         console.log('🎉 ログイン成功:', window.currentUser);
         
         // 適切なページに遷移
-        if (window.currentUser.role === 'admin') {
-            console.log('👑 管理者画面に遷移');
+        if (window.currentUser.role === 'admin' || window.currentUser.role === 'super_admin') {
+            console.log('👑 管理者画面に遷移 (role:', window.currentUser.role + ')');
             showPage('admin');
             // 管理者画面の初期化
             setTimeout(() => {
@@ -479,9 +488,17 @@ window.checkAuth = function(requiredRole) {
         return false;
     }
     
-    if (requiredRole && user.role !== requiredRole) {
-        console.log(`❌ 権限不足: 要求=${requiredRole}, 実際=${user.role}`);
-        return false;
+    if (requiredRole) {
+        // 管理者権限チェック（adminまたはsuper_adminで満たす）
+        if (requiredRole === 'admin') {
+            if (user.role !== 'admin' && user.role !== 'super_admin') {
+                console.log(`❌ 権限不足: 要求=${requiredRole}, 実際=${user.role}`);
+                return false;
+            }
+        } else if (user.role !== requiredRole) {
+            console.log(`❌ 権限不足: 要求=${requiredRole}, 実際=${user.role}`);
+            return false;
+        }
     }
     
     return true;
