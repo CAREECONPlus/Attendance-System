@@ -1015,9 +1015,17 @@ function displayRecentRecords(snapshot) {
     if (!recentList) return;
     
     const records = [];
-    snapshot.forEach(doc => {
-        records.push({ id: doc.id, ...doc.data() });
-    });
+    // カスタムスナップショットオブジェクトに対応
+    if (snapshot.docs && Array.isArray(snapshot.docs)) {
+        snapshot.docs.forEach(doc => {
+            records.push({ id: doc.id, ...doc.data() });
+        });
+    } else if (snapshot.forEach) {
+        // 元のFirestoreスナップショット形式
+        snapshot.forEach(doc => {
+            records.push({ id: doc.id, ...doc.data() });
+        });
+    }
     
     // 日付でソート
     records.sort((a, b) => {
