@@ -22,9 +22,15 @@ function initAdminRequestsManagement() {
 }
 
 /**
- * 管理者依頼タブを表示
+ * 管理者依頼タブを表示（スーパー管理者のみ）
  */
 function showAdminRequestsTab() {
+    // 権限チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        console.log('🔒 管理者依頼タブ: スーパー管理者のみアクセス可能');
+        return;
+    }
+    
     // 全てのタブコンテンツを非表示
     document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
         el.classList.add('hidden');
@@ -187,12 +193,15 @@ async function initAdminPage() {
     // 権限チェック
     if (!checkAuth('admin')) return;
 
-    // スーパー管理者の場合、管理者依頼タブを表示
-    if (window.currentUser && window.currentUser.role === 'super_admin') {
-        const adminRequestsTab = document.getElementById('admin-requests-tab');
-        if (adminRequestsTab) {
+    // 管理者依頼タブの表示制御
+    const adminRequestsTab = document.getElementById('admin-requests-tab');
+    if (adminRequestsTab) {
+        if (window.currentUser && window.currentUser.role === 'super_admin') {
             adminRequestsTab.style.display = 'block';
             console.log('✅ スーパー管理者: 管理者依頼タブを表示');
+        } else {
+            adminRequestsTab.style.display = 'none';
+            console.log('🔒 一般管理者: 管理者依頼タブを非表示');
         }
     }
 
@@ -273,9 +282,13 @@ function setupAdminBasics() {
  * タブ切り替え関数
  */
 function switchTab(tab) {
-    // 管理者依頼タブの特別処理
+    // 管理者依頼タブの特別処理（スーパー管理者のみ）
     if (tab === 'admin-requests') {
-        showAdminRequestsTab();
+        if (window.currentUser && window.currentUser.role === 'super_admin') {
+            showAdminRequestsTab();
+        } else {
+            console.log('🔒 一般管理者: 管理者依頼タブへのアクセス拒否');
+        }
         return;
     }
     
