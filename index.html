@@ -268,22 +268,15 @@
                     </div>
                 </div>
 
-                <!-- 現場選択 -->
+                <!-- 現場名入力 -->
                 <div class="site-selection">
                     <div class="form-group">
                         <label for="site-name">🏢 現場名：</label>
-                        <select id="site-name" required>
-                            <option value="" disabled selected>現場を選択してください</option>
-                            <option value="other">その他（直接入力）</option>
-                        </select>
                         <input type="text" 
-                               id="other-site" 
+                               id="site-name" 
                                placeholder="現場名を入力してください" 
-                               style="display: none; margin-top: 10px;"
+                               required
                                maxlength="100">
-                    </div>
-                    <div class="site-loading" id="site-loading" style="display: none;">
-                        <small>🔄 現場リストを読み込み中...</small>
                     </div>
                 </div>
 
