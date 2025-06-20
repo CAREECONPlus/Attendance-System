@@ -532,30 +532,25 @@ async function handleAdminRequest(e) {
     }
     
     try {
-        // メール内容を生成
-        const emailBody = `
-管理者登録依頼フォームからの送信
-
-氏名: ${formData.name}
-メールアドレス: ${formData.email}
-電話番号: ${formData.phone}
-会社名・組織名: ${formData.company}
-部署名: ${formData.department || '（未記入）'}
-利用目的: ${formData.purpose}
-想定利用者数: ${formData.users || '（未選択）'}
-その他・備考: ${formData.comments || '（未記入）'}
-
-送信日時: ${new Date().toLocaleString('ja-JP')}
-`;
+        // フォームデータをローカルストレージに保存（管理者が確認できるように）
+        const submissionData = {
+            ...formData,
+            submitDate: new Date().toLocaleString('ja-JP'),
+            id: Date.now().toString()
+        };
         
-        // mailto リンクでメール送信
-        const mailtoLink = `mailto:s.nakahara@branu.jp?subject=勤怠管理システム管理者登録依頼&body=${encodeURIComponent(emailBody)}`;
+        // 既存の依頼データを取得
+        const existingRequests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
+        existingRequests.push(submissionData);
         
-        // メールクライアントを開く
-        window.location.href = mailtoLink;
+        // ローカルストレージに保存
+        localStorage.setItem('adminRequests', JSON.stringify(existingRequests));
+        
+        // 送信データをコンソールに出力（開発者が確認できるように）
+        console.log('📧 管理者登録依頼データ:', submissionData);
         
         // 成功メッセージを表示
-        showAdminRequestMessage('依頼フォームが送信されました。メールクライアントが開きますので、送信を完了してください。', 'success');
+        showAdminRequestMessage('問い合わせありがとうございました。依頼内容を確認次第、ご連絡いたします。', 'success');
         
         // フォームをリセット
         document.getElementById('adminRequestForm').reset();
