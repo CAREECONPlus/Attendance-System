@@ -149,7 +149,7 @@ async function handleLogin(e) {
         console.log('✅ ユーザーデータ取得:', userData);
         
         // スーパー管理者の判定
-        const isSuperAdmin = user.email === 's.nakahara@branu.jp';
+        const isSuperAdmin = user.email === 'dxconsulting.branu2@gmail.com';
         
         // グローバル変数設定
         window.currentUser = {
@@ -551,7 +551,7 @@ async function handleAdminRequest(e) {
         
         // FormSubmitを使用してメール送信
         const formSubmitData = new FormData();
-        formSubmitData.append('_to', 's.nakahara@branu.jp');
+        formSubmitData.append('_to', 'dxconsulting.branu2@gmail.com');
         formSubmitData.append('_subject', '勤怠管理システム管理者登録依頼');
         formSubmitData.append('_captcha', 'false');
         formSubmitData.append('_template', 'box');
@@ -566,7 +566,7 @@ async function handleAdminRequest(e) {
         formSubmitData.append('送信日時', new Date().toLocaleString('ja-JP'));
         
         // FormSubmitに送信
-        const response = await fetch('https://formsubmit.co/s.nakahara@branu.jp', {
+        const response = await fetch('https://formsubmit.co/dxconsulting.branu2@gmail.com', {
             method: 'POST',
             body: formSubmitData
         });
