@@ -417,7 +417,7 @@ function showRegisterError(message) {
  */
 function showPage(pageName) {
     // 全てのページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
         .forEach(el => el.classList.add('hidden'));
     
     // 指定されたページを表示
@@ -480,4 +480,145 @@ window.checkAuth = function(requiredRole) {
 
 window.showPage = showPage;
 
-console.log('✅ login.js（簡略化版 v2）読み込み完了');
+/**
+ * 管理者登録依頼フォーム機能
+ */
+
+// 管理者登録依頼フォームを表示
+function showAdminRequestForm() {
+    // 全てのページを非表示
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #admin-request-page')
+        .forEach(el => el.classList.add('hidden'));
+    
+    // 管理者登録依頼ページを表示
+    const adminRequestPage = document.getElementById('admin-request-page');
+    if (adminRequestPage) {
+        adminRequestPage.classList.remove('hidden');
+        console.log('✅ 管理者登録依頼フォームを表示');
+    }
+}
+
+// 管理者登録依頼フォーム送信処理
+async function handleAdminRequest(e) {
+    e.preventDefault();
+    console.log('📧 管理者登録依頼送信開始');
+    
+    const formData = {
+        name: document.getElementById('requestName')?.value?.trim(),
+        email: document.getElementById('requestEmail')?.value?.trim(),
+        phone: document.getElementById('requestPhone')?.value?.trim(),
+        company: document.getElementById('requestCompany')?.value?.trim(),
+        department: document.getElementById('requestDepartment')?.value?.trim(),
+        purpose: document.getElementById('requestPurpose')?.value?.trim(),
+        users: document.getElementById('requestUsers')?.value,
+        comments: document.getElementById('requestComments')?.value?.trim()
+    };
+    
+    // 必須項目チェック
+    if (!formData.name || !formData.email || !formData.phone || !formData.company || !formData.purpose) {
+        showAdminRequestMessage('必須項目をすべて入力してください。', 'error');
+        return;
+    }
+    
+    // メールアドレス形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        showAdminRequestMessage('正しいメールアドレスを入力してください。', 'error');
+        return;
+    }
+    
+    // 送信ボタンを無効化
+    const submitBtn = document.getElementById('submitAdminRequest');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '送信中...';
+    }
+    
+    try {
+        // EmailJS または類似サービスを使用してメール送信
+        // ここでは擬似的な処理として、メール内容を生成
+        const emailBody = `
+管理者登録依頼フォームからの送信
+
+氏名: ${formData.name}
+メールアドレス: ${formData.email}
+電話番号: ${formData.phone}
+会社名・組織名: ${formData.company}
+部署名: ${formData.department || '（未記入）'}
+利用目的: ${formData.purpose}
+想定利用者数: ${formData.users || '（未選択）'}
+その他・備考: ${formData.comments || '（未記入）'}
+
+送信日時: ${new Date().toLocaleString('ja-JP')}
+`;
+        
+        // mailto リンクでメール送信（一時的な実装）
+        const mailtoLink = `mailto:s.nakahara@branu.jp?subject=勤怠管理システム管理者登録依頼&body=${encodeURIComponent(emailBody)}`;
+        
+        // メールクライアントを開く
+        window.location.href = mailtoLink;
+        
+        // 成功メッセージを表示
+        showAdminRequestMessage('依頼フォームが送信されました。メールクライアントが開きますので、送信を完了してください。', 'success');
+        
+        // フォームをリセット
+        document.getElementById('adminRequestForm').reset();
+        
+        console.log('✅ 管理者登録依頼送信完了');
+        
+    } catch (error) {
+        console.error('❌ 管理者登録依頼送信エラー:', error);
+        showAdminRequestMessage('送信中にエラーが発生しました。時間をおいて再度お試しください。', 'error');
+    } finally {
+        // 送信ボタンを有効化
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '依頼を送信';
+        }
+    }
+}
+
+// 管理者登録依頼メッセージ表示
+function showAdminRequestMessage(message, type) {
+    const messageElement = document.getElementById('admin-request-message');
+    if (messageElement) {
+        messageElement.textContent = message;
+        messageElement.className = `message ${type}`;
+        messageElement.classList.remove('hidden');
+        
+        // 3秒後に非表示
+        setTimeout(() => {
+            messageElement.classList.add('hidden');
+        }, 5000);
+    }
+}
+
+// イベントリスナー設定
+document.addEventListener('DOMContentLoaded', () => {
+    // 管理者登録依頼フォーム表示ボタン
+    const showAdminRequestBtn = document.getElementById('showAdminRequestButton');
+    if (showAdminRequestBtn) {
+        showAdminRequestBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAdminRequestForm();
+        });
+    }
+    
+    // 管理者登録依頼フォーム送信
+    const adminRequestForm = document.getElementById('adminRequestForm');
+    if (adminRequestForm) {
+        adminRequestForm.addEventListener('submit', handleAdminRequest);
+    }
+    
+    // 新規登録画面に戻るボタン
+    const backToRegisterBtn = document.getElementById('backToRegisterButton');
+    if (backToRegisterBtn) {
+        backToRegisterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showPage('login');
+            showRegisterForm();
+        });
+    }
+});
+
+console.log('✅ login.js（管理者登録依頼機能付き）読み込み完了');
