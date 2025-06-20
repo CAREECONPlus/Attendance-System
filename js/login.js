@@ -549,6 +549,9 @@ async function handleAdminRequest(e) {
         // 送信データをコンソールに出力（開発者が確認できるように）
         console.log('📧 管理者登録依頼データ:', submissionData);
         
+        // デバッグ用: 実際にこのコードが実行されていることを確認
+        alert('デバッグ: 新しいコードが実行されました');
+        
         // 成功メッセージを表示
         showAdminRequestMessage('問い合わせありがとうございました。依頼内容を確認次第、ご連絡いたします。', 'success');
         
