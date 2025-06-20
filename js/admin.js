@@ -55,12 +55,17 @@ function loadAdminRequests() {
     try {
         const requests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
         console.log('📋 管理者登録依頼を読み込み:', requests.length + '件');
+        console.log('📋 依頼データ詳細:', requests);
         
         const tbody = document.getElementById('admin-requests-data');
-        if (!tbody) return;
+        if (!tbody) {
+            console.error('❌ admin-requests-data要素が見つかりません');
+            return;
+        }
         
         if (requests.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="no-data">管理者登録依頼はありません</td></tr>';
+            console.log('📋 依頼なし - 空のテーブルを表示');
             return;
         }
         
@@ -268,6 +273,28 @@ function setupAdminBasics() {
  * タブ切り替え関数
  */
 function switchTab(tab) {
+    // 管理者依頼タブの特別処理
+    if (tab === 'admin-requests') {
+        showAdminRequestsTab();
+        return;
+    }
+    
+    // 管理者依頼コンテンツを非表示
+    const adminRequestsContent = document.getElementById('admin-requests-content');
+    if (adminRequestsContent) {
+        adminRequestsContent.classList.add('hidden');
+    }
+    
+    // 通常の勤怠データテーブルを表示
+    const attendanceContainer = document.querySelector('.attendance-table-container');
+    if (attendanceContainer) {
+        attendanceContainer.classList.remove('hidden');
+    }
+    
+    // フィルター行を表示
+    const filterRow = document.querySelector('.filter-row');
+    if (filterRow) filterRow.style.display = 'flex';
+    
     // アクティブタブの切り替え
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
