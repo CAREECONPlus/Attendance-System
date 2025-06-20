@@ -134,15 +134,41 @@ async function handleLogin(e) {
         const user = userCredential.user;
         console.log('✅ Firebase認証成功:', user.uid);
         
-        // ユーザーデータ取得
-        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+        // ユーザーのテナント情報を取得
+        const userTenantId = await determineUserTenant(user.email);
+        console.log('🏢 ユーザーテナント:', userTenantId);
         
-        if (!userDoc.exists) {
-            throw new Error('ユーザーデータが見つかりません');
+        // テナント対応のユーザーデータ取得
+        let userData;
+        let userDoc;
+        
+        if (userTenantId) {
+            // テナント内からユーザーデータを取得
+            const tenantUsersPath = `tenants/${userTenantId}/users`;
+            userDoc = await firebase.firestore().collection(tenantUsersPath).doc(user.uid).get();
+            
+            if (userDoc.exists) {
+                userData = userDoc.data();
+                console.log('✅ テナント内ユーザーデータ取得:', userData);
+            } else {
+                // フォールバック: 従来のusersコレクションから取得
+                userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                if (userDoc.exists) {
+                    userData = userDoc.data();
+                    console.log('✅ 従来のユーザーデータ取得（フォールバック）:', userData);
+                } else {
+                    throw new Error('ユーザーデータが見つかりません');
+                }
+            }
+        } else {
+            // テナント未設定の場合は従来のusersコレクションから取得
+            userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+            if (!userDoc.exists) {
+                throw new Error('ユーザーデータが見つかりません');
+            }
+            userData = userDoc.data();
+            console.log('✅ 従来のユーザーデータ取得:', userData);
         }
-        
-        const userData = userDoc.data();
-        console.log('✅ ユーザーデータ取得:', userData);
         
         // ユーザーのロールを決定
         let userRole = userData.role || 'employee';
@@ -167,10 +193,19 @@ async function handleLogin(e) {
             uid: user.uid,
             email: user.email,
             displayName: userData.displayName || user.displayName,
-            role: userRole
+            role: userRole,
+            tenantId: userTenantId || userData.tenantId
         };
         
         console.log('🎉 ログイン成功:', window.currentUser);
+        
+        // テナント情報をURLに反映（スーパー管理者以外）
+        if (userTenantId && userRole !== 'super_admin') {
+            console.log('🏢 テナント専用URLにリダイレクト:', userTenantId);
+            const tenantUrl = generateSuccessUrl(userTenantId);
+            window.location.href = tenantUrl;
+            return;
+        }
         
         // 適切なページに遷移
         if (window.currentUser.role === 'admin' || window.currentUser.role === 'super_admin') {
@@ -259,18 +294,42 @@ async function handleRegister(e) {
         const user = userCredential.user;
         console.log('✅ Firebase認証ユーザー作成:', user.uid);
         
-        // Firestoreにユーザーデータ保存
+        // テナント対応のユーザーデータ保存
+        const currentTenantId = getCurrentTenantId();
+        
         const userData = {
             uid: user.uid,
             email: email,
             displayName: displayName,
             role: role,
+            tenantId: currentTenantId || null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
+        // テナント内に保存（テナントが設定されている場合）
+        if (currentTenantId) {
+            const tenantUsersPath = `tenants/${currentTenantId}/users`;
+            await firebase.firestore().collection(tenantUsersPath).doc(user.uid).set(userData);
+            console.log('✅ テナント内ユーザーデータ保存完了');
+            
+            // グローバルユーザー管理にも登録
+            const globalUserData = {
+                uid: user.uid,
+                email: email,
+                displayName: displayName,
+                role: role,
+                tenantId: currentTenantId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await firebase.firestore().collection('global_users').doc(email).set(globalUserData);
+            console.log('✅ グローバルユーザーデータ保存完了');
+        }
+        
+        // 従来のusersコレクションにも保存（後方互換性）
         await firebase.firestore().collection('users').doc(user.uid).set(userData);
-        console.log('✅ ユーザーデータ保存完了');
+        console.log('✅ 従来のユーザーデータ保存完了');
         
         // Firebase Authプロファイル更新
         await user.updateProfile({
@@ -315,11 +374,37 @@ async function handleAuthStateChange(user) {
     
     if (user) {
         try {
-            // ユーザーデータを取得
-            const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+            // ユーザーのテナント情報を取得
+            const userTenantId = await determineUserTenant(user.email);
+            console.log('🏢 ユーザーテナント (認証状態変化):', userTenantId);
             
-            if (userDoc.exists) {
-                const userData = userDoc.data();
+            // テナント対応のユーザーデータ取得
+            let userData;
+            let userDoc;
+            
+            if (userTenantId) {
+                // テナント内からユーザーデータを取得
+                const tenantUsersPath = `tenants/${userTenantId}/users`;
+                userDoc = await firebase.firestore().collection(tenantUsersPath).doc(user.uid).get();
+                
+                if (userDoc.exists) {
+                    userData = userDoc.data();
+                } else {
+                    // フォールバック: 従来のusersコレクションから取得
+                    userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        userData = userDoc.data();
+                    }
+                }
+            } else {
+                // テナント未設定の場合は従来のusersコレクションから取得
+                userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                if (userDoc.exists) {
+                    userData = userDoc.data();
+                }
+            }
+            
+            if (userData) {
                 
                 // ユーザーのロールを決定
                 let userRole = userData.role || 'employee';
@@ -344,10 +429,22 @@ async function handleAuthStateChange(user) {
                     uid: user.uid,
                     email: user.email,
                     displayName: userData.displayName || user.displayName,
-                    role: userRole
+                    role: userRole,
+                    tenantId: userTenantId || userData.tenantId
                 };
                 
                 console.log('✅ 認証済みユーザー設定完了:', window.currentUser);
+                
+                // テナント情報をURLに反映（スーパー管理者以外）
+                if (userTenantId && userRole !== 'super_admin') {
+                    const currentTenantFromUrl = getTenantFromURL();
+                    if (currentTenantFromUrl !== userTenantId) {
+                        console.log('🏢 テナント専用URLにリダイレクト (認証状態変化):', userTenantId);
+                        const tenantUrl = generateSuccessUrl(userTenantId);
+                        window.location.href = tenantUrl;
+                        return;
+                    }
+                }
                 
                 // 現在のページをチェック
                 const currentPage = document.querySelector('.page:not(.hidden)');
@@ -478,12 +575,19 @@ function showPage(pageName) {
 /**
  * DOM読み込み完了時の初期化
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('📄 DOM読み込み完了 - ログイン初期化開始');
     
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
         .forEach(el => el.classList.add('hidden'));
+    
+    // テナント初期化
+    try {
+        await initializeTenant();
+    } catch (error) {
+        console.error('❌ テナント初期化エラー:', error);
+    }
     
     // 少し遅延させてFirebase初期化を確実に待つ
     setTimeout(() => {

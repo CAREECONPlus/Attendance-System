@@ -1,5 +1,18 @@
 console.log('admin.js loaded');
 
+// テナント対応のFirestoreコレクション取得関数（main.jsの統一関数を使用）
+function getAttendanceCollection() {
+    return window.getTenantFirestore ? window.getTenantFirestore('attendance') : firebase.firestore().collection('attendance');
+}
+
+function getBreaksCollection() {
+    return window.getTenantFirestore ? window.getTenantFirestore('breaks') : firebase.firestore().collection('breaks');
+}
+
+function getUsersCollection() {
+    return window.getUserCollection ? window.getUserCollection() : firebase.firestore().collection('users');
+}
+
 /**
  * 管理者登録依頼の管理機能
  */
@@ -379,7 +392,7 @@ async function loadEmployeeList() {
  */
 async function loadSiteList() {
     try {
-        const querySnapshot = await firebase.firestore().collection('attendance').get();
+        const querySnapshot = await getAttendanceCollection().get();
         const sites = new Set();
         
         // すべての勤怠記録から現場名を抽出
@@ -421,7 +434,7 @@ async function loadAttendanceData() {
         const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
         if (!activeTab) return;
         
-        let query = firebase.firestore().collection('attendance');
+        let query = getAttendanceCollection();
         let filteredData = [];
         
         // フィルター条件の適用
@@ -3063,4 +3076,156 @@ function initAdminEditFeaturesImproved() {
 // 既存の初期化関数を上書き
 window.initAdminEditFeatures = initAdminEditFeaturesImproved;
 
-console.log('✅ admin.js 権限エラー対応版 読み込み完了');
+// ================ テナント内ユーザー管理機能 ================
+
+/**
+ * テナント内のユーザー一覧を表示（従業員別タブ機能の拡張）
+ */
+async function loadTenantUsers() {
+    try {
+        console.log('👥 テナント内ユーザー読み込み開始');
+        
+        const usersCollection = getUsersCollection();
+        const querySnapshot = await usersCollection.orderBy('displayName').get();
+        
+        const users = [];
+        querySnapshot.forEach(doc => {
+            const userData = doc.data();
+            users.push({
+                id: doc.id,
+                uid: doc.id,
+                ...userData
+            });
+        });
+        
+        console.log('✅ ユーザー読み込み完了:', users.length + '名');
+        return users;
+        
+    } catch (error) {
+        console.error('❌ ユーザー読み込みエラー:', error);
+        return [];
+    }
+}
+
+/**
+ * ユーザー情報を更新
+ */
+async function updateUserInfo(userId, updates) {
+    try {
+        const usersCollection = getUsersCollection();
+        await usersCollection.doc(userId).update({
+            ...updates,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ ユーザー情報更新完了:', userId);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ ユーザー情報更新エラー:', error);
+        throw error;
+    }
+}
+
+/**
+ * ユーザーのロールを変更
+ */
+async function changeUserRole(userId, newRole) {
+    try {
+        if (!['admin', 'employee'].includes(newRole)) {
+            throw new Error('無効なロールです');
+        }
+        
+        await updateUserInfo(userId, { role: newRole });
+        
+        // グローバルユーザー情報も更新（該当する場合）
+        const user = await getUsersCollection().doc(userId).get();
+        if (user.exists) {
+            const userData = user.data();
+            if (userData.email) {
+                try {
+                    await firebase.firestore().collection('global_users').doc(userData.email).update({
+                        role: newRole,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (globalError) {
+                    console.warn('グローバルユーザー更新スキップ:', globalError.message);
+                }
+            }
+        }
+        
+        console.log('✅ ユーザーロール変更完了:', userId, '→', newRole);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ ユーザーロール変更エラー:', error);
+        throw error;
+    }
+}
+
+/**
+ * ユーザーを無効化/有効化
+ */
+async function toggleUserStatus(userId, isActive = true) {
+    try {
+        await updateUserInfo(userId, { 
+            active: isActive,
+            disabledAt: isActive ? null : firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ ユーザーステータス変更完了:', userId, isActive ? '有効' : '無効');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ ユーザーステータス変更エラー:', error);
+        throw error;
+    }
+}
+
+/**
+ * 新しい従業員を招待（メールアドレスベース）
+ */
+async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
+    try {
+        // 既存ユーザーチェック
+        const usersCollection = getUsersCollection();
+        const existingQuery = await usersCollection.where('email', '==', emailAddress).get();
+        
+        if (!existingQuery.empty) {
+            throw new Error('このメールアドレスは既に登録済みです');
+        }
+        
+        // 仮ユーザーデータを作成（実際の登録は別途行う）
+        const inviteData = {
+            email: emailAddress,
+            displayName: displayName,
+            role: role,
+            status: 'invited',
+            invitedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            tenantId: window.getCurrentTenantId ? window.getCurrentTenantId() : null
+        };
+        
+        // 招待記録を保存（実装に応じて調整）
+        console.log('📧 従業員招待データ:', inviteData);
+        
+        // 実際の招待メール送信は別途実装
+        alert(`${emailAddress} への招待を準備しました。\n実際の招待機能は今後実装予定です。`);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ 従業員招待エラー:', error);
+        throw error;
+    }
+}
+
+/**
+ * ユーザー管理UI用のヘルパー関数群
+ */
+window.loadTenantUsers = loadTenantUsers;
+window.updateUserInfo = updateUserInfo;
+window.changeUserRole = changeUserRole;
+window.toggleUserStatus = toggleUserStatus;
+window.inviteNewEmployee = inviteNewEmployee;
+
+console.log('✅ admin.js ユーザー管理機能付き読み込み完了');
