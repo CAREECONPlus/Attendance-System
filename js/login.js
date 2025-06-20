@@ -154,10 +154,15 @@ async function handleLogin(e) {
         // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
         if (user.email === 'dxconsulting.branu2@gmail.com') {
             userRole = 'super_admin';
-            // Firestoreのroleも更新（初回ログイン時）
+            // Firestoreのroleも強制的に更新
             if (userData.role !== 'super_admin') {
-                await userRef.update({ role: 'super_admin' });
-                console.log('✅ super_adminロールに自動更新');
+                await db.collection('users').doc(user.uid).update({ 
+                    role: 'super_admin',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('✅ super_adminロールに強制更新:', user.email);
+            } else {
+                console.log('✅ 既にsuper_adminロール:', user.email);
             }
         }
         
@@ -326,10 +331,15 @@ async function handleAuthStateChange(user) {
                 // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
                 if (user.email === 'dxconsulting.branu2@gmail.com') {
                     userRole = 'super_admin';
-                    // Firestoreのroleも更新（初回または変更時）
+                    // Firestoreのroleも強制的に更新
                     if (userData.role !== 'super_admin') {
-                        await firebase.firestore().collection('users').doc(user.uid).update({ role: 'super_admin' });
-                        console.log('✅ super_adminロールに自動更新 (認証状態変化時)');
+                        await firebase.firestore().collection('users').doc(user.uid).update({ 
+                            role: 'super_admin',
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log('✅ super_adminロールに強制更新 (認証状態変化時):', user.email);
+                    } else {
+                        console.log('✅ 既にsuper_adminロール (認証状態変化時):', user.email);
                     }
                 }
                 
