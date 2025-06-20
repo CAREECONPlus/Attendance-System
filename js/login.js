@@ -534,28 +534,46 @@ async function handleAdminRequest(e) {
     }
     
     try {
-        // フォームデータをローカルストレージに保存（管理者が確認できるように）
+        // フォームデータをローカルストレージに保存（バックアップ用）
         const submissionData = {
             ...formData,
             submitDate: new Date().toLocaleString('ja-JP'),
             id: Date.now().toString()
         };
         
-        // 既存の依頼データを取得
         const existingRequests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
         existingRequests.push(submissionData);
-        
-        // ローカルストレージに保存
         localStorage.setItem('adminRequests', JSON.stringify(existingRequests));
         
-        // 送信データをコンソールに出力（開発者が確認できるように）
-        console.log('📧 管理者登録依頼データ:', submissionData);
+        // FormSubmitを使用してメール送信
+        const formSubmitData = new FormData();
+        formSubmitData.append('_to', 's.nakahara@branu.jp');
+        formSubmitData.append('_subject', '勤怠管理システム管理者登録依頼');
+        formSubmitData.append('_captcha', 'false');
+        formSubmitData.append('_template', 'box');
+        formSubmitData.append('氏名', formData.name);
+        formSubmitData.append('メールアドレス', formData.email);
+        formSubmitData.append('電話番号', formData.phone);
+        formSubmitData.append('会社名・組織名', formData.company);
+        formSubmitData.append('部署名', formData.department || '（未記入）');
+        formSubmitData.append('利用目的', formData.purpose);
+        formSubmitData.append('想定利用者数', formData.users || '（未選択）');
+        formSubmitData.append('その他・備考', formData.comments || '（未記入）');
+        formSubmitData.append('送信日時', new Date().toLocaleString('ja-JP'));
         
-        // 成功メッセージを表示
-        showAdminRequestMessage('問い合わせありがとうございました。依頼内容を確認次第、ご連絡いたします。', 'success');
+        // FormSubmitに送信
+        const response = await fetch('https://formsubmit.co/s.nakahara@branu.jp', {
+            method: 'POST',
+            body: formSubmitData
+        });
         
-        // フォームをリセット
-        document.getElementById('adminRequestForm').reset();
+        if (response.ok) {
+            console.log('✅ メール送信成功');
+            showAdminRequestMessage('問い合わせありがとうございました。依頼内容を確認次第、ご連絡いたします。', 'success');
+            document.getElementById('adminRequestForm').reset();
+        } else {
+            throw new Error('メール送信に失敗しました');
+        }
         
         console.log('✅ 管理者登録依頼送信完了');
         
