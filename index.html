@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠管理システム</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Favicon追加 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    
+    <!-- Firebase v8 SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <!-- Firebase設定 -->
+    <script src="js/firebase.js"></script>
+    
+    <!-- システムのJavaScript -->
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/employee.js"></script>
+    <script src="js/admin.js"></script>
+
+    <style>
+        /* 勤怠ボタンの状態別色設定（強制適用） */
+        #clock-in-btn,
+        #clock-out-btn, 
+        #break-start-btn,
+        #break-end-btn {
+            transition: all 0.3s ease !important;
+            border: none !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 18px !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            cursor: pointer !important;
+            box-shadow: var(--shadow-sm) !important;
+            min-width: 120px !important;
+        }
+
+        /* 出勤ボタン - 待機状態（青） */
+        #clock-in-btn:not(:disabled) {
+            background: linear-gradient(135deg, #007bff, #0056b3) !important;
+            color: white !important;
+        }
+
+        /* 出勤ボタン - 出勤済み状態（緑） */
+        #clock-in-btn:disabled {
+            background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+            color: white !important;
+            opacity: 0.85 !important;
+        }
+
+        /* 退勤ボタン - 有効状態（赤） */
+        #clock-out-btn:not(:disabled) {
+            background: linear-gradient(135deg, #dc3545, #c82333) !important;
+            color: white !important;
+        }
+
+        /* 退勤ボタン - 無効状態（グレー） */
+        #clock-out-btn:disabled {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* 休憩開始ボタン - 有効状態（黄色） */
+        #break-start-btn:not(:disabled) {
+            background: linear-gradient(135deg, #ffc107, #e0a800) !important;
+            color: black !important;
+        }
+
+        /* 休憩開始ボタン - 休憩中状態（水色） */
+        #break-start-btn.break-active {
+            background: linear-gradient(135deg, #17a2b8, #138496) !important;
+            color: white !important;
+            opacity: 0.85 !important;
+        }
+
+        /* 休憩開始ボタン - 無効状態（グレー） */
+        #break-start-btn:disabled:not(.break-active) {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* 休憩終了ボタン - 有効状態（オレンジ） */
+        #break-end-btn:not(:disabled) {
+            background: linear-gradient(135deg, #fd7e14, #e8650e) !important;
+            color: white !important;
+        }
+
+        /* 休憩終了ボタン - 無効状態（グレー） */
+        #break-end-btn:disabled {
+            background: #6c757d !important;
+            color: white !important;
+            opacity: 0.6 !important;
+        }
+
+        /* ホバー効果（有効なボタンのみ） */
+        .clock-btn:not(:disabled):hover {
+            transform: translateY(-2px) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        /* 無効ボタンの統一スタイル */
+        .clock-btn:disabled {
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+
+        /* 処理中ボタンのスタイル */
+        .clock-btn.processing {
+            opacity: 0.7 !important;
+            cursor: wait !important;
+            pointer-events: none !important;
+        }
+
+        /* 状態表示の強化 */
+        .status-working {
+            background: rgba(40, 167, 69, 0.1) !important;
+            color: #28a745 !important;
+            border-left: 4px solid #28a745 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-break {
+            background: rgba(255, 193, 7, 0.1) !important;
+            color: #ffc107 !important;
+            border-left: 4px solid #ffc107 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-completed {
+            background: rgba(23, 162, 184, 0.1) !important;
+            color: #17a2b8 !important;
+            border-left: 4px solid #17a2b8 !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        .status-waiting {
+            background: rgba(108, 117, 125, 0.1) !important;
+            color: #6c757d !important;
+            border-left: 4px solid #6c757d !important;
+            padding: 15px !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* 小画面対応 */
+        @media (max-width: 480px) {
+            #clock-in-btn,
+            #clock-out-btn, 
+            #break-start-btn,
+            #break-end-btn {
+                padding: 14px 8px !important;
+                font-size: 16px !important;
+                min-width: 80px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ログインページ -->
+    <div id="login-page" class="page">
+        <div class="container login-container">
+            <div class="login-card">
+                <h1>勤怠管理システム</h1>
+                
+                <!-- ログインフォーム -->
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">メールアドレス</label>
+                        <input type="email" id="email" name="email" autocomplete="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">パスワード</label>
+                        <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+                    </div>
+                    
+                    <div id="error-message" class="error-text hidden"></div>
+                </form>
+                
+                <!-- 登録フォーム（同一ページに追加） -->
+                <form id="registerForm" class="register-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="registerEmail">メールアドレス</label>
+                        <input type="email" id="registerEmail" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="registerPassword">パスワード</label>
+                        <input type="password" id="registerPassword" name="password" required>
+                        <div class="form-hint">6文字以上で入力してください</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="displayName">氏名</label>
+                        <input type="text" id="displayName" name="displayName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">役割</label>
+                        <select id="role" name="role">
+                            <option value="employee">従業員</option>
+                            <option value="admin">管理者</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                    </div>
+                    
+                    <div id="register-error-message" class="error-text hidden"></div>
+                </form>
+                
+                <div class="login-footer">
+                    <p id="toggle-text">アカウントをお持ちでない方は</p>
+                    <a href="#" id="showRegisterButton" class="link">新規登録はこちら</a>
+                    <a href="#" id="showLoginButton" class="link" style="display: none;">ログインはこちら</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 従業員画面 -->
+    <div id="employee-page" class="page hidden">
+        <div class="container">
+            <header class="app-header">
+                <h1>勤怠管理システム</h1>
+                <div class="user-info">
+                    <span id="user-name"></span>
+                    <button class="btn btn-secondary btn-small" id="logout-btn">ログアウト</button>
+                </div>
+            </header>
+
+            <main class="employee-main">
+                <!-- 現在時刻表示 -->
+                <div class="date-display">
+                    <div class="date" id="current-date">日付読み込み中...</div>
+                    <div class="time" id="current-time">時刻読み込み中...</div>
+                </div>
+
+                <!-- 勤務状況 -->
+                <div id="clock-status" class="clock-status">
+                    <div class="status-waiting">出勤ボタンを押してください</div>
+                </div>
+
+                <!-- 出退勤・休憩ボタン -->
+                <div class="clock-buttons">
+                    <div class="button-row">
+                        <button class="btn btn-primary clock-btn" id="clock-in-btn">出勤</button>
+                        <button class="btn btn-secondary clock-btn" id="clock-out-btn" disabled>退勤</button>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-warning clock-btn" id="break-start-btn" disabled>休憩開始</button>
+                        <button class="btn btn-warning clock-btn" id="break-end-btn" disabled>休憩終了</button>
+                    </div>
+                </div>
+
+                <!-- 現場選択 -->
+                <div class="site-selection">
+                    <div class="form-group">
+                        <label for="site-name">🏢 現場名：</label>
+                        <select id="site-name" required>
+                            <option value="" disabled selected>現場を選択してください</option>
+                            <option value="other">その他（直接入力）</option>
+                        </select>
+                        <input type="text" 
+                               id="other-site" 
+                               placeholder="現場名を入力してください" 
+                               style="display: none; margin-top: 10px;"
+                               maxlength="100">
+                    </div>
+                    <div class="site-loading" id="site-loading" style="display: none;">
+                        <small>🔄 現場リストを読み込み中...</small>
+                    </div>
+                </div>
+
+                <!-- メモ -->
+                <div class="form-group">
+                    <label for="work-notes">📝 メモ：</label>
+                    <textarea id="work-notes" placeholder="作業内容を記入（任意）" rows="3" maxlength="500"></textarea>
+                    <div class="form-hint">
+                        <small>💡 作業内容や特記事項を記録できます（任意）</small>
+                    </div>
+                </div>
+
+                <!-- 最近の記録 -->
+                <section class="recent-records">
+                    <h3>📋 最近の記録</h3>
+                    <div id="recent-list">
+                        <div class="loading-message">🔄 記録を読み込み中...</div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- 管理者画面 -->
+    <div id="admin-page" class="page hidden">
+        <div class="container">
+            <header class="app-header">
+                <h1>勤怠管理システム</h1>
+                <div class="user-info">
+                    <span id="admin-user-name"></span>
+                    <button id="admin-logout-btn" class="btn btn-secondary btn-small">ログアウト</button>
+                </div>
+            </header>
+
+            <main class="admin-main">
+                <div class="admin-tabs">
+                    <button class="tab-btn active" data-tab="daily">日別表示</button>
+                    <button class="tab-btn" data-tab="monthly">月別表示</button>
+                    <button class="tab-btn" data-tab="employee">従業員別</button>
+                    <button class="tab-btn" data-tab="site">現場別</button>
+                </div>
+
+                <div class="filter-row">
+                    <div class="date-filter">
+                        <label class="filter-label">日付:</label>
+                        <input type="date" id="filter-date">
+                    </div>
+                    <div class="month-filter hidden">
+                        <label class="filter-label">月:</label>
+                        <input type="month" id="filter-month">
+                    </div>
+                    <div class="employee-filter hidden">
+                        <label class="filter-label">従業員:</label>
+                        <select id="filter-employee">
+                            <option value="">全員</option>
+                        </select>
+                    </div>
+                    <div class="site-filter hidden">
+                        <label class="filter-label">現場:</label>
+                        <select id="filter-site">
+                            <option value="">全ての現場</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button id="export-csv" class="btn btn-primary">CSV出力</button>
+                    </div>
+                </div>
+
+                <div class="attendance-table-container">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="userName">従業員名</th>
+                                <th class="sortable" data-sort="date">日付</th>
+                                <th class="sortable" data-sort="siteName">現場名</th>
+                                <th>勤務時間</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-data">
+                            <!-- 勤怠データが表示されます -->
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+
+        <!-- 勤怠データ編集モーダル -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn">&times;</button>
+                <h2>勤怠データ編集</h2>
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    
+                    <div class="form-group">
+                        <label for="edit-date">日付:</label>
+                        <input type="date" id="edit-date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-site">現場名:</label>
+                        <input type="text" id="edit-site" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="edit-clock-in">出勤時間:</label>
+                            <input type="datetime-local" id="edit-clock-in" required>
+                        </div>
+                        <div class="form-col">
+                            <label for="edit-clock-out">退勤時間:</label>
+                            <input type="datetime-local" id="edit-clock-out">
+                        </div>
+                    </div>
+                    
+                    <div class="break-times">
+                        <div class="break-title">
+                            <span>休憩時間</span>
+                            <button type="button" id="add-break-btn" class="btn btn-small btn-warning">追加</button>
+                        </div>
+                        <div id="break-list" class="break-list">
+                            <!-- 休憩時間リスト -->
+                        </div>
+                        <div id="total-break-time" class="form-hint" style="text-align: right; margin-top: 10px;">
+                            合計休憩時間: 0時間0分
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-notes">メモ:</label>
+                        <textarea id="edit-notes" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" id="delete-record" class="btn btn-danger">削除</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 休憩時間追加モーダル -->
+        <div id="break-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" id="close-break-modal">&times;</button>
+                <h2>休憩時間の追加</h2>
+                <form id="break-form">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="break-start">開始時間:</label>
+                            <input type="datetime-local" id="break-start" required>
+                        </div>
+                        <div class="form-col">
+                            <label for="break-end">終了時間:</label>
+                            <input type="datetime-local" id="break-end" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">追加</button>
+                        <button type="button" id="cancel-break" class="btn btn-secondary">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ページ固有のJavaScript -->
+    <script src="js/login.js"></script>
+    
+    <script>
+        // ページの初期設定
+        document.addEventListener('DOMContentLoaded', function() {
+            // ログインページを表示
+            showPage('login');
+        });
+    </script>
+
+</body>
+</html>
