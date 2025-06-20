@@ -946,23 +946,38 @@ async function loadRecentRecordsSafely() {
         
         console.log('📅 検索範囲:', threeDaysAgoString, '〜', today);
         
+        // インデックス不要の簡素化クエリ（ユーザーIDのみでフィルター）
         const query = firebase.firestore()
             .collection('attendance')
             .where('userId', '==', currentUser.uid)
-            .where('date', '>=', threeDaysAgoString)
-            .where('date', '<=', today)
-            .orderBy('date', 'desc')
-            .limit(10);
+            .limit(20); // 多めに取得してクライアント側でフィルター
         
         const snapshot = await query.get();
         
-        if (snapshot.empty) {
+        // クライアント側で直近3日間でフィルター
+        const filteredDocs = [];
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const recordDate = data.date;
+            if (recordDate && recordDate >= threeDaysAgoString && recordDate <= today) {
+                filteredDocs.push(doc);
+            }
+        });
+        
+        // 擬似的なsnapshot作成
+        const filteredSnapshot = {
+            empty: filteredDocs.length === 0,
+            size: filteredDocs.length,
+            docs: filteredDocs
+        };
+        
+        if (filteredSnapshot.empty) {
             showWelcomeMessage();
             return;
         }
         
-        console.log('✅ 記録取得成功:', snapshot.size, '件（直近3日間）');
-        displayRecentRecords(snapshot);
+        console.log('✅ 記録取得成功:', filteredSnapshot.size, '件（直近3日間）');
+        displayRecentRecords(filteredSnapshot);
         
     } catch (error) {
         console.error('❌ 記録読み込みエラー:', error);
