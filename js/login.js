@@ -498,7 +498,9 @@ function showAdminRequestForm() {
 // 管理者登録依頼フォーム送信処理
 async function handleAdminRequest(e) {
     e.preventDefault();
-    console.log('📧 管理者登録依頼送信開始');
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    console.log('📧 管理者登録依頼送信開始 - デフォルト動作を完全に阻止');
     
     const formData = {
         name: document.getElementById('requestName')?.value?.trim(),
@@ -555,6 +557,9 @@ async function handleAdminRequest(e) {
         // 成功メッセージを表示
         showAdminRequestMessage('問い合わせありがとうございました。依頼内容を確認次第、ご連絡いたします。', 'success');
         
+        // 確実に処理を停止
+        return;
+        
         // フォームをリセット
         document.getElementById('adminRequestForm').reset();
         
@@ -608,6 +613,8 @@ function setupAdminRequestListeners() {
     const adminRequestForm = document.getElementById('adminRequestForm');
     if (adminRequestForm) {
         console.log('✅ 管理者登録依頼フォームを発見');
+        // 既存のイベントリスナーを削除してから再登録
+        adminRequestForm.removeEventListener('submit', handleAdminRequest);
         adminRequestForm.addEventListener('submit', handleAdminRequest);
     } else {
         console.log('❌ 管理者登録依頼フォームが見つかりません');
