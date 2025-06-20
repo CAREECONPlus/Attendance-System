@@ -904,10 +904,10 @@ function updateStatusDisplay(status, attendanceData, breakData = null) {
             case 'completed':
                 statusHtml = `
                     <div class="status-completed">
-                        <h4>✅ 本日の勤務は完了しています</h4>
+                        <h4>✅ 本日は退勤済みです。</h4>
                         <p>現場: ${attendanceData.siteName}</p>
                         <p>勤務時間: ${attendanceData.startTime} - ${attendanceData.endTime}</p>
-                        <p><strong>🔒 1日1回制限により再出勤はできません</strong></p>
+                        <p>お疲れさまでした。</p>
                     </div>
                 `;
                 break;
