@@ -152,6 +152,35 @@
             border-radius: var(--radius-md) !important;
         }
 
+        /* 管理者登録案内スタイル */
+        .admin-notice {
+            background: rgba(23, 162, 184, 0.1) !important;
+            border: 1px solid rgba(23, 162, 184, 0.3) !important;
+            border-radius: 8px !important;
+            padding: 15px !important;
+            margin: 15px 0 !important;
+            font-size: 14px !important;
+            color: #0c5460 !important;
+        }
+
+        .admin-notice p {
+            margin: 8px 0 !important;
+        }
+
+        .admin-notice strong {
+            color: #17a2b8 !important;
+        }
+
+        .admin-notice .link {
+            color: #17a2b8 !important;
+            text-decoration: underline !important;
+            font-weight: 600 !important;
+        }
+
+        .admin-notice .link:hover {
+            color: #138496 !important;
+        }
+
         /* 小画面対応 */
         @media (max-width: 480px) {
             #clock-in-btn,
@@ -161,6 +190,11 @@
                 padding: 14px 8px !important;
                 font-size: 16px !important;
                 min-width: 80px !important;
+            }
+            
+            .admin-notice {
+                font-size: 13px !important;
+                padding: 12px !important;
             }
         }
     </style>
@@ -210,15 +244,13 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="role">役割</label>
-                        <select id="role" name="role">
-                            <option value="employee">従業員</option>
-                            <option value="admin">管理者</option>
-                        </select>
+                        <button type="submit" class="btn btn-primary btn-full">従業員として登録する</button>
                     </div>
                     
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary btn-full">登録する</button>
+                    <div class="admin-notice">
+                        <p><strong>管理者権限をご希望の方へ</strong></p>
+                        <p>管理者アカウントの登録は、セキュリティ上の理由により直接登録できません。</p>
+                        <p>管理者権限が必要な場合は、<a href="mailto:s.nakahara@branu.jp?subject=勤怠管理システム管理者登録依頼&body=管理者登録を希望します。%0A%0A氏名：%0A会社名：%0A連絡先：%0A用途：" class="link">BRANU株式会社</a>までお問い合わせください。</p>
                     </div>
                     
                     <div id="register-error-message" class="error-text hidden"></div>

@@ -208,7 +208,7 @@ async function handleRegister(e) {
     const email = document.getElementById('registerEmail')?.value?.trim();
     const password = document.getElementById('registerPassword')?.value?.trim();
     const displayName = document.getElementById('displayName')?.value?.trim();
-    const role = document.getElementById('role')?.value || 'employee';
+    const role = 'employee'; // 従業員固定
     
     if (!email || !password || !displayName) {
         showRegisterError('全ての項目を入力してください');
