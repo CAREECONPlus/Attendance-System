@@ -925,9 +925,9 @@ function updateStatusDisplay(status, attendanceData, breakData = null) {
     }
 }
 
-// 最近の記録を安全に読み込み
+// 最近の記録を安全に読み込み（直近3日間のみ）
 async function loadRecentRecordsSafely() {
-    console.log('🔍 最近の記録を安全に読み込み中...');
+    console.log('🔍 最近の記録を安全に読み込み中（直近3日間）...');
     
     const recentList = document.getElementById('recent-list');
     if (!recentList) return;
@@ -938,10 +938,21 @@ async function loadRecentRecordsSafely() {
             return;
         }
         
+        // 直近3日間の日付範囲を計算
+        const today = getTodayJST();
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 2); // 今日含めて3日間
+        const threeDaysAgoString = threeDaysAgo.toISOString().split('T')[0];
+        
+        console.log('📅 検索範囲:', threeDaysAgoString, '〜', today);
+        
         const query = firebase.firestore()
             .collection('attendance')
             .where('userId', '==', currentUser.uid)
-            .limit(5);
+            .where('date', '>=', threeDaysAgoString)
+            .where('date', '<=', today)
+            .orderBy('date', 'desc')
+            .limit(10);
         
         const snapshot = await query.get();
         
@@ -950,7 +961,7 @@ async function loadRecentRecordsSafely() {
             return;
         }
         
-        console.log('✅ 記録取得成功:', snapshot.size, '件');
+        console.log('✅ 記録取得成功:', snapshot.size, '件（直近3日間）');
         displayRecentRecords(snapshot);
         
     } catch (error) {
