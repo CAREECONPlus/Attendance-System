@@ -183,7 +183,7 @@ async function initAdminPage() {
     if (!checkAuth('admin')) return;
 
     // スーパー管理者の場合、管理者依頼タブを表示
-    if (window.currentUser && window.currentUser.isSuperAdmin) {
+    if (window.currentUser && window.currentUser.role === 'super_admin') {
         const adminRequestsTab = document.getElementById('admin-requests-tab');
         if (adminRequestsTab) {
             adminRequestsTab.style.display = 'block';
@@ -198,7 +198,7 @@ async function initAdminPage() {
     initAdminEditFeatures();
     
     // 管理者登録依頼管理機能を初期化（スーパー管理者のみ）
-    if (window.currentUser && window.currentUser.isSuperAdmin) {
+    if (window.currentUser && window.currentUser.role === 'super_admin') {
         initAdminRequestsManagement();
     }
     
