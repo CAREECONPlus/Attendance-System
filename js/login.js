@@ -226,7 +226,13 @@ async function handleRegister(e) {
     const email = document.getElementById('registerEmail')?.value?.trim();
     const password = document.getElementById('registerPassword')?.value?.trim();
     const displayName = document.getElementById('displayName')?.value?.trim();
-    const role = 'employee'; // 従業員固定
+    
+    // ロールを決定（dxconsulting.branu2@gmail.comは自動的にsuper_admin）
+    let role = 'employee';
+    if (email === 'dxconsulting.branu2@gmail.com') {
+        role = 'super_admin';
+        console.log('🔥 スーパー管理者として登録:', email);
+    }
     
     if (!email || !password || !displayName) {
         showRegisterError('全ての項目を入力してください');
@@ -314,12 +320,25 @@ async function handleAuthStateChange(user) {
             if (userDoc.exists) {
                 const userData = userDoc.data();
                 
+                // ユーザーのロールを決定
+                let userRole = userData.role || 'employee';
+                
+                // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
+                if (user.email === 'dxconsulting.branu2@gmail.com') {
+                    userRole = 'super_admin';
+                    // Firestoreのroleも更新（初回または変更時）
+                    if (userData.role !== 'super_admin') {
+                        await firebase.firestore().collection('users').doc(user.uid).update({ role: 'super_admin' });
+                        console.log('✅ super_adminロールに自動更新 (認証状態変化時)');
+                    }
+                }
+                
                 // グローバル変数設定
                 window.currentUser = {
                     uid: user.uid,
                     email: user.email,
                     displayName: userData.displayName || user.displayName,
-                    role: userData.role || 'employee'
+                    role: userRole
                 };
                 
                 console.log('✅ 認証済みユーザー設定完了:', window.currentUser);
@@ -328,7 +347,8 @@ async function handleAuthStateChange(user) {
                 const currentPage = document.querySelector('.page:not(.hidden)');
                 if (!currentPage || currentPage.id === 'login-page') {
                     // ログインページ表示中の場合のみ画面遷移
-                    if (userData.role === 'admin') {
+                    if (userRole === 'admin' || userRole === 'super_admin') {
+                        console.log('👑 管理者画面に遷移 (認証状態変化 role:', userRole + ')');
                         showPage('admin');
                         setTimeout(() => {
                             if (typeof initAdminPage === 'function') {
@@ -336,6 +356,7 @@ async function handleAuthStateChange(user) {
                             }
                         }, 200);
                     } else {
+                        console.log('👤 従業員画面に遷移 (認証状態変化)');
                         showPage('employee');
                         setTimeout(() => {
                             if (typeof initEmployeePage === 'function') {
