@@ -181,6 +181,43 @@
             color: #138496 !important;
         }
 
+        /* 管理者登録依頼フォームスタイル */
+        .form-description {
+            color: #6c757d !important;
+            margin-bottom: 20px !important;
+            line-height: 1.5 !important;
+            font-size: 14px !important;
+        }
+
+        .required {
+            color: #dc3545 !important;
+            font-weight: 600 !important;
+        }
+
+        .message {
+            padding: 12px 15px !important;
+            border-radius: 6px !important;
+            margin: 15px 0 !important;
+            font-weight: 600 !important;
+        }
+
+        .message.success {
+            background: #d4edda !important;
+            color: #155724 !important;
+            border: 1px solid #c3e6cb !important;
+        }
+
+        .message.error {
+            background: #f8d7da !important;
+            color: #721c24 !important;
+            border: 1px solid #f5c6cb !important;
+        }
+
+        #submitAdminRequest:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+        }
+
         /* 小画面対応 */
         @media (max-width: 480px) {
             #clock-in-btn,
@@ -250,7 +287,7 @@
                     <div class="admin-notice">
                         <p><strong>管理者権限をご希望の方へ</strong></p>
                         <p>管理者アカウントの登録は、セキュリティ上の理由により直接登録できません。</p>
-                        <p>管理者権限が必要な場合は、<a href="mailto:s.nakahara@branu.jp?subject=勤怠管理システム管理者登録依頼&body=管理者登録を希望します。%0A%0A氏名：%0A会社名：%0A連絡先：%0A用途：" class="link">BRANU株式会社</a>までお問い合わせください。</p>
+                        <p>管理者権限が必要な場合は、<a href="#" id="showAdminRequestButton" class="link">管理者登録依頼フォーム</a>をご利用ください。</p>
                     </div>
                     
                     <div id="register-error-message" class="error-text hidden"></div>
@@ -472,6 +509,75 @@
                         <button type="button" id="cancel-break" class="btn btn-secondary">キャンセル</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理者登録依頼フォームページ -->
+    <div id="admin-request-page" class="page hidden">
+        <div class="container">
+            <div class="login-card">
+                <h1>管理者登録依頼フォーム</h1>
+                <p class="form-description">管理者権限の取得をご希望の方は、以下のフォームにご記入ください。<br>BRANU株式会社にて審査の上、ご連絡いたします。</p>
+                
+                <form id="adminRequestForm">
+                    <div class="form-group">
+                        <label for="requestName">氏名 <span class="required">*</span></label>
+                        <input type="text" id="requestName" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestEmail">メールアドレス <span class="required">*</span></label>
+                        <input type="email" id="requestEmail" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestPhone">電話番号 <span class="required">*</span></label>
+                        <input type="tel" id="requestPhone" name="phone" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestCompany">会社名・組織名 <span class="required">*</span></label>
+                        <input type="text" id="requestCompany" name="company" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestDepartment">部署名</label>
+                        <input type="text" id="requestDepartment" name="department">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestPurpose">利用目的 <span class="required">*</span></label>
+                        <textarea id="requestPurpose" name="purpose" rows="4" required placeholder="管理者権限が必要な理由や利用目的をご記入ください"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestUsers">想定利用者数</label>
+                        <select id="requestUsers" name="users">
+                            <option value="">選択してください</option>
+                            <option value="1-5">1〜5名</option>
+                            <option value="6-10">6〜10名</option>
+                            <option value="11-20">11〜20名</option>
+                            <option value="21-50">21〜50名</option>
+                            <option value="51+">51名以上</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="requestComments">その他・備考</label>
+                        <textarea id="requestComments" name="comments" rows="3" placeholder="ご質問やご要望があればご記入ください"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full" id="submitAdminRequest">依頼を送信</button>
+                    </div>
+                    
+                    <div id="admin-request-message" class="message hidden"></div>
+                </form>
+                
+                <div class="login-footer">
+                    <a href="#" id="backToRegisterButton" class="link">← 新規登録画面に戻る</a>
+                </div>
             </div>
         </div>
     </div>
