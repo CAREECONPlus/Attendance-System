@@ -413,61 +413,32 @@ function setupEmployeeEventListeners() {
     console.log('✅ イベントリスナー設定完了');
 }
 
-// 現場選択の設定
+// 現場選択の設定（直接入力対応）
 function setupSiteSelection() {
-    const siteSelect = document.getElementById('site-name');
-    const otherSiteInput = document.getElementById('other-site');
-    
-    if (siteSelect && otherSiteInput) {
-        siteSelect.addEventListener('change', function() {
-            if (this.value === 'other') {
-                otherSiteInput.style.display = 'block';
-                otherSiteInput.required = true;
-            } else {
-                otherSiteInput.style.display = 'none';
-                otherSiteInput.required = false;
-                otherSiteInput.value = '';
-            }
-        });
-    }
+    // 直接入力に変更したため、特別な設定は不要
+    console.log('現場名は直接入力形式です');
 }
 
-// 現場名取得関数
+// 現場名取得関数（直接入力対応）
 function getSiteNameFromSelection() {
     const siteNameElement = document.getElementById('site-name');
-    const otherSiteElement = document.getElementById('other-site');
     
     if (!siteNameElement) {
         console.error('❌ site-name要素が見つかりません');
-        alert('現場選択フォームに問題があります。\nページを再読み込みしてください。');
+        alert('現場名入力フォームに問題があります。\nページを再読み込みしてください。');
         return null;
     }
     
-    let siteName = siteNameElement.value;
+    const siteName = siteNameElement.value.trim();
     
-    // 空の値または未選択チェック
-    if (!siteName || siteName === '' || siteName === '現場を選択してください') {
-        alert('⚠️ 現場を選択してください');
-        // フォーカスを現場選択に移動
+    // 空の値チェック
+    if (!siteName) {
+        alert('⚠️ 現場名を入力してください');
         siteNameElement.focus();
         return null;
     }
     
-    // 「その他」が選択された場合
-    if (siteName === 'other') {
-        if (otherSiteElement && otherSiteElement.value.trim()) {
-            siteName = otherSiteElement.value.trim();
-        } else {
-            alert('⚠️ 現場名を入力してください');
-            // フォーカスをその他入力欄に移動
-            if (otherSiteElement) {
-                otherSiteElement.focus();
-            }
-            return null;
-        }
-    }
-    
-    console.log('✅ 選択された現場:', siteName);
+    console.log('✅ 入力された現場:', siteName);
     return siteName;
 }
 
