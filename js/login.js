@@ -532,36 +532,46 @@ async function handleAdminRequest(e) {
     }
     
     try {
-        // EmailJS または類似サービスを使用してメール送信
-        // ここでは擬似的な処理として、メール内容を生成
-        const emailBody = `
-管理者登録依頼フォームからの送信
+        // Google Formsに送信する準備
+        // 実際のGoogle Forms URLに置き換える必要があります
+        // const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse';
+        
+        // 一時的にGoogle Forms作成を促すメッセージを表示
+        const createFormMessage = `
+Google Formsでの送信を設定するには、以下の手順が必要です：
 
+1. Google Formsで新しいフォームを作成
+2. 以下の質問項目を追加：
+   - 氏名（短答式）
+   - メールアドレス（短答式）  
+   - 電話番号（短答式）
+   - 会社名・組織名（短答式）
+   - 部署名（短答式）
+   - 利用目的（長答式）
+   - 想定利用者数（選択式）
+   - その他・備考（長答式）
+
+3. フォームの設定で s.nakahara@branu.jp への通知を有効化
+4. フォームのURLをこのコードに追加
+
+現在の入力内容：
 氏名: ${formData.name}
 メールアドレス: ${formData.email}
 電話番号: ${formData.phone}
-会社名・組織名: ${formData.company}
+会社名: ${formData.company}
 部署名: ${formData.department || '（未記入）'}
 利用目的: ${formData.purpose}
 想定利用者数: ${formData.users || '（未選択）'}
-その他・備考: ${formData.comments || '（未記入）'}
-
-送信日時: ${new Date().toLocaleString('ja-JP')}
+備考: ${formData.comments || '（未記入）'}
 `;
         
-        // mailto リンクでメール送信（一時的な実装）
-        const mailtoLink = `mailto:s.nakahara@branu.jp?subject=勤怠管理システム管理者登録依頼&body=${encodeURIComponent(emailBody)}`;
-        
-        // メールクライアントを開く
-        window.location.href = mailtoLink;
+        // 一時的にalertで内容を表示（Google Forms設定完了まで）
+        alert(createFormMessage);
         
         // 成功メッセージを表示
-        showAdminRequestMessage('依頼フォームが送信されました。メールクライアントが開きますので、送信を完了してください。', 'success');
+        showAdminRequestMessage('Google Formsの設定が必要です。上記の手順に従ってフォームを作成してください。', 'success');
         
-        // フォームをリセット
-        document.getElementById('adminRequestForm').reset();
-        
-        console.log('✅ 管理者登録依頼送信完了');
+        console.log('📝 Google Forms設定が必要:', formData);
         
     } catch (error) {
         console.error('❌ 管理者登録依頼送信エラー:', error);
