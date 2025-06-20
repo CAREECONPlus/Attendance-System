@@ -148,12 +148,16 @@ async function handleLogin(e) {
         const userData = userDoc.data();
         console.log('✅ ユーザーデータ取得:', userData);
         
+        // スーパー管理者の判定
+        const isSuperAdmin = user.email === 's.nakahara@branu.jp';
+        
         // グローバル変数設定
         window.currentUser = {
             uid: user.uid,
             email: user.email,
             displayName: userData.displayName || user.displayName,
-            role: userData.role || 'employee'
+            role: userData.role || 'employee',
+            isSuperAdmin: isSuperAdmin
         };
         
         console.log('🎉 ログイン成功:', window.currentUser);
