@@ -437,8 +437,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 DOM読み込み完了 - ログイン初期化開始');
     
     // 初期状態では全ページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page')
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
         .forEach(el => el.classList.add('hidden'));
+    
+    // 管理者登録依頼フォーム関連のイベントリスナー設定
+    setupAdminRequestListeners();
     
     // 少し遅延させてFirebase初期化を確実に待つ
     setTimeout(() => {
@@ -486,16 +489,8 @@ window.showPage = showPage;
 
 // 管理者登録依頼フォームを表示
 function showAdminRequestForm() {
-    // 全てのページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #admin-request-page')
-        .forEach(el => el.classList.add('hidden'));
-    
-    // 管理者登録依頼ページを表示
-    const adminRequestPage = document.getElementById('admin-request-page');
-    if (adminRequestPage) {
-        adminRequestPage.classList.remove('hidden');
-        console.log('✅ 管理者登録依頼フォームを表示');
-    }
+    showPage('admin-request');
+    console.log('✅ 管理者登録依頼フォームを表示');
 }
 
 // 管理者登録依頼フォーム送信処理
@@ -593,32 +588,45 @@ function showAdminRequestMessage(message, type) {
     }
 }
 
-// イベントリスナー設定
-document.addEventListener('DOMContentLoaded', () => {
+// 管理者登録依頼フォーム関連のイベントリスナー設定
+function setupAdminRequestListeners() {
+    console.log('🔧 管理者登録依頼フォームのイベントリスナーを設定中...');
+    
     // 管理者登録依頼フォーム表示ボタン
     const showAdminRequestBtn = document.getElementById('showAdminRequestButton');
     if (showAdminRequestBtn) {
+        console.log('✅ 管理者登録依頼ボタンを発見');
         showAdminRequestBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log('🖱️ 管理者登録依頼ボタンがクリックされました');
             showAdminRequestForm();
         });
+    } else {
+        console.log('❌ 管理者登録依頼ボタンが見つかりません');
     }
     
     // 管理者登録依頼フォーム送信
     const adminRequestForm = document.getElementById('adminRequestForm');
     if (adminRequestForm) {
+        console.log('✅ 管理者登録依頼フォームを発見');
         adminRequestForm.addEventListener('submit', handleAdminRequest);
+    } else {
+        console.log('❌ 管理者登録依頼フォームが見つかりません');
     }
     
     // 新規登録画面に戻るボタン
     const backToRegisterBtn = document.getElementById('backToRegisterButton');
     if (backToRegisterBtn) {
+        console.log('✅ 戻るボタンを発見');
         backToRegisterBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log('🖱️ 戻るボタンがクリックされました');
             showPage('login');
             showRegisterForm();
         });
+    } else {
+        console.log('❌ 戻るボタンが見つかりません');
     }
-});
+}
 
 console.log('✅ login.js（管理者登録依頼機能付き）読み込み完了');
