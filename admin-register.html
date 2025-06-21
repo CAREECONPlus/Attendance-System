@@ -25,23 +25,42 @@
     <!-- Email設定 -->
     <script src="js/email-config.js"></script>
     
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <style>
         :root {
-            --careecon-primary-blue: #2c5dff;
-            --careecon-secondary-blue: #1a73e8;
-            --careecon-white: #ffffff;
-            --careecon-light-gray: #f8f9fa;
-            --careecon-gray: #6c757d;
-            --careecon-dark: #343a40;
-            --border-color: #e9ecef;
-            --text-color: #495057;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-            --shadow-lg: 0 8px 25px rgba(0,0,0,0.15);
-            --shadow-xl: 0 25px 50px rgba(0,0,0,0.25);
-            --radius-sm: 4px;
+            /* CAREECON公式ブランドカラー */
+            --careecon-primary-blue: #2C5DFF;
+            --careecon-secondary-blue: #0133D8;
+            --careecon-thirdly-blue: #7F9DFE;
+            --careecon-careecon-blue: #244EFF;
+            --careecon-background-blue: #F1F4FF;
+            --careecon-black: #001350;
+            --careecon-green: #1DCE85;
+            --careecon-white: #FFFFFF;
+            
+            /* セマンティックカラー */
+            --success-color: var(--careecon-green);
+            --warning-color: #FF8C00;
+            --danger-color: #FF4757;
+            --info-color: var(--careecon-thirdly-blue);
+            
+            /* グレースケール */
+            --text-primary: var(--careecon-black);
+            --text-secondary: #4A5568;
+            --text-muted: #718096;
+            --border-color: #E2E8F0;
+            --background-light: #F7FAFC;
+            
+            /* シャドウ */
+            --shadow-sm: 0 1px 3px rgba(0, 19, 80, 0.12), 0 1px 2px rgba(0, 19, 80, 0.08);
+            --shadow-md: 0 4px 6px rgba(0, 19, 80, 0.07), 0 2px 4px rgba(0, 19, 80, 0.06);
+            --shadow-lg: 0 10px 15px rgba(0, 19, 80, 0.1), 0 4px 6px rgba(0, 19, 80, 0.05);
+            --shadow-xl: 0 20px 25px rgba(0, 19, 80, 0.1), 0 10px 10px rgba(0, 19, 80, 0.04);
+            
+            /* Border Radius */
+            --radius-sm: 6px;
             --radius-md: 8px;
             --radius-lg: 12px;
             --radius-xl: 16px;
@@ -54,7 +73,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Montserrat', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
             background: linear-gradient(135deg, var(--careecon-primary-blue) 0%, var(--careecon-secondary-blue) 100%);
             min-height: 100vh;
             display: flex;
@@ -86,7 +105,7 @@
         }
 
         .register-header .subtitle {
-            color: var(--careecon-gray);
+            color: var(--text-secondary);
             font-size: 16px;
             line-height: 1.5;
         }
@@ -111,7 +130,7 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
-            color: var(--text-color);
+            color: var(--text-primary);
             font-size: 14px;
         }
 
@@ -182,7 +201,7 @@
 
         .btn-secondary {
             background: var(--careecon-light-gray);
-            color: var(--text-color);
+            color: var(--text-primary);
             border: 1px solid var(--border-color);
         }
 
@@ -261,7 +280,7 @@
             <div class="form-group">
                 <label for="adminPassword">パスワード <span class="required">*</span></label>
                 <input type="password" id="adminPassword" name="password" required minlength="6">
-                <small style="color: var(--careecon-gray); font-size: 12px;">6文字以上で入力してください</small>
+                <small style="color: var(--text-muted); font-size: 12px;">6文字以上で入力してください</small>
             </div>
             
             <div class="form-group">
@@ -293,7 +312,7 @@
 
         <div class="footer">
             <p><a href="index.html" class="link">← メインページに戻る</a></p>
-            <p style="margin-top: 10px; color: var(--careecon-gray); font-size: 14px;">
+            <p style="margin-top: 10px; color: var(--text-muted); font-size: 14px;">
                 既にアカウントをお持ちの場合は、<a href="index.html" class="link">こちら</a>からログインしてください
             </p>
         </div>
