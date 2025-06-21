@@ -178,7 +178,7 @@ label {
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--careecon-navy);
     font-size: 14px;
 }
 
@@ -188,11 +188,12 @@ input[type="password"],
 input[type="date"],
 input[type="month"],
 input[type="datetime-local"],
+input[type="tel"],
 select,
 textarea {
     width: 100%;
     padding: 14px 16px;
-    border: 2px solid var(--border-color);
+    border: 2px solid var(--careecon-gray);
     border-radius: var(--radius-md);
     font-size: 16px;
     font-weight: 500;
@@ -200,6 +201,7 @@ textarea {
     -webkit-appearance: none;
     appearance: none;
     background: var(--careecon-white);
+    box-sizing: border-box;
 }
 
 input:focus,
@@ -207,7 +209,7 @@ select:focus,
 textarea:focus {
     outline: none;
     border-color: var(--careecon-primary-blue);
-    box-shadow: 0 0 0 3px rgba(44, 93, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(36, 78, 255, 0.1);
     transform: translateY(-1px);
 }
 
