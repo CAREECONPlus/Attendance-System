@@ -31,27 +31,29 @@
     <style>
         :root {
             /* CAREECON公式ブランドカラー */
-            --careecon-primary-blue: #2C5DFF;
+            --careecon-primary-blue: #244EFF;
             --careecon-secondary-blue: #0133D8;
-            --careecon-thirdly-blue: #7F9DFE;
-            --careecon-careecon-blue: #244EFF;
+            --careecon-navy: #001350;
+            --careecon-gray: #82889D;
             --careecon-background-blue: #F1F4FF;
-            --careecon-black: #001350;
+            --careecon-gray-blue: #F9FAFC;
             --careecon-green: #1DCE85;
+            --careecon-pink: #FF2C5D;
+            --careecon-yellow: #FFCE2C;
             --careecon-white: #FFFFFF;
             
             /* セマンティックカラー */
             --success-color: var(--careecon-green);
-            --warning-color: #FF8C00;
-            --danger-color: #FF4757;
-            --info-color: var(--careecon-thirdly-blue);
+            --warning-color: var(--careecon-yellow);
+            --danger-color: var(--careecon-pink);
+            --info-color: var(--careecon-primary-blue);
             
             /* グレースケール */
-            --text-primary: var(--careecon-black);
-            --text-secondary: #4A5568;
-            --text-muted: #718096;
-            --border-color: #E2E8F0;
-            --background-light: #F7FAFC;
+            --text-primary: var(--careecon-navy);
+            --text-secondary: var(--careecon-gray);
+            --text-muted: var(--careecon-gray);
+            --border-color: var(--careecon-gray);
+            --background-light: var(--careecon-gray-blue);
             
             /* シャドウ */
             --shadow-sm: 0 1px 3px rgba(0, 19, 80, 0.12), 0 1px 2px rgba(0, 19, 80, 0.08);
@@ -74,7 +76,7 @@
 
         body {
             font-family: 'Montserrat', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-            background: var(--careecon-careecon-blue);
+            background: var(--careecon-primary-blue);
             min-height: 100vh;
             display: flex;
             align-items: center;
