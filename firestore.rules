@@ -2,10 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Test collection - 認証なしでもアクセス可能（接続テスト用）
-    match /_test/{docId} {
-      allow read, write: if true;
-    }
     
     // Global users collection
     match /global_users/{email} {
