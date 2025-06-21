@@ -57,7 +57,25 @@ body {
 
 /* ログイン・登録画面時の背景 */
 body.login-screen {
-    background: #244EFF;
+    background: linear-gradient(135deg, #244EFF 0%, #1A3FE6 100%);
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* ログイン・登録画面時はコンテナのパディングを削除 */
+body.login-screen .container {
+    padding: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    width: 100vw !important;
+}
+
+/* HTML、bodyの全画面設定を強制 */
+body.login-screen,
+body.login-screen html {
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow-x: hidden !important;
 }
 
 .container {
