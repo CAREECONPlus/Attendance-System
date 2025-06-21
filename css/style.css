@@ -83,13 +83,17 @@ html {
     height: 100% !important;
 }
 
-/* ログイン・登録画面時はコンテナのパディングを削除 */
-body.login-screen .container {
+/* ログイン・登録画面時はコンテナを完全リセット */
+body.login-screen .container.login-container {
     padding: 0 !important;
     max-width: none !important;
     margin: 0 !important;
     width: 100vw !important;
     background: var(--careecon-primary-blue) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 100vh !important;
 }
 
 /* ログイン画面時は余白を完全除去 */
@@ -97,12 +101,9 @@ body.login-screen * {
     margin: 0 !important;
 }
 
-body.login-screen .login-container {
-    padding: 20px !important;
-    width: 100vw !important;
-    margin: 0 !important;
-    min-height: 100vh !important;
-    background: var(--careecon-primary-blue) !important;
+/* ログインカードに適切なスペースを確保 */
+body.login-screen .login-card {
+    margin: 20px !important;
 }
 
 .container {
@@ -144,7 +145,7 @@ body.login-screen .login-container {
     color: var(--text-secondary);
 }
 
-/* ログイン画面 */
+/* ログイン画面（通常時、使われない）*/
 .login-container {
     display: flex;
     justify-content: center;
