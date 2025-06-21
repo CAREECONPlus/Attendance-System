@@ -48,10 +48,16 @@
 }
 
 body {
-    background: linear-gradient(135deg, var(--careecon-background-blue) 0%, #FAFBFF 100%);
+    background: linear-gradient(135deg, var(--careecon-primary-blue) 0%, var(--careecon-secondary-blue) 100%);
     color: var(--text-primary);
     line-height: 1.6;
     font-weight: 400;
+    min-height: 100vh;
+}
+
+/* メイン画面表示時の背景 */
+body.app-loaded {
+    background: linear-gradient(135deg, var(--careecon-background-blue) 0%, #FAFBFF 100%);
 }
 
 .container {
