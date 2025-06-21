@@ -6,13 +6,13 @@
 // EmailJS設定値
 const EMAIL_CONFIG = {
     // EmailJSの公開キー（環境変数から取得推奨）
-    PUBLIC_KEY: 'YOUR_EMAILJS_PUBLIC_KEY',
+    PUBLIC_KEY: 'MKAevwRJGDmMihv62',
     
     // EmailJSのサービスID
-    SERVICE_ID: 'YOUR_EMAILJS_SERVICE_ID',
+    SERVICE_ID: 'service_6abef5b',
     
     // EmailJSのテンプレートID
-    TEMPLATE_ID: 'YOUR_EMAILJS_TEMPLATE_ID',
+    TEMPLATE_ID: 'template_xth8wr7',
     
     // 通知先メールアドレス
     NOTIFICATION_EMAIL: 'dxconsulting.branu2@gmail.com'
