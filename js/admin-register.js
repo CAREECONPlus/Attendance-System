@@ -97,7 +97,7 @@ async function handleAdminRegister(e) {
         }
         
         // 成功メッセージ表示
-        showMessage('管理者登録依頼を送信しました。承認をお待ちください。\ndxconsulting.branu2@gmail.com宛に通知メールを送信しました。', 'success');
+        showMessage('管理者登録依頼を送信しました。承認をお待ちください。', 'success');
         
         // フォームをリセット
         document.getElementById('adminRegisterForm').reset();
