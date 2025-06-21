@@ -34,6 +34,11 @@ function initAuth() {
  * @returns {Object} { success: boolean, user?: User, error?: string }
  */
 async function registerUser(email, password, displayName, role = 'employee') {
+    // セキュリティ: 通常の登録では管理者権限を付与しない
+    if (role === 'admin' || role === 'super_admin') {
+        role = 'employee';
+        console.warn('⚠️ 通常の登録フローでは管理者権限は付与されません。従業員として登録します。');
+    }
     try {
         // Firebase Authenticationでユーザー作成
         const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
