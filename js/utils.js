@@ -411,13 +411,21 @@ function showPage(page) {
         return;
     }
 
-    // ページごとの初期化処理
-    if (page === 'login') {
-        const emailInput = getElement('email');
-        if (emailInput) emailInput.focus();
-    } else if (page === 'register') {
-        const emailInput = getElement('reg-email');
-        if (emailInput) emailInput.focus();
+    // ページごとの初期化処理とbody背景制御
+    if (page === 'login' || page === 'register') {
+        // ログイン・登録画面では青い背景
+        document.body.classList.remove('app-loaded');
+        
+        if (page === 'login') {
+            const emailInput = getElement('email');
+            if (emailInput) emailInput.focus();
+        } else if (page === 'register') {
+            const emailInput = getElement('reg-email');
+            if (emailInput) emailInput.focus();
+        }
+    } else {
+        // メイン画面では薄い背景
+        document.body.classList.add('app-loaded');
     }
 }
 
