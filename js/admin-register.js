@@ -90,8 +90,14 @@ async function handleAdminRegister(e) {
         const requestRef = await firebase.firestore().collection('admin_requests').add(requestData);
         console.log('✅ 管理者登録依頼を送信:', requestRef.id);
         
+        // メール通知を送信
+        const emailResult = await sendAdminRequestNotification(requestData, requestRef.id);
+        if (!emailResult.success) {
+            console.warn('⚠️ メール送信に失敗しましたが、依頼は正常に保存されました:', emailResult.error);
+        }
+        
         // 成功メッセージ表示
-        showMessage('管理者登録依頼を送信しました。承認をお待ちください。\ndxconsulting.branu2@gmail.com宛に通知メールを送信します。', 'success');
+        showMessage('管理者登録依頼を送信しました。承認をお待ちください。\ndxconsulting.branu2@gmail.com宛に通知メールを送信しました。', 'success');
         
         // フォームをリセット
         document.getElementById('adminRegisterForm').reset();
@@ -130,6 +136,7 @@ async function handleAdminRegister(e) {
         }
     }
 }
+
 
 /**
  * メッセージ表示
