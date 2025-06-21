@@ -113,7 +113,7 @@ async function loadAdminRequests() {
                 <td>${request.requesterEmail}</td>
                 <td>${request.companyName}</td>
                 <td>${request.department || '-'}</td>
-                <td><span class="status-${request.status}">${getStatusText(request.status)}</span></td>
+                <td><span class="status-${request.status}">${getAdminStatusText(request.status)}</span></td>
                 <td class="action-buttons">
                     ${request.status === 'pending' ? 
                         `<button class="btn btn-primary btn-sm" onclick="approveAdminRequest('${request.id}')">承認</button>
@@ -167,9 +167,9 @@ function getAttendanceStatusText(status) {
 }
 
 /**
- * 後方互換性のためのgetStatusText（管理者登録依頼用）
+ * 管理者登録依頼用のステータステキスト取得（名前変更により従業員側との競合を回避）
  */
-function getStatusText(status) {
+function getAdminStatusText(status) {
     return getAdminRequestStatusText(status);
 }
 
@@ -406,7 +406,7 @@ async function viewRequestDetails(requestId) {
 電話番号: ${request.phone || '（未記入）'}
 会社名・組織名: ${request.companyName}
 部署名: ${request.department || '（未記入）'}
-ステータス: ${getStatusText(request.status)}
+ステータス: ${getAdminStatusText(request.status)}
 依頼日時: ${requestedAt}
 依頼方法: ${request.requestedBy || '不明'}${statusInfo}
         `;
