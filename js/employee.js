@@ -370,9 +370,17 @@ function getStatusText(status) {
         'working': '勤務中',
         'break': '休憩中', 
         'completed': '勤務完了',
-        'pending': '処理中'
+        'pending': '処理中',
+        'unknown': '不明',
+        '': '不明',
+        null: '不明',
+        undefined: '不明'
     };
-    return statusMap[status] || '不明';
+    
+    // より堅牢な日本語化処理
+    if (!status) return '不明';
+    const lowerStatus = String(status).toLowerCase();
+    return statusMap[lowerStatus] || statusMap[status] || '不明';
 }
 
 // ユーザー名の表示

@@ -134,15 +134,43 @@ async function loadAdminRequests() {
 }
 
 /**
- * ステータス表示テキストを取得
+ * 管理者登録依頼のステータス表示テキストを取得
  */
-function getStatusText(status) {
+function getAdminRequestStatusText(status) {
     switch (status) {
         case 'pending': return '承認待ち';
         case 'approved': return '承認済み';
         case 'rejected': return '却下';
         default: return status;
     }
+}
+
+/**
+ * 勤怠ステータス表示テキストを取得
+ */
+function getAttendanceStatusText(status) {
+    const statusMap = {
+        'working': '勤務中',
+        'break': '休憩中', 
+        'completed': '勤務完了',
+        'pending': '処理中',
+        'unknown': '不明',
+        '': '不明',
+        null: '不明',
+        undefined: '不明'
+    };
+    
+    // より堅牢な日本語化処理
+    if (!status) return '不明';
+    const lowerStatus = String(status).toLowerCase();
+    return statusMap[lowerStatus] || statusMap[status] || '不明';
+}
+
+/**
+ * 後方互換性のためのgetStatusText（管理者登録依頼用）
+ */
+function getStatusText(status) {
+    return getAdminRequestStatusText(status);
 }
 
 /**
