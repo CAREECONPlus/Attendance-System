@@ -48,7 +48,7 @@
 }
 
 body {
-    background: linear-gradient(135deg, #244EFF 0%, #1A3FE6 100%);
+    background: #244EFF;
     color: var(--text-primary);
     line-height: 1.6;
     font-weight: 400;
