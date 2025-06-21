@@ -366,6 +366,8 @@ async function checkDailyLimit(userId) {
 
 // 状態テキスト変換
 function getStatusText(status) {
+    console.log('🔍 getStatusText呼び出し:', status, typeof status);
+    
     const statusMap = {
         'working': '勤務中',
         'break': '休憩中', 
@@ -378,9 +380,16 @@ function getStatusText(status) {
     };
     
     // より堅牢な日本語化処理
-    if (!status) return '不明';
+    if (!status) {
+        console.log('🔍 空のステータス:', status);
+        return '不明';
+    }
+    
     const lowerStatus = String(status).toLowerCase();
-    return statusMap[lowerStatus] || statusMap[status] || '不明';
+    const result = statusMap[lowerStatus] || statusMap[status] || '不明';
+    
+    console.log('🔍 ステータス変換:', status, '->', result);
+    return result;
 }
 
 // ユーザー名の表示
@@ -1118,11 +1127,15 @@ function displayRecentRecords(snapshot) {
 
     let html = '';
     records.forEach(record => {
+        console.log('📋 記録表示:', record.id, 'ステータス:', record.status);
+        const statusText = getStatusText(record.status);
+        console.log('📋 変換後ステータステキスト:', statusText);
+        
         html += `
             <div class="record-item">
                 <div class="record-header">
                     <span class="record-date">${record.date || '日付不明'}</span>
-                    <span class="record-status status-${record.status || 'unknown'}">${getStatusText(record.status)}</span>
+                    <span class="record-status status-${record.status || 'unknown'}">${statusText}</span>
                 </div>
                 <div class="record-details">
                     <div class="record-site">📍 ${record.siteName || '現場不明'}</div>
