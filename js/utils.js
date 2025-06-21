@@ -414,7 +414,7 @@ function showPage(page) {
     // ページごとの初期化処理とbody背景制御
     if (page === 'login' || page === 'register') {
         // ログイン・登録画面では青い背景
-        document.body.classList.remove('app-loaded');
+        document.body.classList.add('login-screen');
         
         if (page === 'login') {
             const emailInput = getElement('email');
@@ -424,8 +424,8 @@ function showPage(page) {
             if (emailInput) emailInput.focus();
         }
     } else {
-        // メイン画面では薄い背景
-        document.body.classList.add('app-loaded');
+        // メイン画面では通常背景
+        document.body.classList.remove('login-screen');
     }
 }
 
