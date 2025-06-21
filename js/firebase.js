@@ -113,14 +113,64 @@ function showFirestoreRuleError() {
             <strong>解決方法:</strong><br>
             1. Firebase Console → Firestore → ルール<br>
             2. 以下をコピー&ペースト:<br>
-            <code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">
-rules_version = '2';<br>
-service cloud.firestore {<br>
-&nbsp;&nbsp;match /databases/{database}/documents {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br>
-&nbsp;&nbsp;}<br>
+            <code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; font-size: 10px; display: block; white-space: pre;">
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global users collection
+    match /global_users/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
+    }
+    
+    // Legacy users collection
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Tenants collection
+    match /tenants/{tenantId} {
+      allow read: if request.auth != null && 
+                 (isSuperAdmin(request.auth.token.email) || 
+                  getUserTenantId(request.auth.token.email) == tenantId);
+      allow write: if request.auth != null && 
+                  (isSuperAdmin(request.auth.token.email) || 
+                   isAdmin(request.auth.token.email, tenantId));
+    }
+    
+    // Tenant subcollections
+    match /tenants/{tenantId}/{subcollection}/{docId} {
+      allow read, write: if request.auth != null && 
+                        (isSuperAdmin(request.auth.token.email) || 
+                         getUserTenantId(request.auth.token.email) == tenantId);
+    }
+    
+    // Admin requests
+    match /admin_requests/{docId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
+      allow create: if request.auth != null;
+    }
+    
+    // Test collection
+    match /_test/{docId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Helper functions
+    function getUserTenantId(email) {
+      return get(/databases/$(database)/documents/global_users/$(email)).data.tenantId;
+    }
+    
+    function isSuperAdmin(email) {
+      return get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin';
+    }
+    
+    function isAdmin(email, tenantId) {
+      let userData = get(/databases/$(database)/documents/global_users/$(email)).data;
+      return userData.tenantId == tenantId && userData.role in ['admin', 'super_admin'];
+    }
+  }
 }
             </code><br>
             3. 「公開」をクリック<br>

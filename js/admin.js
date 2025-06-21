@@ -6,7 +6,7 @@ function getAttendanceCollection() {
 }
 
 function getBreaksCollection() {
-    return window.getTenantFirestore ? window.getTenantFirestore('breaks') : firebase.firestore().collection('breaks');
+    return window.getTenantFirestore ? window.getTenantFirestore('breaks') : firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks');
 }
 
 function getUsersCollection() {
@@ -358,7 +358,10 @@ function switchTab(tab) {
  */
 async function loadEmployeeList() {
     try {
-        const querySnapshot = await firebase.firestore().collection('users')
+        const tenantId = getCurrentTenantId();
+        const querySnapshot = await firebase.firestore()
+            .collection('tenants').doc(tenantId)
+            .collection('users')
             .where('role', '==', 'employee')
             .orderBy('displayName')
             .get();
@@ -494,7 +497,10 @@ async function loadAttendanceData() {
 async function loadBreakDataForRecords(attendanceData) {
     try {
         const promises = attendanceData.map(async (record) => {
-            const breakQuery = await firebase.firestore().collection('breaks')
+            const tenantId = getCurrentTenantId();
+            const breakQuery = await firebase.firestore()
+                .collection('tenants').doc(tenantId)
+                .collection('breaks')
                 .where('attendanceId', '==', record.id)
                 .orderBy('startTime')
                 .get();
@@ -892,7 +898,9 @@ async function loadBreakRecords(attendanceId) {
     console.log('☕ 休憩記録を読み込み中...', attendanceId);
     
     try {
+        const tenantId = getCurrentTenantId();
         const query = firebase.firestore()
+            .collection('tenants').doc(tenantId)
             .collection('breaks')
             .where('attendanceId', '==', attendanceId);
         
@@ -1336,12 +1344,12 @@ async function saveChangesToFirestore(newData, changes, reason) {
     for (let breakRecord of editBreakRecords) {
         if (breakRecord.isDeleted && !breakRecord.isNew) {
             // 既存記録の削除
-            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
             batch.delete(breakRef);
             
         } else if (breakRecord.isNew && !breakRecord.isDeleted) {
             // 新規記録の追加
-            const newBreakRef = firebase.firestore().collection('breaks').doc();
+            const newBreakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc();
             const breakData = {
                 attendanceId: currentEditRecord.id,
                 userId: currentEditRecord.userId,
@@ -1354,7 +1362,7 @@ async function saveChangesToFirestore(newData, changes, reason) {
             
         } else if (!breakRecord.isNew && !breakRecord.isDeleted && breakRecord.isModified) {
             // 既存記録の更新
-            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
             const breakUpdateData = {
                 startTime: breakRecord.startTime,
                 endTime: breakRecord.endTime,
@@ -1398,7 +1406,7 @@ async function deleteEditAttendanceRecord() {
         // 2. 関連する休憩記録の削除
         for (let breakRecord of editBreakRecords) {
             if (!breakRecord.isNew) {
-                const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+                const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
                 batch.delete(breakRef);
             }
         }
@@ -2226,7 +2234,7 @@ async function deleteAttendanceRecordOriginal() {
     
     try {
         // 関連する休憩記録も削除
-        const breakQuery = await firebase.firestore().collection('breaks')
+        const breakQuery = await firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks')
             .where('attendanceId', '==', recordId)
             .get();
         
@@ -2292,7 +2300,7 @@ async function addBreakTimeOriginal() {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        await firebase.firestore().collection('breaks').add(breakData);
+        await firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').add(breakData);
         
         // 休憩時間リストを再描画（新しいデータを取得）
         await loadBreakTimesForEdit(attendanceId);
@@ -2315,7 +2323,7 @@ async function addBreakTimeOriginal() {
  */
 async function loadBreakTimesForEdit(attendanceId) {
     try {
-        const breakQuery = await firebase.firestore().collection('breaks')
+        const breakQuery = await firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks')
             .where('attendanceId', '==', attendanceId)
             .orderBy('startTime')
             .get();
@@ -2379,7 +2387,7 @@ async function removeBreakTimeOriginal(index) {
     if (!confirm('この休憩時間を削除しますか？')) return;
     
     try {
-        const breakQuery = await firebase.firestore().collection('breaks')
+        const breakQuery = await firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks')
             .where('attendanceId', '==', attendanceId)
             .orderBy('startTime')
             .get();
@@ -2710,12 +2718,12 @@ async function saveBasicChanges(newData, changes, reason) {
     for (let breakRecord of editBreakRecords) {
         if (breakRecord.isDeleted && !breakRecord.isNew) {
             // 既存記録の削除
-            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
             batch.delete(breakRef);
             
         } else if (breakRecord.isNew && !breakRecord.isDeleted) {
             // 新規記録の追加
-            const newBreakRef = firebase.firestore().collection('breaks').doc();
+            const newBreakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc();
             const breakData = {
                 attendanceId: currentEditRecord.id,
                 userId: currentEditRecord.userId,
@@ -2728,7 +2736,7 @@ async function saveBasicChanges(newData, changes, reason) {
             
         } else if (!breakRecord.isNew && !breakRecord.isDeleted && breakRecord.isModified) {
             // 既存記録の更新
-            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
             const breakUpdateData = {
                 startTime: breakRecord.startTime,
                 endTime: breakRecord.endTime,
@@ -2824,7 +2832,7 @@ async function deleteBasicRecord(reason) {
     // 2. 関連する休憩記録の削除
     for (let breakRecord of editBreakRecords) {
         if (!breakRecord.isNew) {
-            const breakRef = firebase.firestore().collection('breaks').doc(breakRecord.id);
+            const breakRef = firebase.firestore().collection('tenants').doc(getCurrentTenantId()).collection('breaks').doc(breakRecord.id);
             batch.delete(breakRef);
         }
     }
