@@ -59,12 +59,9 @@ body {
 
 /* ログイン・登録画面時の背景 */
 body.login-screen {
-    background: linear-gradient(135deg, var(--careecon-primary-blue) 0%, var(--careecon-secondary-blue) 100%) !important;
+    background: var(--careecon-primary-blue) !important;
     padding: 0 !important;
     margin: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    overflow: hidden !important;
 }
 
 /* ログイン・登録画面時はコンテナのパディングを削除 */
@@ -75,20 +72,13 @@ body.login-screen .container {
     width: 100vw !important;
 }
 
-/* HTML、bodyの全画面設定を強制 */
-html,
-body.login-screen,
-body.login-screen html {
-    width: 100vw !important;
-    height: 100vh !important;
-    overflow: hidden !important;
+/* ログイン画面時は余白を完全除去 */
+body.login-screen * {
     margin: 0 !important;
-    padding: 0 !important;
 }
 
-/* ログイン画面時のhtml要素背景色設定 */
-body.login-screen html {
-    background: var(--careecon-primary-blue) !important;
+body.login-screen .login-container {
+    padding: 20px !important;
 }
 
 .container {
@@ -137,13 +127,7 @@ body.login-screen html {
     align-items: center;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--careecon-primary-blue) 0%, var(--careecon-secondary-blue) 100%);
-    padding: 20px;
-    width: 100vw;
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
-    margin: 0;
+    padding: 0;
 }
 
 .login-card {
