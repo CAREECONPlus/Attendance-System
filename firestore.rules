@@ -2,176 +2,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ===========================================
-    // Global Collections (Cross-tenant data)
-    // ===========================================
+    // Test collection - 認証なしでもアクセス可能（接続テスト用）
+    match /_test/{docId} {
+      allow read, write: if true;
+    }
     
-    // Global users collection - ユーザーのテナント情報とロール管理
+    // Global users collection
     match /global_users/{email} {
-      // 自分の情報のみ読み取り可能
-      allow read: if request.auth != null && request.auth.token.email == email;
-      
-      // 自分の情報の作成・更新（初回登録時）
-      allow create: if request.auth != null && 
-                   request.auth.token.email == email &&
-                   validateUserData(request.resource.data);
-      
-      // 自分の情報の更新（ロール以外）
-      allow update: if request.auth != null && 
-                   request.auth.token.email == email &&
-                   // ロールの変更は禁止（super_adminのみ可能）
-                   request.resource.data.role == resource.data.role &&
-                   validateUserData(request.resource.data);
-      
-      // super_adminによるロール管理
-      allow update: if request.auth != null &&
-                   isSuperAdmin(request.auth.token.email) &&
-                   validateUserData(request.resource.data);
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
     }
     
-    // Legacy users collection - 既存データとの互換性のため読み取り専用
+    // Legacy users collection
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // ===========================================
-    // Tenant Collections (Tenant-isolated data)
-    // ===========================================
-    
-    // Tenants collection - テナント基本情報
+    // Tenants collection
     match /tenants/{tenantId} {
-      // super_adminは全テナント読み取り可能
-      allow read: if request.auth != null && isSuperAdmin(request.auth.token.email);
-      
-      // テナント所属ユーザーは自分のテナント情報のみ読み取り可能
       allow read: if request.auth != null && 
-                 getUserTenantId(request.auth.token.email) == tenantId;
-      
-      // テナント作成（管理者登録時）
-      allow create: if request.auth != null && 
-                   validateTenantCreation(request.resource.data, request.auth.token.email);
-      
-      // テナント管理者による更新
-      allow update: if request.auth != null &&
-                   (isSuperAdmin(request.auth.token.email) ||
-                    (getUserTenantId(request.auth.token.email) == tenantId &&
-                     isAdmin(request.auth.token.email, tenantId)));
+                 (isSuperAdmin(request.auth.token.email) || 
+                  getUserTenantId(request.auth.token.email) == tenantId);
+      allow write: if request.auth != null && 
+                  (isSuperAdmin(request.auth.token.email) || 
+                   isAdmin(request.auth.token.email, tenantId));
     }
     
-    // Tenant users - テナント内のユーザー情報
-    match /tenants/{tenantId}/users/{userId} {
-      // テナント所属ユーザーのデータアクセス
+    // Tenant subcollections
+    match /tenants/{tenantId}/{subcollection}/{docId} {
       allow read, write: if request.auth != null && 
-                        isValidTenantAccess(tenantId, request.auth.token.email) &&
-                        (request.auth.uid == userId || 
-                         isAdmin(request.auth.token.email, tenantId) ||
-                         isSuperAdmin(request.auth.token.email));
+                        (isSuperAdmin(request.auth.token.email) || 
+                         getUserTenantId(request.auth.token.email) == tenantId);
     }
     
-    // Attendance records - 勤怠データ
-    match /tenants/{tenantId}/attendance/{docId} {
-      // テナント所属ユーザーによる勤怠データアクセス
-      allow read, write: if request.auth != null && 
-                        isValidTenantAccess(tenantId, request.auth.token.email);
-      
-      // 従業員は自分の勤怠データのみ作成・更新可能
-      allow create, update: if request.auth != null &&
-                           isValidTenantAccess(tenantId, request.auth.token.email) &&
-                           (isAdmin(request.auth.token.email, tenantId) ||
-                            request.resource.data.uid == request.auth.uid);
-    }
-    
-    // Break records - 休憩データ  
-    match /tenants/{tenantId}/breaks/{docId} {
-      // 勤怠データと同じルール
-      allow read, write: if request.auth != null && 
-                        isValidTenantAccess(tenantId, request.auth.token.email);
-      
-      allow create, update: if request.auth != null &&
-                           isValidTenantAccess(tenantId, request.auth.token.email) &&
-                           (isAdmin(request.auth.token.email, tenantId) ||
-                            request.resource.data.uid == request.auth.uid);
-    }
-    
-    // Tenant settings - テナント設定
-    match /tenants/{tenantId}/settings/{docId} {
-      // 管理者のみアクセス可能
-      allow read, write: if request.auth != null &&
-                        (isSuperAdmin(request.auth.token.email) ||
-                         (getUserTenantId(request.auth.token.email) == tenantId &&
-                          isAdmin(request.auth.token.email, tenantId)));
-    }
-    
-    // ===========================================
-    // System Collections
-    // ===========================================
-    
-    // Audit logs - システム監査ログ
-    match /audit_logs/{docId} {
-      // super_adminのみ読み取り可能
-      allow read: if request.auth != null && isSuperAdmin(request.auth.token.email);
-      
-      // システムによる書き込み専用（関数経由）
+    // Admin requests
+    match /admin_requests/{docId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
       allow create: if request.auth != null;
     }
     
-    // Admin requests - 管理者登録依頼
-    match /admin_requests/{docId} {
-      // super_adminのみアクセス可能
-      allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
-      
-      // 新規依頼の作成（認証済みユーザー）
-      allow create: if request.auth != null && 
-                   request.resource.data.requesterEmail == request.auth.token.email;
-    }
-    
-    // Test collection - 接続テスト用
-    match /_test/{docId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // ===========================================
-    // Helper Functions
-    // ===========================================
-    
-    // ユーザーのテナントIDを取得
+    // Helper functions
     function getUserTenantId(email) {
-      let globalUserDoc = get(/databases/$(database)/documents/global_users/$(email));
-      return globalUserDoc.data.tenantId;
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? get(/databases/$(database)/documents/global_users/$(email)).data.tenantId 
+        : '';
     }
     
-    // super_admin判定
     function isSuperAdmin(email) {
-      let globalUserDoc = get(/databases/$(database)/documents/global_users/$(email));
-      return globalUserDoc.data.role == 'super_admin';
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin' 
+        : false;
     }
     
-    // テナント管理者判定
     function isAdmin(email, tenantId) {
-      let globalUserDoc = get(/databases/$(database)/documents/global_users/$(email));
-      return globalUserDoc.data.tenantId == tenantId && 
-             globalUserDoc.data.role in ['admin', 'super_admin'];
-    }
-    
-    // 有効なテナントアクセス判定
-    function isValidTenantAccess(tenantId, email) {
-      return isSuperAdmin(email) || getUserTenantId(email) == tenantId;
-    }
-    
-    // ユーザーデータの検証
-    function validateUserData(data) {
-      return data.keys().hasAll(['email', 'role', 'tenantId']) &&
-             data.role in ['employee', 'admin', 'super_admin'] &&
-             data.email is string &&
-             data.tenantId is string;
-    }
-    
-    // テナント作成時の検証
-    function validateTenantCreation(data, email) {
-      return data.keys().hasAll(['companyName', 'adminEmail', 'adminName']) &&
-             data.adminEmail == email &&
-             data.companyName is string &&
-             data.adminName is string;
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? (get(/databases/$(database)/documents/global_users/$(email)).data.tenantId == tenantId && 
+           get(/databases/$(database)/documents/global_users/$(email)).data.role in ['admin', 'super_admin'])
+        : false;
     }
   }
 }
