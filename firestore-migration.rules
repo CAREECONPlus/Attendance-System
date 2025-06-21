@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Test collection - 認証なしでもアクセス可能
+    match /_test/{docId} {
+      allow read, write: if true;
+    }
+    
+    // 移行期間中：認証済みユーザーは全てアクセス可能
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
