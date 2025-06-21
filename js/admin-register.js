@@ -73,86 +73,30 @@ async function handleAdminRegister(e) {
     }
     
     try {
-        // Firebase認証でユーザー作成
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        console.log('✅ Firebase認証ユーザー作成:', user.uid);
-        
-        // テナント作成
-        console.log('🏢 テナント作成開始...');
-        const tenantId = await createTenant({
+        // 管理者登録依頼をadmin_requestsコレクションに保存
+        console.log('📝 管理者登録依頼を送信中...');
+        const requestData = {
+            requesterEmail: email,
+            requesterName: displayName,
             companyName: company,
-            adminEmail: email,
-            adminName: displayName,
-            department: department,
-            phone: phone
-        });
-        console.log('✅ テナント作成完了:', tenantId);
-        
-        // テナント設定を初期化
-        if (window.initializeTenantSettings) {
-            await window.initializeTenantSettings(tenantId, {
-                name: company,
-                email: email,
-                phone: phone || ''
-            });
-            console.log('✅ テナント設定初期化完了');
-        }
-        
-        // テナント対応のユーザーデータを作成
-        const userData = {
-            uid: user.uid,
-            email: email,
-            displayName: displayName,
-            role: 'admin', // 管理者として登録
-            company: company,
             department: department || '',
             phone: phone || '',
-            tenantId: tenantId, // テナントID追加
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            password: password, // 承認時にアカウント作成用
+            status: 'pending',
+            requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            requestedBy: 'self-registration'
         };
         
-        // テナント内のusersコレクションに保存
-        const tenantUsersPath = `tenants/${tenantId}/users`;
-        await firebase.firestore().collection(tenantUsersPath).doc(user.uid).set(userData);
-        console.log('✅ テナント内管理者データ保存完了');
+        const requestRef = await firebase.firestore().collection('admin_requests').add(requestData);
+        console.log('✅ 管理者登録依頼を送信:', requestRef.id);
         
-        // グローバルユーザー管理にも登録（テナント横断検索用）
-        const globalUserData = {
-            uid: user.uid,
-            email: email,
-            displayName: displayName,
-            role: 'admin',
-            tenantId: tenantId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await firebase.firestore().collection('global_users').doc(email).set(globalUserData);
-        console.log('✅ グローバルユーザーデータ保存完了');
-        
-        // 従来のusersコレクションにも保存（後方互換性）
-        await firebase.firestore().collection('users').doc(user.uid).set(userData);
-        console.log('✅ 従来のユーザーデータ保存完了');
-        
-        // Firebase Authプロファイル更新
-        await user.updateProfile({
-            displayName: displayName
-        });
-        
-        // 成功メッセージとテナント専用URLの生成
-        const tenantUrl = generateSuccessUrl(tenantId);
-        showMessage(`管理者アカウントが正常に作成されました！\n専用URL: ${tenantUrl}`, 'success');
+        // 成功メッセージ表示
+        showMessage('管理者登録依頼を送信しました。承認をお待ちください。\ndxconsulting.branu2@gmail.com宛に通知メールを送信します。', 'success');
         
         // フォームをリセット
         document.getElementById('adminRegisterForm').reset();
         
-        // 3秒後にテナント専用URLにリダイレクト
-        setTimeout(() => {
-            window.location.href = tenantUrl;
-        }, 3000);
-        
-        console.log('✅ 管理者登録完了:', email, 'テナント:', tenantId);
+        console.log('✅ 管理者登録依頼送信完了:', email);
         
     } catch (error) {
         console.error('❌ 管理者登録エラー:', error);
