@@ -48,7 +48,7 @@
 }
 
 body {
-    background: linear-gradient(135deg, var(--careecon-primary-blue) 0%, var(--careecon-secondary-blue) 100%);
+    background: linear-gradient(135deg, #2556F9 0%, #1A47E6 100%);
     color: var(--text-primary);
     line-height: 1.6;
     font-weight: 400;
