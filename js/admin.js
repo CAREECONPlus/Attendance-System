@@ -68,13 +68,11 @@ function showAdminRequestsTab() {
 }
 
 /**
- * ローカルストレージから管理者登録依頼を読み込み
+ * Firestoreから管理者登録依頼を読み込み
  */
-function loadAdminRequests() {
+async function loadAdminRequests() {
     try {
-        const requests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
-        console.log('📋 管理者登録依頼を読み込み:', requests.length + '件');
-        console.log('📋 依頼データ詳細:', requests);
+        console.log('📋 管理者登録依頼を読み込み中...');
         
         const tbody = document.getElementById('admin-requests-data');
         if (!tbody) {
@@ -82,25 +80,45 @@ function loadAdminRequests() {
             return;
         }
         
-        if (requests.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="no-data">管理者登録依頼はありません</td></tr>';
+        // admin_requestsコレクションから依頼データを取得
+        const requestsSnapshot = await firebase.firestore()
+            .collection('admin_requests')
+            .orderBy('requestedAt', 'desc')
+            .get();
+        
+        console.log('📋 管理者登録依頼を読み込み:', requestsSnapshot.size + '件');
+        
+        if (requestsSnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="7" class="no-data">管理者登録依頼はありません</td></tr>';
             console.log('📋 依頼なし - 空のテーブルを表示');
             return;
         }
         
-        // 新しい順にソート
-        requests.sort((a, b) => new Date(b.submitDate) - new Date(a.submitDate));
+        const requests = [];
+        requestsSnapshot.forEach(doc => {
+            const data = doc.data();
+            requests.push({
+                id: doc.id,
+                ...data,
+                requestedAtFormatted: data.requestedAt ? 
+                    data.requestedAt.toDate().toLocaleString('ja-JP') : 
+                    '日時不明'
+            });
+        });
         
         tbody.innerHTML = requests.map(request => `
             <tr>
-                <td>${request.submitDate}</td>
-                <td>${request.name}</td>
-                <td>${request.email}</td>
-                <td>${request.company}</td>
-                <td class="purpose-cell" title="${request.purpose}">${request.purpose.substring(0, 50)}${request.purpose.length > 50 ? '...' : ''}</td>
+                <td>${request.requestedAtFormatted}</td>
+                <td>${request.requesterName}</td>
+                <td>${request.requesterEmail}</td>
+                <td>${request.companyName}</td>
+                <td>${request.department || '-'}</td>
+                <td><span class="status-${request.status}">${getStatusText(request.status)}</span></td>
                 <td class="action-buttons">
-                    <button class="btn btn-primary btn-sm" onclick="approveAdminRequest('${request.id}', '${request.email}')">承認</button>
-                    <button class="btn btn-danger btn-sm" onclick="rejectAdminRequest('${request.id}')">却下</button>
+                    ${request.status === 'pending' ? 
+                        `<button class="btn btn-primary btn-sm" onclick="approveAdminRequest('${request.id}')">承認</button>
+                         <button class="btn btn-danger btn-sm" onclick="rejectAdminRequest('${request.id}')">却下</button>` : 
+                        ''}
                     <button class="btn btn-secondary btn-sm" onclick="viewRequestDetails('${request.id}')">詳細</button>
                 </td>
             </tr>
@@ -108,88 +126,214 @@ function loadAdminRequests() {
         
     } catch (error) {
         console.error('❌ 管理者登録依頼の読み込みエラー:', error);
+        const tbody = document.getElementById('admin-requests-data');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" class="error">データの読み込みに失敗しました</td></tr>';
+        }
+    }
+}
+
+/**
+ * ステータス表示テキストを取得
+ */
+function getStatusText(status) {
+    switch (status) {
+        case 'pending': return '承認待ち';
+        case 'approved': return '承認済み';
+        case 'rejected': return '却下';
+        default: return status;
     }
 }
 
 /**
  * 管理者登録依頼を承認
  */
-async function approveAdminRequest(requestId, email) {
-    if (!confirm('この依頼を承認して管理者権限を付与しますか？')) return;
+async function approveAdminRequest(requestId) {
+    if (!confirm('この依頼を承認して管理者アカウントを作成しますか？')) return;
     
     try {
-        console.log('✅ 管理者登録依頼を承認:', email);
+        console.log('✅ 管理者登録依頼を承認中:', requestId);
         
-        // Firestoreでユーザーのroleを'admin'に更新
-        const usersRef = db.collection('users');
-        const querySnapshot = await usersRef.where('email', '==', email).get();
+        // 依頼データを取得
+        const requestDoc = await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .get();
         
-        if (querySnapshot.empty) {
-            alert('該当するユーザーが見つかりません。ユーザーが事前に従業員登録している必要があります。');
+        if (!requestDoc.exists) {
+            alert('依頼データが見つかりません。');
             return;
         }
         
-        // ユーザーのroleを更新
-        const userDoc = querySnapshot.docs[0];
-        await userDoc.ref.update({ role: 'admin' });
+        const requestData = requestDoc.data();
+        console.log('📋 承認対象の依頼データ:', requestData);
         
-        // ローカルストレージから依頼を削除
-        removeAdminRequest(requestId);
+        // テナントIDを生成
+        const tenantId = generateTenantId(requestData.companyName);
+        console.log('🏢 生成されたテナントID:', tenantId);
         
-        alert('管理者権限を付与しました。');
+        // Firebase Cloud Functionsで管理者アカウント作成（実際の実装では必要）
+        // ここでは簡易的にFirestoreのみ操作
+        
+        // テナント作成
+        const tenantData = {
+            tenantId: tenantId,
+            companyName: requestData.companyName,
+            adminEmail: requestData.requesterEmail,
+            adminName: requestData.requesterName,
+            phone: requestData.phone || '',
+            department: requestData.department || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'active'
+        };
+        
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .set(tenantData);
+        console.log('✅ テナント作成完了');
+        
+        // グローバルユーザー管理に管理者を登録
+        const globalUserData = {
+            email: requestData.requesterEmail,
+            displayName: requestData.requesterName,
+            role: 'admin',
+            tenantId: tenantId,
+            company: requestData.companyName,
+            department: requestData.department || '',
+            phone: requestData.phone || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: window.currentUser?.email || 'system'
+        };
+        
+        await firebase.firestore()
+            .collection('global_users')
+            .doc(requestData.requesterEmail)
+            .set(globalUserData);
+        console.log('✅ グローバルユーザーデータ保存完了');
+        
+        // 依頼ステータスを承認済みに更新
+        await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .update({
+                status: 'approved',
+                approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                approvedBy: window.currentUser?.email || 'system',
+                tenantId: tenantId
+            });
+        console.log('✅ 依頼ステータス更新完了');
+        
+        alert(`管理者アカウントを承認しました。\\nテナントID: ${tenantId}\\n\\n承認されたユーザーには別途アカウント情報をお知らせください。`);
         loadAdminRequests(); // リストを再読み込み
         
     } catch (error) {
         console.error('❌ 管理者承認エラー:', error);
-        alert('管理者権限の付与に失敗しました。');
+        alert('管理者アカウントの承認に失敗しました: ' + error.message);
     }
+}
+
+/**
+ * テナントID生成関数
+ */
+function generateTenantId(companyName) {
+    // 会社名をもとにテナントIDを生成
+    const baseId = companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '') // 英数字以外を削除
+        .substring(0, 15); // 15文字に制限
+    
+    // ランダムな文字列を追加してユニーク性を確保
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    return `${baseId}-${randomSuffix}`;
 }
 
 /**
  * 管理者登録依頼を却下
  */
-function rejectAdminRequest(requestId) {
+async function rejectAdminRequest(requestId) {
+    const reason = prompt('却下理由を入力してください（省略可）:');
     if (!confirm('この依頼を却下しますか？')) return;
     
-    removeAdminRequest(requestId);
-    alert('依頼を却下しました。');
-    loadAdminRequests();
+    try {
+        console.log('❌ 管理者登録依頼を却下:', requestId);
+        
+        // 依頼ステータスを却下に更新
+        await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .update({
+                status: 'rejected',
+                rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                rejectedBy: window.currentUser?.email || 'system',
+                rejectionReason: reason || ''
+            });
+        console.log('✅ 依頼ステータス更新完了');
+        
+        alert('依頼を却下しました。');
+        loadAdminRequests(); // リストを再読み込み
+        
+    } catch (error) {
+        console.error('❌ 管理者却下エラー:', error);
+        alert('依頼の却下に失敗しました: ' + error.message);
+    }
 }
 
 /**
  * 依頼詳細を表示
  */
-function viewRequestDetails(requestId) {
-    const requests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
-    const request = requests.find(r => r.id === requestId);
-    
-    if (!request) return;
-    
-    const details = `
-依頼詳細:
+async function viewRequestDetails(requestId) {
+    try {
+        const requestDoc = await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .get();
+        
+        if (!requestDoc.exists) {
+            alert('依頼データが見つかりません。');
+            return;
+        }
+        
+        const request = requestDoc.data();
+        const requestedAt = request.requestedAt ? 
+            request.requestedAt.toDate().toLocaleString('ja-JP') : 
+            '日時不明';
+        
+        let statusInfo = '';
+        if (request.status === 'approved') {
+            const approvedAt = request.approvedAt ? 
+                request.approvedAt.toDate().toLocaleString('ja-JP') : 
+                '日時不明';
+            statusInfo = `\n承認日時: ${approvedAt}\n承認者: ${request.approvedBy || '不明'}\nテナントID: ${request.tenantId || '不明'}`;
+        } else if (request.status === 'rejected') {
+            const rejectedAt = request.rejectedAt ? 
+                request.rejectedAt.toDate().toLocaleString('ja-JP') : 
+                '日時不明';
+            statusInfo = `\n却下日時: ${rejectedAt}\n却下者: ${request.rejectedBy || '不明'}\n却下理由: ${request.rejectionReason || '理由未記入'}`;
+        }
+        
+        const details = `
+管理者登録依頼詳細:
 
-氏名: ${request.name}
-メールアドレス: ${request.email}
-電話番号: ${request.phone}
-会社名・組織名: ${request.company}
+氏名: ${request.requesterName}
+メールアドレス: ${request.requesterEmail}
+電話番号: ${request.phone || '（未記入）'}
+会社名・組織名: ${request.companyName}
 部署名: ${request.department || '（未記入）'}
-利用目的: ${request.purpose}
-想定利用者数: ${request.users || '（未選択）'}
-その他・備考: ${request.comments || '（未記入）'}
-送信日時: ${request.submitDate}
-    `;
-    
-    alert(details);
+ステータス: ${getStatusText(request.status)}
+依頼日時: ${requestedAt}
+依頼方法: ${request.requestedBy || '不明'}${statusInfo}
+        `;
+        
+        alert(details);
+        
+    } catch (error) {
+        console.error('❌ 依頼詳細取得エラー:', error);
+        alert('依頼詳細の取得に失敗しました。');
+    }
 }
 
-/**
- * ローカルストレージから依頼を削除
- */
-function removeAdminRequest(requestId) {
-    const requests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
-    const filteredRequests = requests.filter(r => r.id !== requestId);
-    localStorage.setItem('adminRequests', JSON.stringify(filteredRequests));
-}
 
 // グローバル関数として公開
 window.approveAdminRequest = approveAdminRequest;
