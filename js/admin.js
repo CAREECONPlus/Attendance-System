@@ -172,8 +172,32 @@ async function approveAdminRequest(requestId) {
         const tenantId = generateTenantId(requestData.companyName);
         console.log('🏢 生成されたテナントID:', tenantId);
         
-        // Firebase Cloud Functionsで管理者アカウント作成（実際の実装では必要）
-        // ここでは簡易的にFirestoreのみ操作
+        // Firebase Authアカウント作成
+        console.log('🔐 Firebase Authアカウント作成中...');
+        let userCredential;
+        try {
+            userCredential = await firebase.auth().createUserWithEmailAndPassword(
+                requestData.requesterEmail, 
+                requestData.password
+            );
+            
+            // プロフィール更新
+            await userCredential.user.updateProfile({
+                displayName: requestData.requesterName
+            });
+            
+            console.log('✅ Firebase Authアカウント作成完了:', userCredential.user.uid);
+        } catch (authError) {
+            console.error('❌ Firebase Authアカウント作成エラー:', authError);
+            
+            // メールアドレスが既に使用されている場合の処理
+            if (authError.code === 'auth/email-already-in-use') {
+                console.log('⚠️ 既存のFirebase Authアカウントを使用します');
+                // 既存アカウントの処理は後続のFirestoreデータ作成で対応
+            } else {
+                throw new Error(`Firebase Authアカウント作成失敗: ${authError.message}`);
+            }
+        }
         
         // テナント作成
         const tenantData = {
@@ -213,6 +237,37 @@ async function approveAdminRequest(requestId) {
             .set(globalUserData);
         console.log('✅ グローバルユーザーデータ保存完了');
         
+        // テナント内のusersコレクションに管理者データを保存
+        const userUID = userCredential ? userCredential.user.uid : 'pending-uid';
+        const tenantUserData = {
+            uid: userUID,
+            email: requestData.requesterEmail,
+            displayName: requestData.requesterName,
+            role: 'admin',
+            company: requestData.companyName,
+            department: requestData.department || '',
+            phone: requestData.phone || '',
+            tenantId: tenantId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: window.currentUser?.email || 'system'
+        };
+        
+        await firebase.firestore()
+            .collection('tenants').doc(tenantId)
+            .collection('users').doc(userUID)
+            .set(tenantUserData);
+        console.log('✅ テナント内ユーザーデータ保存完了');
+        
+        // legacy usersコレクションにも保存（後方互換性）
+        if (userCredential) {
+            await firebase.firestore()
+                .collection('users')
+                .doc(userCredential.user.uid)
+                .set(tenantUserData);
+            console.log('✅ Legacyユーザーデータ保存完了');
+        }
+        
         // 依頼ステータスを承認済みに更新
         await firebase.firestore()
             .collection('admin_requests')
@@ -225,7 +280,9 @@ async function approveAdminRequest(requestId) {
             });
         console.log('✅ 依頼ステータス更新完了');
         
-        alert(`管理者アカウントを承認しました。\\nテナントID: ${tenantId}\\n\\n承認されたユーザーには別途アカウント情報をお知らせください。`);
+        const loginUrl = `${window.location.origin}${window.location.pathname}?tenant=${tenantId}`;
+        
+        alert(`管理者アカウントを承認しました。\\n\\n【ログイン情報】\\nメール: ${requestData.requesterEmail}\\nパスワード: (依頼時に設定されたもの)\\nテナントID: ${tenantId}\\nログインURL: ${loginUrl}\\n\\n承認されたユーザーにこの情報をお知らせください。`);
         loadAdminRequests(); // リストを再読み込み
         
     } catch (error) {
