@@ -5,16 +5,17 @@ console.log('firebase.js loaded - 修正版');
  * 権限エラー解決のためオフライン機能を一時的に無効化
  */
 
-// Firebase設定
-const firebaseConfig = {
-    apiKey: "AIzaSyCUCD0CLd6SQELpMK2f6KQFy2XVv5eMT2o",
-    authDomain: "attendance-system-39ae6.firebaseapp.com",
-    projectId: "attendance-system-39ae6",
-    storageBucket: "attendance-system-39ae6.appspot.com",
-    messagingSenderId: "723896381304",
-    appId: "1:723896381304:web:92f31b721706dcbf11a28d",
-    measurementId: "G-8DY7MWM44W"
-};
+// Firebase設定 - 環境に応じて設定を取得
+const firebaseConfig = (() => {
+    // 本番環境では window.FIREBASE_CONFIG が設定される
+    if (window.FIREBASE_CONFIG) {
+        return window.FIREBASE_CONFIG;
+    }
+    
+    // 設定が見つからない場合のエラーハンドリング
+    console.error('Firebase設定が見つかりません。config.js を確認してください。');
+    throw new Error('Firebase configuration not found');
+})();
 
 // Firebase初期化状態を追跡
 let isFirebaseInitialized = false;

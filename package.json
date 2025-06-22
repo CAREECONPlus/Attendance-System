@@ -5,8 +5,10 @@
   "main": "index.html",
   "scripts": {
     "dev": "npx serve",
-    "start": "npx serve",
-    "build": "echo 'No build step needed for this project'"
+    "start": "npm run build && npx serve",
+    "build": "npm run build:config",
+    "build:config": "node scripts/build-config.js",
+    "production": "npm run build && echo 'Production build complete. Deploy files to your web server.'"
   },
   "dependencies": {
     "firebase": "^9.22.0"
