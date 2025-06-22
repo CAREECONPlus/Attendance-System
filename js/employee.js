@@ -1365,28 +1365,28 @@ function setupEmployeeEventListeners() {
     // 出勤ボタン
     const clockInBtn = document.getElementById('clock-in-btn');
     if (clockInBtn && !clockInBtn.hasAttribute('data-listener-set')) {
-        clockInBtn.addEventListener('click', clockIn);
+        clockInBtn.addEventListener('click', handleClockIn);
         clockInBtn.setAttribute('data-listener-set', 'true');
     }
     
     // 退勤ボタン
     const clockOutBtn = document.getElementById('clock-out-btn');
     if (clockOutBtn && !clockOutBtn.hasAttribute('data-listener-set')) {
-        clockOutBtn.addEventListener('click', clockOut);
+        clockOutBtn.addEventListener('click', handleClockOut);
         clockOutBtn.setAttribute('data-listener-set', 'true');
     }
     
     // 休憩開始ボタン
     const breakStartBtn = document.getElementById('break-start-btn');
     if (breakStartBtn && !breakStartBtn.hasAttribute('data-listener-set')) {
-        breakStartBtn.addEventListener('click', startBreak);
+        breakStartBtn.addEventListener('click', handleBreakStart);
         breakStartBtn.setAttribute('data-listener-set', 'true');
     }
     
     // 休憩終了ボタン
     const breakEndBtn = document.getElementById('break-end-btn');
     if (breakEndBtn && !breakEndBtn.hasAttribute('data-listener-set')) {
-        breakEndBtn.addEventListener('click', endBreak);
+        breakEndBtn.addEventListener('click', handleBreakEnd);
         breakEndBtn.setAttribute('data-listener-set', 'true');
     }
     
