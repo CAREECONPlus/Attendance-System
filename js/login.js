@@ -554,23 +554,7 @@ function showRegisterError(message) {
     console.error('❌ 登録エラー:', message);
 }
 
-/**
- * ページ切り替え
- */
-function showPage(pageName) {
-    // 全てのページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
-        .forEach(el => el.classList.add('hidden'));
-    
-    // 指定されたページを表示
-    const targetPage = document.getElementById(`${pageName}-page`);
-    if (targetPage) {
-        targetPage.classList.remove('hidden');
-        console.log(`✅ ページ切り替え: ${pageName}`);
-    } else {
-        console.error(`❌ ページが見つかりません: ${pageName}-page`);
-    }
-}
+// showPage関数はutils.jsで定義済み
 
 /**
  * DOM読み込み完了時の初期化

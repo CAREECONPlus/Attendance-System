@@ -67,91 +67,7 @@ function getTodayJST() {
     return today;
 }
 
-// 従業員ページの初期化
-function initEmployeePage() {
-    console.log('🚀 従業員ページ初期化開始（日付修正版）');
-    
-    // Firebase認証状態の監視
-    firebase.auth().onAuthStateChanged(async function(user) {
-        if (user) {
-            console.log('✅ ユーザー認証確認:', user.email);
-            
-            // 🎯 重要：既にログイン済みの場合は変数をリセットしない
-            const wasAlreadyLoggedIn = (currentUser && currentUser.uid === user.uid);
-            currentUser = user;
-            
-            if (wasAlreadyLoggedIn) {
-                console.log('🔄 既存ユーザーの再認証 - データを保持');
-                // データがある場合は保持
-                if (todayAttendanceData) {
-                    console.log('📋 既存データを維持:', todayAttendanceData);
-                    const status = todayAttendanceData.status === 'completed' ? 'completed' : 
-                                  todayAttendanceData.status === 'break' ? 'break' : 'working';
-                    updateClockButtons(status);
-                    return; // 初期化をスキップ
-                }
-            } else {
-                console.log('🆕 新規ログインまたは初回認証');
-            }
-            
-            try {
-                // ユーザー名を表示
-                displayUserName();
-                
-                // 現在時刻の表示を開始（重複チェック）
-                if (!window.timeIntervalSet) {
-                    updateCurrentTime();
-                    setInterval(updateCurrentTime, 1000);
-                    window.timeIntervalSet = true;
-                }
-                
-                // イベントリスナーの設定（重複チェック）
-                if (!window.eventListenersSet) {
-                    setupEmployeeEventListeners();
-                    window.eventListenersSet = true;
-                }
-                
-                // 現場選択の設定
-                setupSiteSelection();
-                
-                // 今日の勤怠状態を復元（データがない場合のみ）
-                if (!todayAttendanceData || !currentAttendanceId) {
-                    await restoreTodayAttendanceState();
-                }
-                
-                // サイト管理機能を初期化
-                setupSiteSelection();
-                await loadSiteOptions();
-                
-                // 最近の記録を読み込み（遅延実行）
-                setTimeout(() => {
-                    loadRecentRecordsSafely();
-                }, 1000);
-                
-                console.log('✅ 従業員ページ初期化完了');
-                
-            } catch (error) {
-                console.error('❌ 初期化エラー:', error);
-                showErrorMessage('ページの初期化でエラーが発生しました');
-            }
-        } else {
-            console.log('❌ ユーザー未認証 - ログアウト処理');
-            // 🎯 明示的なログアウトの場合のみ変数をクリア
-            if (window.explicitLogout) {
-                currentUser = null;
-                currentAttendanceId = null;
-                todayAttendanceData = null;
-                dailyLimitProcessing = false;
-                window.explicitLogout = false;
-            } else {
-                console.log('⚠️ 自動ログアウト検出 - データを保持');
-                // Firebase認証の一時的な切断の場合はデータを保持
-                currentUser = null; // currentUserのみクリア
-            }
-            showPage('login');
-        }
-    });
-}
+// 注意: initEmployeePage関数はファイル末尾で定義されています
 
 // 🔧 修正版 restoreTodayAttendanceState関数（日付修正）
 async function restoreTodayAttendanceState() {
@@ -1345,6 +1261,81 @@ function testTodayDate() {
             });
         }
     });
+}
+
+/**
+ * 従業員ページの初期化関数
+ */
+function initEmployeePage() {
+    console.log('🔧 従業員ページを初期化中...');
+    
+    try {
+        // 現在のユーザーを設定
+        const user = firebase.auth().currentUser;
+        if (user) {
+            currentUser = user;
+            window.currentUser = user;
+        }
+        
+        // 時刻表示の開始
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        
+        // 日付と現場設定の復元
+        restoreDateAndSiteSettings();
+        
+        // 今日の勤怠状態を復元
+        restoreTodayAttendanceState();
+        
+        // UI要素の設定
+        setupEmployeeEventListeners();
+        
+        console.log('✅ 従業員ページ初期化完了');
+        
+    } catch (error) {
+        console.error('❌ 従業員ページ初期化エラー:', error);
+        showErrorMessage('従業員ページの初期化に失敗しました');
+    }
+}
+
+/**
+ * 従業員ページのイベントリスナー設定
+ */
+function setupEmployeeEventListeners() {
+    // 出勤ボタン
+    const clockInBtn = document.getElementById('clock-in-btn');
+    if (clockInBtn && !clockInBtn.hasAttribute('data-listener-set')) {
+        clockInBtn.addEventListener('click', clockIn);
+        clockInBtn.setAttribute('data-listener-set', 'true');
+    }
+    
+    // 退勤ボタン
+    const clockOutBtn = document.getElementById('clock-out-btn');
+    if (clockOutBtn && !clockOutBtn.hasAttribute('data-listener-set')) {
+        clockOutBtn.addEventListener('click', clockOut);
+        clockOutBtn.setAttribute('data-listener-set', 'true');
+    }
+    
+    // 休憩開始ボタン
+    const breakStartBtn = document.getElementById('break-start-btn');
+    if (breakStartBtn && !breakStartBtn.hasAttribute('data-listener-set')) {
+        breakStartBtn.addEventListener('click', startBreak);
+        breakStartBtn.setAttribute('data-listener-set', 'true');
+    }
+    
+    // 休憩終了ボタン
+    const breakEndBtn = document.getElementById('break-end-btn');
+    if (breakEndBtn && !breakEndBtn.hasAttribute('data-listener-set')) {
+        breakEndBtn.addEventListener('click', endBreak);
+        breakEndBtn.setAttribute('data-listener-set', 'true');
+    }
+    
+    // 現場選択の変更
+    const siteSelect = document.getElementById('site-name');
+    if (siteSelect && !siteSelect.hasAttribute('data-listener-set')) {
+        siteSelect.addEventListener('change', handleSiteSelection);
+        siteSelect.setAttribute('data-listener-set', 'true');
+    }
 }
 
 console.log('✅ employee.js（完全版 - 日付修正版）読み込み完了');

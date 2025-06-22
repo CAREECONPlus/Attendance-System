@@ -3459,10 +3459,154 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
 /**
  * ユーザー管理UI用のヘルパー関数群
  */
+/**
+ * 管理者ページの初期化関数
+ */
+function initAdminPage() {
+    console.log('🔧 管理者ページを初期化中...');
+    
+    try {
+        // 管理者権限チェック
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            console.error('❌ 認証済みユーザーが見つかりません');
+            return;
+        }
+        
+        // 現在のユーザーを設定
+        window.currentUser = user;
+        
+        // 管理者画面の基本設定
+        setupAdminPageElements();
+        
+        // タブ機能の初期化
+        initAdminTabs();
+        
+        // イベントリスナーの設定
+        setupAdminEvents();
+        
+        // 管理者登録依頼管理（スーパー管理者のみ）
+        initAdminRequestsManagement();
+        
+        // 編集機能の初期化
+        initAdminEditFeatures();
+        
+        // 初期データの読み込み
+        loadAttendanceData();
+        
+        console.log('✅ 管理者ページ初期化完了');
+        
+    } catch (error) {
+        console.error('❌ 管理者ページ初期化エラー:', error);
+        showError('管理者ページの初期化に失敗しました');
+    }
+}
+
+/**
+ * 管理者ページの基本要素設定
+ */
+function setupAdminPageElements() {
+    // ユーザー名表示
+    const adminUserNameEl = document.getElementById('admin-user-name');
+    if (adminUserNameEl && window.currentUser) {
+        adminUserNameEl.textContent = window.currentUser.email || '管理者';
+    }
+    
+    // ログアウトボタン
+    const logoutBtn = document.getElementById('admin-logout-btn');
+    if (logoutBtn && !logoutBtn.hasAttribute('data-listener-set')) {
+        logoutBtn.addEventListener('click', signOut);
+        logoutBtn.setAttribute('data-listener-set', 'true');
+    }
+    
+    // 今日の日付をデフォルト設定
+    const filterDate = document.getElementById('filter-date');
+    if (filterDate && !filterDate.value) {
+        filterDate.value = new Date().toISOString().split('T')[0];
+    }
+    
+    // 今月をデフォルト設定
+    const filterMonth = document.getElementById('filter-month');
+    if (filterMonth && !filterMonth.value) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        filterMonth.value = `${year}-${month}`;
+    }
+}
+
+/**
+ * 管理者タブの初期化
+ */
+function initAdminTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+        if (!btn.hasAttribute('data-listener-set')) {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.getAttribute('data-tab');
+                if (tabName) {
+                    switchTab(tabName);
+                }
+            });
+            btn.setAttribute('data-listener-set', 'true');
+        }
+    });
+}
+
+/**
+ * タブ切り替え機能
+ */
+function switchTab(tabName) {
+    console.log('🔄 タブ切り替え:', tabName);
+    
+    // 全てのタブボタンを非アクティブ
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // クリックされたタブボタンをアクティブ
+    const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+    
+    // フィルター表示/非表示の切り替え
+    document.querySelectorAll('.date-filter, .month-filter, .employee-filter, .site-filter').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // 対応するフィルターを表示
+    switch (tabName) {
+        case 'daily':
+            document.querySelector('.date-filter')?.classList.remove('hidden');
+            break;
+        case 'monthly':
+            document.querySelector('.month-filter')?.classList.remove('hidden');
+            break;
+        case 'employee':
+            document.querySelector('.employee-filter')?.classList.remove('hidden');
+            break;
+        case 'site':
+            document.querySelector('.site-filter')?.classList.remove('hidden');
+            break;
+        case 'admin-requests':
+            // 管理者依頼専用の処理
+            showAdminRequestsTab();
+            return;
+    }
+    
+    // データを再読み込み
+    loadAttendanceData();
+}
+
 window.loadTenantUsers = loadTenantUsers;
 window.updateUserInfo = updateUserInfo;
 window.changeUserRole = changeUserRole;
 window.toggleUserStatus = toggleUserStatus;
 window.inviteNewEmployee = inviteNewEmployee;
+
+// グローバルスコープに関数をエクスポート
+window.initAdminPage = initAdminPage;
+window.switchTab = switchTab;
 
 console.log('✅ admin.js ユーザー管理機能付き読み込み完了');

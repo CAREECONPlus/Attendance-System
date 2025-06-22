@@ -8,12 +8,12 @@ if (typeof window !== 'undefined') {
     window.FIREBASE_CONFIG = {
         // 🚨 セキュリティ警告: 本番環境では環境変数を使用してください
         // これらの値は開発環境でのみ使用されます
-        apiKey: "YOUR_FIREBASE_API_KEY_HERE",
-        authDomain: "YOUR_PROJECT.firebaseapp.com",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT.appspot.com",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID",
-        measurementId: "YOUR_MEASUREMENT_ID"
+        apiKey: "REDACTED_API_KEY",
+        authDomain: "attendance-system-39ae6.firebaseapp.com",
+        projectId: "attendance-system-39ae6",
+        storageBucket: "attendance-system-39ae6.appspot.com",
+        messagingSenderId: "723896381304",
+        appId: "1:723896381304:web:92f31b721706dcbf11a28d",
+        measurementId: "G-8DY7MWM44W"
     };
 }
