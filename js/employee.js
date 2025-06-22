@@ -127,6 +127,41 @@ function saveDateAndSiteSettings() {
     }
 }
 
+// 🔧 現場選択変更の処理
+function handleSiteSelection() {
+    console.log('🏢 現場選択が変更されました');
+    
+    try {
+        const siteSelect = document.getElementById('site-name');
+        const manualInput = document.getElementById('site-name-manual');
+        
+        if (!siteSelect || !manualInput) {
+            console.warn('⚠️ 現場選択要素が見つかりません');
+            return;
+        }
+        
+        if (siteSelect.value === 'manual-input') {
+            // 手動入力モードの場合
+            manualInput.style.display = 'block';
+            manualInput.required = true;
+            manualInput.focus();
+            console.log('📝 手動入力モードに切り替え');
+        } else {
+            // 選択モードの場合
+            manualInput.style.display = 'none';
+            manualInput.required = false;
+            manualInput.value = '';
+            console.log('📋 選択モード:', siteSelect.value);
+            
+            // 選択した現場名を保存
+            saveDateAndSiteSettings();
+        }
+        
+    } catch (error) {
+        console.error('❌ 現場選択変更エラー:', error);
+    }
+}
+
 // 注意: initEmployeePage関数はファイル末尾で定義されています
 
 // 🔧 修正版 restoreTodayAttendanceState関数（日付修正）
