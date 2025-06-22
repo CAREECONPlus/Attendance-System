@@ -68,6 +68,38 @@ function showAdminRequestsTab() {
 }
 
 /**
+ * 招待管理タブを表示
+ */
+function showInviteTab() {
+    console.log('🔗 招待管理タブを表示');
+    
+    // 全てのタブコンテンツを非表示
+    document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // フィルター行を非表示
+    const filterRow = document.querySelector('.filter-row');
+    if (filterRow) filterRow.style.display = 'none';
+    
+    // 招待管理コンテンツを表示
+    const inviteContent = document.getElementById('invite-content');
+    if (inviteContent) {
+        inviteContent.classList.remove('hidden');
+    }
+    
+    // タブの状態を更新
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    const inviteTab = document.querySelector('[data-tab="invite"]');
+    if (inviteTab) inviteTab.classList.add('active');
+    
+    // 招待履歴を読み込み
+    if (typeof loadInviteHistory === 'function') {
+        loadInviteHistory();
+    }
+}
+
+/**
  * Firestoreから管理者登録依頼を読み込み
  */
 async function loadAdminRequests() {
@@ -456,6 +488,11 @@ async function initAdminPage() {
     // 管理者登録依頼管理機能を初期化（スーパー管理者のみ）
     if (window.currentUser && window.currentUser.role === 'super_admin') {
         initAdminRequestsManagement();
+    }
+    
+    // 招待リンク管理機能を初期化（全ての管理者）
+    if (typeof initInviteAdmin === 'function') {
+        initInviteAdmin();
     }
     
     // 残りの初期化を少し遅延させて実行
@@ -3589,6 +3626,10 @@ function switchTab(tabName) {
         case 'site':
             document.querySelector('.site-filter')?.classList.remove('hidden');
             break;
+        case 'invite':
+            // 招待管理専用の処理
+            showInviteTab();
+            return;
         case 'admin-requests':
             // 管理者依頼専用の処理
             showAdminRequestsTab();
