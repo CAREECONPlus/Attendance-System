@@ -67,6 +67,66 @@ function getTodayJST() {
     return today;
 }
 
+// 🔧 日付と現場設定の復元機能
+function restoreDateAndSiteSettings() {
+    console.log('📅 日付と現場設定を復元中...');
+    
+    try {
+        // LocalStorageから最後に選択した現場名を復元
+        const savedSiteName = localStorage.getItem('lastSelectedSite');
+        if (savedSiteName) {
+            const siteSelect = document.getElementById('site-name');
+            if (siteSelect) {
+                // 保存された現場名がオプションに存在するかチェック
+                const option = Array.from(siteSelect.options).find(opt => opt.value === savedSiteName);
+                if (option) {
+                    siteSelect.value = savedSiteName;
+                    console.log('✅ 前回選択した現場を復元:', savedSiteName);
+                } else {
+                    console.log('⚠️ 保存された現場名がオプションに存在しません:', savedSiteName);
+                }
+            }
+        }
+        
+        // LocalStorageから最後に入力したメモを復元
+        const savedNotes = localStorage.getItem('lastWorkNotes');
+        if (savedNotes) {
+            const notesTextarea = document.getElementById('work-notes');
+            if (notesTextarea) {
+                notesTextarea.value = savedNotes;
+                console.log('✅ 前回のメモを復元');
+            }
+        }
+        
+        console.log('✅ 日付と現場設定の復元完了');
+        
+    } catch (error) {
+        console.error('❌ 日付と現場設定の復元エラー:', error);
+    }
+}
+
+// 🔧 設定を保存する関数
+function saveDateAndSiteSettings() {
+    try {
+        // 現在選択されている現場名を保存
+        const siteSelect = document.getElementById('site-name');
+        if (siteSelect && siteSelect.value && siteSelect.value !== '') {
+            localStorage.setItem('lastSelectedSite', siteSelect.value);
+            console.log('💾 現場選択を保存:', siteSelect.value);
+        }
+        
+        // 現在のメモを保存
+        const notesTextarea = document.getElementById('work-notes');
+        if (notesTextarea && notesTextarea.value.trim()) {
+            localStorage.setItem('lastWorkNotes', notesTextarea.value);
+            console.log('💾 メモを保存');
+        }
+        
+    } catch (error) {
+        console.error('❌ 設定保存エラー:', error);
+    }
+}
+
 // 注意: initEmployeePage関数はファイル末尾で定義されています
 
 // 🔧 修正版 restoreTodayAttendanceState関数（日付修正）
