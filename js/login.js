@@ -93,6 +93,12 @@ async function initLogin() {
         
         
         loginInitialized = true;
+        
+        // 招待システムの初期化
+        if (typeof initInviteSystem === 'function') {
+            await initInviteSystem();
+        }
+        
         console.log('🎉 ログイン機能初期化完了');
         
     } catch (error) {
@@ -262,13 +268,7 @@ async function handleRegister(e) {
     const email = document.getElementById('registerEmail')?.value?.trim();
     const password = document.getElementById('registerPassword')?.value?.trim();
     const displayName = document.getElementById('displayName')?.value?.trim();
-    
-    // ロールを決定（dxconsulting.branu2@gmail.comは自動的にsuper_admin）
-    let role = 'employee';
-    if (email === 'dxconsulting.branu2@gmail.com') {
-        role = 'super_admin';
-        console.log('🔥 スーパー管理者として登録:', email);
-    }
+    const inviteToken = document.getElementById('inviteToken')?.value?.trim();
     
     if (!email || !password || !displayName) {
         showRegisterError('全ての項目を入力してください');
@@ -277,6 +277,12 @@ async function handleRegister(e) {
     
     if (password.length < 6) {
         showRegisterError('パスワードは6文字以上で入力してください');
+        return;
+    }
+    
+    // 招待リンクが必要（スーパー管理者は除く）
+    if (email !== 'dxconsulting.branu2@gmail.com' && !inviteToken) {
+        showRegisterError('招待リンクから登録してください');
         return;
     }
     
@@ -289,52 +295,41 @@ async function handleRegister(e) {
     }
     
     try {
-        // Firebase認証でユーザー作成
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        console.log('✅ Firebase認証ユーザー作成:', user.uid);
+        let registrationResult;
         
-        // テナント対応のユーザーデータ保存
-        const currentTenantId = getCurrentTenantId();
-        
-        const userData = {
-            uid: user.uid,
-            email: email,
-            displayName: displayName,
-            role: role,
-            tenantId: currentTenantId || null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // テナント内に保存（テナントが設定されている場合）
-        if (currentTenantId) {
-            const tenantUsersPath = `tenants/${currentTenantId}/users`;
-            await firebase.firestore().collection(tenantUsersPath).doc(user.uid).set(userData);
-            console.log('✅ テナント内ユーザーデータ保存完了');
+        // スーパー管理者の場合は従来の処理
+        if (email === 'dxconsulting.branu2@gmail.com') {
+            console.log('🔥 スーパー管理者として登録:', email);
             
-            // グローバルユーザー管理にも登録
-            const globalUserData = {
+            const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            
+            const userData = {
                 uid: user.uid,
                 email: email,
                 displayName: displayName,
-                role: role,
-                tenantId: currentTenantId,
+                role: 'super_admin',
+                tenantId: null,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            await firebase.firestore().collection('global_users').doc(email).set(globalUserData);
-            console.log('✅ グローバルユーザーデータ保存完了');
+            
+            await firebase.firestore().collection('global_users').doc(email).set(userData);
+            console.log('✅ スーパー管理者登録完了');
+            
+            registrationResult = { success: true, user: user };
+            
+        } else {
+            // 一般従業員の場合は招待システムを使用
+            registrationResult = await registerEmployeeWithInvite(email, password, displayName, inviteToken);
         }
         
-        // 従来のusersコレクションにも保存（後方互換性）
-        await firebase.firestore().collection('users').doc(user.uid).set(userData);
-        console.log('✅ 従来のユーザーデータ保存完了');
-        
-        // Firebase Authプロファイル更新
-        await user.updateProfile({
-            displayName: displayName
-        });
+        if (registrationResult.success) {
+            // Firebase Authプロファイル更新
+            await registrationResult.user.updateProfile({
+                displayName: displayName
+            });
+        }
         
         alert('登録が完了しました！ログインしてください。');
         showLoginForm();
