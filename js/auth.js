@@ -182,8 +182,11 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             console.log('Tenant ID:', tenantId);
             console.log('User UID:', user.uid);
             
+            console.log('Creating user collection reference...');
             const userCollection = authenticatedFirestore.collection('tenants').doc(tenantId).collection('users');
-            await userCollection.doc(user.uid).set({
+            console.log('Collection reference created, starting write operation...');
+            
+            const userDocPromise = userCollection.doc(user.uid).set({
                 email: email,
                 displayName: displayName,
                 role: 'employee',
@@ -193,7 +196,19 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 siteHistory: []
             });
-            console.log('✅ Tenant user data saved successfully');
+            
+            // タイムアウト付きで実行
+            const userWriteTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('User data write timeout after 15 seconds')), 15000);
+            });
+            
+            try {
+                await Promise.race([userDocPromise, userWriteTimeoutPromise]);
+                console.log('✅ Tenant user data saved successfully');
+            } catch (userWriteError) {
+                console.error('❌ User data write failed:', userWriteError);
+                throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
+            }
 
             // 2. global_usersに追加
             console.log('Saving to global_users...');
