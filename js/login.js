@@ -49,37 +49,6 @@ async function initLogin() {
         } else {
         }
         
-        // 登録フォーム
-        const registerForm = document.getElementById('registerForm');
-        if (registerForm) {
-            // 既存のイベントリスナーを削除（重複防止）
-            const newRegisterForm = registerForm.cloneNode(true);
-            registerForm.parentNode.replaceChild(newRegisterForm, registerForm);
-            
-            // 新しいフォームにイベントリスナーを追加
-            const freshRegisterForm = document.getElementById('registerForm');
-            freshRegisterForm.addEventListener('submit', handleRegister);
-        } else {
-        }
-        
-        // フォーム切り替えボタン
-        const showRegisterBtn = document.getElementById('showRegisterButton');
-        const showLoginBtn = document.getElementById('showLoginButton');
-        
-        if (showRegisterBtn) {
-            showRegisterBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showRegisterForm();
-            });
-        }
-        
-        if (showLoginBtn) {
-            showLoginBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showLoginForm();
-            });
-        }
-        
         // Firebase認証状態の監視
         firebase.auth().onAuthStateChanged(handleAuthStateChange);
         
@@ -235,103 +204,6 @@ async function handleLogin(e) {
     }
 }
 
-/**
- * 登録処理
- */
-async function handleRegister(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('registerEmail')?.value?.trim();
-    const password = document.getElementById('registerPassword')?.value?.trim();
-    const displayName = document.getElementById('displayName')?.value?.trim();
-    const inviteToken = document.getElementById('inviteToken')?.value?.trim();
-    
-    if (!email || !password || !displayName) {
-        showRegisterError('全ての項目を入力してください');
-        return;
-    }
-    
-    if (password.length < 6) {
-        showRegisterError('パスワードは6文字以上で入力してください');
-        return;
-    }
-    
-    // 招待リンクが必要（スーパー管理者は除く）
-    if (email !== 'dxconsulting.branu2@gmail.com' && !inviteToken) {
-        showRegisterError('招待リンクから登録してください');
-        return;
-    }
-    
-    // ローディング表示
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn?.textContent;
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = '登録中...';
-    }
-    
-    try {
-        let registrationResult;
-        
-        // スーパー管理者の場合は従来の処理
-        if (email === 'dxconsulting.branu2@gmail.com') {
-            
-            const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-            const user = userCredential.user;
-            
-            const userData = {
-                uid: user.uid,
-                email: email,
-                displayName: displayName,
-                role: 'super_admin',
-                tenantId: null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            
-            await firebase.firestore().collection('global_users').doc(email).set(userData);
-            
-            registrationResult = { success: true, user: user };
-            
-        } else {
-            // 一般従業員の場合は招待システムを使用
-            registrationResult = await registerEmployeeWithInvite(email, password, displayName, inviteToken);
-        }
-        
-        if (registrationResult.success) {
-            // Firebase Authプロファイル更新
-            await registrationResult.user.updateProfile({
-                displayName: displayName
-            });
-        }
-        
-        alert('登録が完了しました！ログインしてください。');
-        showLoginForm();
-        
-        // フォームをリセット
-        e.target.reset();
-        
-        
-    } catch (error) {
-        
-        let message = '登録に失敗しました';
-        if (error.code === 'auth/email-already-in-use') {
-            message = 'このメールアドレスは既に使用されています';
-        } else if (error.code === 'auth/invalid-email') {
-            message = 'メールアドレスの形式が正しくありません';
-        } else if (error.code === 'auth/weak-password') {
-            message = 'パスワードが弱すぎます（6文字以上で入力してください）';
-        }
-        
-        showRegisterError(message);
-    } finally {
-        // ローディング解除
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText || '登録する';
-        }
-    }
-}
 
 /**
  * 認証状態変化の処理
@@ -440,40 +312,14 @@ async function handleAuthStateChange(user) {
     }
 }
 
-/**
- * 登録フォームを表示
- */
-function showRegisterForm() {
-    const loginForm = document.querySelector('#loginForm');
-    const registerForm = document.querySelector('#registerForm');
-    const showRegisterBtn = document.getElementById('showRegisterButton');
-    const showLoginBtn = document.getElementById('showLoginButton');
-    const toggleText = document.getElementById('toggle-text');
-    
-    if (loginForm) loginForm.style.display = 'none';
-    if (registerForm) registerForm.style.display = 'block';
-    if (showRegisterBtn) showRegisterBtn.style.display = 'none';
-    if (showLoginBtn) showLoginBtn.style.display = 'inline';
-    if (toggleText) toggleText.textContent = '既にアカウントをお持ちの方は';
-    
-}
 
 /**
  * ログインフォームを表示
  */
 function showLoginForm() {
     const loginForm = document.querySelector('#loginForm');
-    const registerForm = document.querySelector('#registerForm');
-    const showRegisterBtn = document.getElementById('showRegisterButton');
-    const showLoginBtn = document.getElementById('showLoginButton');
-    const toggleText = document.getElementById('toggle-text');
     
     if (loginForm) loginForm.style.display = 'block';
-    if (registerForm) registerForm.style.display = 'none';
-    if (showRegisterBtn) showRegisterBtn.style.display = 'inline';
-    if (showLoginBtn) showLoginBtn.style.display = 'none';
-    if (toggleText) toggleText.textContent = 'アカウントをお持ちでない方は';
-    
 }
 
 /**
@@ -491,20 +337,6 @@ function showError(message) {
     
 }
 
-/**
- * 登録エラーメッセージ表示
- */
-function showRegisterError(message) {
-    const errorElement = document.getElementById('register-error-message');
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.classList.remove('hidden');
-        setTimeout(() => {
-            errorElement.classList.add('hidden');
-        }, 5000);
-    }
-    
-}
 
 // showPage関数はutils.jsで定義済み
 
@@ -514,7 +346,7 @@ function showRegisterError(message) {
 document.addEventListener('DOMContentLoaded', async () => {
     
     // 初期状態では全ページを非表示
-    document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
+    document.querySelectorAll('#login-page, #employee-page, #admin-page, #admin-request-page')
         .forEach(el => el.classList.add('hidden'));
     
     // テナント初期化

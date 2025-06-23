@@ -1237,7 +1237,7 @@ function testTodayDate() {
 /**
  * 従業員ページの初期化関数
  */
-function initEmployeePage() {
+async function initEmployeePage() {
     
     try {
         // 現在のユーザーを設定

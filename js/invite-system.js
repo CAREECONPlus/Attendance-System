@@ -169,9 +169,6 @@ async function initInviteSystem() {
                 inviteInfo.style.display = 'block';
             }
             
-            // 登録フォームを自動表示
-            showRegisterForm();
-            
         } else {
             // 無効な招待リンクの場合
             if (inviteInfo) {
@@ -183,13 +180,6 @@ async function initInviteSystem() {
                     </div>
                 `;
                 inviteInfo.style.display = 'block';
-            }
-            
-            // 登録ボタンを無効化
-            const registerBtn = document.querySelector('#registerForm button[type="submit"]');
-            if (registerBtn) {
-                registerBtn.disabled = true;
-                registerBtn.textContent = '招待トークンが無効です';
             }
         }
     } else {
@@ -205,101 +195,13 @@ async function initInviteSystem() {
             `;
             inviteInfo.style.display = 'block';
         }
-        
-        // 登録ボタンを無効化
-        const registerBtn = document.querySelector('#registerForm button[type="submit"]');
-        if (registerBtn) {
-            registerBtn.disabled = true;
-            registerBtn.textContent = '招待リンクが必要です';
-        }
     }
 }
 
-/**
- * 登録フォームを表示
- */
-function showRegisterForm() {
-    const registerForm = document.getElementById('registerForm');
-    const loginForm = document.getElementById('loginForm');
-    const toggleText = document.getElementById('toggle-text');
-    const showRegisterBtn = document.getElementById('showRegisterButton');
-    const showLoginBtn = document.getElementById('showLoginButton');
-    
-    if (registerForm) registerForm.style.display = 'block';
-    if (loginForm) loginForm.style.display = 'none';
-    if (toggleText) toggleText.textContent = 'すでにアカウントをお持ちの方は';
-    if (showRegisterBtn) showRegisterBtn.style.display = 'none';
-    if (showLoginBtn) showLoginBtn.style.display = 'inline';
-}
 
-/**
- * 従業員登録処理（招待トークン対応版）
- */
-async function registerEmployeeWithInvite(email, password, displayName, inviteToken) {
-    try {
-        
-        // 招待トークン再検証
-        const validation = await validateInviteToken(inviteToken);
-        if (!validation.valid) {
-            throw new Error(validation.error);
-        }
-        
-        // Firebase認証でユーザー作成
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // プロフィール更新
-        await user.updateProfile({
-            displayName: displayName
-        });
-        
-        // テナント内のユーザーコレクションに追加
-        const userData = {
-            email: email,
-            displayName: displayName,
-            role: 'employee',
-            tenantId: validation.tenantId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            active: true,
-            inviteToken: inviteToken
-        };
-        
-        // テナント固有のユーザーコレクションに保存
-        await firebase.firestore()
-            .collection('tenants')
-            .doc(validation.tenantId)
-            .collection('users')
-            .doc(user.uid)
-            .set(userData);
-        
-        // グローバルユーザー情報も更新
-        await firebase.firestore()
-            .collection('global_users')
-            .doc(email)
-            .set({
-                ...userData,
-                uid: user.uid
-            });
-        
-        // 招待トークン使用回数を増加
-        await incrementInviteTokenUsage(validation.inviteId);
-        
-        
-        return {
-            success: true,
-            user: user,
-            tenantId: validation.tenantId,
-            companyName: validation.companyName
-        };
-        
-    } catch (error) {
-        throw error;
-    }
-}
 
 // グローバル関数として公開
 window.initInviteSystem = initInviteSystem;
 window.validateInviteToken = validateInviteToken;
-window.registerEmployeeWithInvite = registerEmployeeWithInvite;
 window.getInviteTokenFromURL = getInviteTokenFromURL;
 
