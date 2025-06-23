@@ -3625,6 +3625,26 @@ function switchTab(tabName) {
             return;
     }
     
+    // 通常タブの場合は勤怠テーブルと招待コンテンツの表示を復旧
+    const attendanceContainer = document.querySelector('.attendance-table-container');
+    if (attendanceContainer) {
+        attendanceContainer.classList.remove('hidden');
+    }
+    
+    const inviteContent = document.getElementById('invite-content');
+    if (inviteContent) {
+        inviteContent.classList.add('hidden');
+    }
+    
+    const adminRequestsContent = document.getElementById('admin-requests-content');
+    if (adminRequestsContent) {
+        adminRequestsContent.classList.add('hidden');
+    }
+    
+    // フィルター行を表示
+    const filterRow = document.querySelector('.filter-row');
+    if (filterRow) filterRow.style.display = 'flex';
+    
     // データを再読み込み
     loadAttendanceData();
 }
