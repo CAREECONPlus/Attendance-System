@@ -95,15 +95,38 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             // 認証コンテキストでFirestore操作を実行
             const authenticatedFirestore = firebase.firestore();
             
+            // Firestore接続テスト
+            console.log('Testing Firestore connection...');
+            try {
+                const testCollection = authenticatedFirestore.collection('_test');
+                console.log('Collection reference created successfully');
+            } catch (connectionError) {
+                console.error('Firestore connection failed:', connectionError);
+                throw new Error('Firestore接続に失敗しました');
+            }
+            
             // テスト: 最初に簡単なコレクションに書き込みテスト
             console.log('Testing write permissions with _test collection...');
-            await authenticatedFirestore.collection('_test').doc('test-' + Date.now()).set({
+            
+            // タイムアウト付きでテスト
+            const testWritePromise = authenticatedFirestore.collection('_test').doc('test-' + Date.now()).set({
                 test: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 userUid: user.uid,
                 authUser: firebaseAuth.currentUser?.uid
             });
-            console.log('✅ Test write successful');
+            
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Test write timeout after 10 seconds')), 10000);
+            });
+            
+            try {
+                await Promise.race([testWritePromise, timeoutPromise]);
+                console.log('✅ Test write successful');
+            } catch (testError) {
+                console.error('❌ Test write failed:', testError);
+                throw new Error(`テスト書き込みに失敗: ${testError.message}`);
+            }
             
             // 1. テナント内ユーザー情報を保存
             console.log('Saving user data to tenant collection...');
