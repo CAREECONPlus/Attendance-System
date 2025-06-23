@@ -192,8 +192,8 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 role: 'employee',
                 tenantId: tenantId,
                 inviteToken: inviteToken,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
                 siteHistory: []
             });
             
@@ -207,23 +207,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 console.log('✅ Tenant user data saved successfully');
             } catch (userWriteError) {
                 console.error('❌ User data write failed:', userWriteError);
-                
-                // フォールバック: より簡単なデータ構造で再試行
-                console.log('Attempting fallback with simpler data structure...');
-                try {
-                    await authenticatedFirestore.collection('tenants').doc(tenantId).collection('users').doc(user.uid).set({
-                        email: email,
-                        displayName: displayName,
-                        role: 'employee',
-                        tenantId: tenantId,
-                        createdAt: new Date(),
-                        status: 'active'
-                    });
-                    console.log('✅ Fallback user data saved successfully');
-                } catch (fallbackError) {
-                    console.error('❌ Fallback also failed:', fallbackError);
-                    throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
-                }
+                throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
             }
 
             // 2. global_usersに追加（権限問題対策）
@@ -236,7 +220,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                     displayName: displayName,
                     tenantId: tenantId,
                     role: 'employee',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    createdAt: new Date()
                 });
                 
                 // タイムアウト付きで実行
@@ -258,7 +242,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             
             const inviteUpdatePromise = authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
                 used: firebase.firestore.FieldValue.increment(1),
-                lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
+                lastUsedAt: new Date()
             });
             
             // タイムアウト付きで実行
