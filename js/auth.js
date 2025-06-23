@@ -50,9 +50,23 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         // Firebase Auth状態の同期を確実にする
         console.log('User created, synchronizing auth state...');
         
-        // Firebase Auth状態を強制的に更新
+        // Firebase Auth状態を確実に更新
+        console.log('Updating current user...');
         await firebaseAuth.updateCurrentUser(user);
-        console.log('Current user updated');
+        
+        // 認証状態が反映されるまで待機
+        let attempts = 0;
+        while (firebaseAuth.currentUser?.uid !== user.uid && attempts < 10) {
+            console.log(`Waiting for auth state sync, attempt ${attempts + 1}`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+        
+        if (firebaseAuth.currentUser?.uid !== user.uid) {
+            throw new Error('認証状態の同期に失敗しました');
+        }
+        
+        console.log('Auth state synchronized successfully');
         
         // IDトークンを取得
         let idToken;
@@ -66,29 +80,28 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             console.log('ID token obtained on retry');
         }
         
-        // 認証状態の確認
-        console.log('Auth state after update:', {
-            currentUser: firebaseAuth.currentUser?.uid,
-            targetUser: user.uid,
-            match: firebaseAuth.currentUser?.uid === user.uid
-        });
-        
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
         // Firestore書き込みを順次実行（エラーハンドリング強化）
         try {
             // デバッグ: 現在の認証状態を確認
+            console.log('=== FIRESTORE WRITE DEBUG ===');
             console.log('Current auth user:', firebaseAuth.currentUser?.uid);
             console.log('Target user UID:', user.uid);
             console.log('ID Token available:', !!idToken);
+            console.log('Auth match:', firebaseAuth.currentUser?.uid === user.uid);
+            
+            // 認証コンテキストでFirestore操作を実行
+            const authenticatedFirestore = firebase.firestore();
             
             // テスト: 最初に簡単なコレクションに書き込みテスト
             console.log('Testing write permissions with _test collection...');
-            await firestoreDb.collection('_test').doc('test-' + Date.now()).set({
+            await authenticatedFirestore.collection('_test').doc('test-' + Date.now()).set({
                 test: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userUid: user.uid
+                userUid: user.uid,
+                authUser: firebaseAuth.currentUser?.uid
             });
             console.log('✅ Test write successful');
             
@@ -97,7 +110,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             console.log('Tenant ID:', tenantId);
             console.log('User UID:', user.uid);
             
-            const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
+            const userCollection = authenticatedFirestore.collection('tenants').doc(tenantId).collection('users');
             await userCollection.doc(user.uid).set({
                 email: email,
                 displayName: displayName,
@@ -112,7 +125,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
 
             // 2. global_usersに追加
             console.log('Saving to global_users...');
-            await firestoreDb.collection('global_users').doc(user.uid).set({
+            await authenticatedFirestore.collection('global_users').doc(user.uid).set({
                 email: email,
                 displayName: displayName,
                 tenantId: tenantId,
@@ -123,7 +136,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
 
             // 3. 招待コードの使用回数を更新
             console.log('Updating invite code usage...');
-            await firestoreDb.collection('invite_codes').doc(validation.inviteId).update({
+            await authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
                 used: firebase.firestore.FieldValue.increment(1),
                 lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
