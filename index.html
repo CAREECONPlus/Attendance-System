@@ -416,6 +416,132 @@
                 font-size: 12px;
             }
         }
+
+        /* 現場管理スタイル */
+        .site-management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .site-management-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .sites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .site-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            background: #f8f9fa;
+            transition: box-shadow 0.2s;
+        }
+
+        .site-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .site-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .site-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+
+        .site-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .site-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .site-status.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .site-address {
+            color: #666;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+
+        .site-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .site-actions .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        #site-modal .form-group {
+            margin-bottom: 16px;
+        }
+
+        #site-modal label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        #site-modal input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #site-modal input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .empty-sites {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-sites i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .sites-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .site-management-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+        }
     </style>
 </head>
 <body>
@@ -577,6 +703,7 @@
                     <button class="tab-btn" data-tab="monthly">月別表示</button>
                     <button class="tab-btn" data-tab="employee">従業員別</button>
                     <button class="tab-btn" data-tab="site">現場別</button>
+                    <button class="tab-btn" data-tab="site-management">現場管理</button>
                     <button class="tab-btn" data-tab="invite">従業員招待</button>
                     <button class="tab-btn" data-tab="admin-requests" id="admin-requests-tab" style="display: none;">管理者依頼</button>
                 </div>
@@ -707,6 +834,20 @@
                     </div>
                 </div>
 
+                <!-- 現場管理セクション -->
+                <div id="site-management-content" class="tab-content hidden">
+                    <div class="site-management-header">
+                        <h3>現場管理</h3>
+                        <button id="add-site-btn" class="btn btn-primary">現場を追加</button>
+                    </div>
+                    
+                    <div class="site-management-container">
+                        <div class="sites-grid" id="sites-grid">
+                            <!-- 現場一覧がここに表示される -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 管理者登録依頼管理セクション（スーパー管理者のみ表示） -->
                 <div id="admin-requests-content" class="tab-content hidden">
                     <div class="admin-requests-header">
@@ -812,6 +953,34 @@
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- 現場追加・編集モーダル -->
+    <div id="site-modal" class="modal hidden">
+        <div class="modal-content">
+            <button class="close-btn" id="close-site-modal">&times;</button>
+            <h2 id="site-modal-title">現場を追加</h2>
+            <form id="site-form">
+                <div class="form-group">
+                    <label for="site-name">現場名:</label>
+                    <input type="text" id="site-name-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="site-address">住所（任意）:</label>
+                    <input type="text" id="site-address">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="site-active" checked>
+                        有効
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" id="cancel-site" class="btn btn-secondary">キャンセル</button>
+                </div>
+            </form>
         </div>
     </div>
 

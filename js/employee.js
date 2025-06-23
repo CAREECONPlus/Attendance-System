@@ -1251,6 +1251,9 @@ function initEmployeePage() {
         updateDateTime();
         setInterval(updateDateTime, 1000);
         
+        // 現場オプションを読み込み
+        await loadSiteOptions();
+        
         // 日付と現場設定の復元
         restoreDateAndSiteSettings();
         

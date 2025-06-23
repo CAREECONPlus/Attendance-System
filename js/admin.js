@@ -466,6 +466,9 @@ async function initAdminPage() {
         initInviteAdmin();
     }
     
+    // 現場管理機能を初期化（全ての管理者）
+    initSiteManagement();
+    
     // 残りの初期化を少し遅延させて実行
     setTimeout(async function() {
         try {
@@ -3619,6 +3622,10 @@ function switchTab(tabName) {
             // 招待管理専用の処理
             showInviteTab();
             return;
+        case 'site-management':
+            // 現場管理専用の処理
+            showSiteManagement();
+            return;
         case 'admin-requests':
             // 管理者依頼専用の処理
             showAdminRequestsTab();
@@ -3641,6 +3648,11 @@ function switchTab(tabName) {
         adminRequestsContent.classList.add('hidden');
     }
     
+    const siteManagementContent = document.getElementById('site-management-content');
+    if (siteManagementContent) {
+        siteManagementContent.classList.add('hidden');
+    }
+    
     // フィルター行を表示
     const filterRow = document.querySelector('.filter-row');
     if (filterRow) filterRow.style.display = 'flex';
@@ -3655,7 +3667,342 @@ window.changeUserRole = changeUserRole;
 window.toggleUserStatus = toggleUserStatus;
 window.inviteNewEmployee = inviteNewEmployee;
 
+/**
+ * 現場管理機能
+ */
+let editingSiteId = null;
+
+function initSiteManagement() {
+    // 現場管理タブのイベントリスナー
+    document.addEventListener('click', (e) => {
+        const target = e.target;
+        
+        // 現場追加ボタン
+        if (target.id === 'add-site-btn') {
+            showSiteModal();
+        }
+        
+        // 現場編集ボタン
+        if (target.classList.contains('edit-site-btn')) {
+            const siteId = target.dataset.siteId;
+            editSite(siteId);
+        }
+        
+        // 現場削除ボタン
+        if (target.classList.contains('delete-site-btn')) {
+            const siteId = target.dataset.siteId;
+            const siteName = target.dataset.siteName;
+            deleteSite(siteId, siteName);
+        }
+        
+        // 現場状態切り替えボタン
+        if (target.classList.contains('toggle-site-btn')) {
+            const siteId = target.dataset.siteId;
+            const isActive = target.dataset.active === 'true';
+            toggleSiteStatus(siteId, !isActive);
+        }
+        
+        // モーダル閉じるボタン
+        if (target.id === 'close-site-modal' || target.id === 'cancel-site') {
+            closeSiteModal();
+        }
+    });
+    
+    // 現場フォーム送信
+    const siteForm = document.getElementById('site-form');
+    if (siteForm) {
+        siteForm.addEventListener('submit', handleSiteFormSubmit);
+    }
+}
+
+function showSiteManagement() {
+    // 他のコンテンツを隠す
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.classList.add('hidden'));
+    
+    const attendanceContainer = document.querySelector('.attendance-table-container');
+    if (attendanceContainer) {
+        attendanceContainer.classList.add('hidden');
+    }
+    
+    const filterRow = document.querySelector('.filter-row');
+    if (filterRow) {
+        filterRow.style.display = 'none';
+    }
+    
+    // 現場管理コンテンツを表示
+    const siteManagementContent = document.getElementById('site-management-content');
+    if (siteManagementContent) {
+        siteManagementContent.classList.remove('hidden');
+    }
+    
+    // 現場リストを読み込み
+    loadSites();
+}
+
+async function loadSites() {
+    const sitesGrid = document.getElementById('sites-grid');
+    if (!sitesGrid) return;
+    
+    try {
+        sitesGrid.innerHTML = '<div class="loading-message">🔄 現場を読み込み中...</div>';
+        
+        // テナント設定から現場リストを取得
+        const settingsRef = window.getTenantFirestore('settings').doc('config');
+        const settingsDoc = await settingsRef.get();
+        
+        let sites = [];
+        if (settingsDoc.exists) {
+            const data = settingsDoc.data();
+            if (data.sites && data.sites.sites) {
+                sites = data.sites.sites;
+            }
+        }
+        
+        if (sites.length === 0) {
+            sitesGrid.innerHTML = `
+                <div class="empty-sites">
+                    <i>🏢</i>
+                    <h3>現場が登録されていません</h3>
+                    <p>「現場を追加」ボタンをクリックして現場を登録してください。</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // 現場カードを生成
+        sitesGrid.innerHTML = sites.map(site => `
+            <div class="site-card">
+                <div class="site-card-header">
+                    <h3 class="site-name">${escapeHtml(site.name)}</h3>
+                    <span class="site-status ${site.active ? 'active' : 'inactive'}">
+                        ${site.active ? '有効' : '無効'}
+                    </span>
+                </div>
+                ${site.address ? `<div class="site-address">📍 ${escapeHtml(site.address)}</div>` : ''}
+                <div class="site-actions">
+                    <button class="btn btn-secondary edit-site-btn" data-site-id="${site.id}">
+                        編集
+                    </button>
+                    <button class="btn ${site.active ? 'btn-warning' : 'btn-success'} toggle-site-btn" 
+                            data-site-id="${site.id}" data-active="${site.active}">
+                        ${site.active ? '無効化' : '有効化'}
+                    </button>
+                    <button class="btn btn-danger delete-site-btn" 
+                            data-site-id="${site.id}" data-site-name="${escapeHtml(site.name)}">
+                        削除
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('現場の読み込みに失敗しました:', error);
+        sitesGrid.innerHTML = `
+            <div class="error-message">
+                ❌ 現場の読み込みに失敗しました: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function showSiteModal(site = null) {
+    const modal = document.getElementById('site-modal');
+    const title = document.getElementById('site-modal-title');
+    const form = document.getElementById('site-form');
+    
+    if (!modal || !title || !form) return;
+    
+    // フォームをリセット
+    form.reset();
+    editingSiteId = null;
+    
+    if (site) {
+        // 編集モード
+        title.textContent = '現場を編集';
+        document.getElementById('site-name-input').value = site.name;
+        document.getElementById('site-address').value = site.address || '';
+        document.getElementById('site-active').checked = site.active;
+        editingSiteId = site.id;
+    } else {
+        // 追加モード
+        title.textContent = '現場を追加';
+        document.getElementById('site-active').checked = true;
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeSiteModal() {
+    const modal = document.getElementById('site-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    editingSiteId = null;
+}
+
+async function editSite(siteId) {
+    try {
+        // 現在の現場情報を取得
+        const settingsRef = window.getTenantFirestore('settings').doc('config');
+        const settingsDoc = await settingsRef.get();
+        
+        if (!settingsDoc.exists) return;
+        
+        const data = settingsDoc.data();
+        if (!data.sites || !data.sites.sites) return;
+        
+        const site = data.sites.sites.find(s => s.id === siteId);
+        if (site) {
+            showSiteModal(site);
+        }
+    } catch (error) {
+        console.error('現場情報の取得に失敗しました:', error);
+        alert('現場情報の取得に失敗しました');
+    }
+}
+
+async function handleSiteFormSubmit(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('site-name-input').value.trim();
+    const address = document.getElementById('site-address').value.trim();
+    const active = document.getElementById('site-active').checked;
+    
+    if (!name) {
+        alert('現場名を入力してください');
+        return;
+    }
+    
+    try {
+        const settingsRef = window.getTenantFirestore('settings').doc('config');
+        const settingsDoc = await settingsRef.get();
+        
+        let sites = [];
+        if (settingsDoc.exists) {
+            const data = settingsDoc.data();
+            if (data.sites && data.sites.sites) {
+                sites = [...data.sites.sites];
+            }
+        }
+        
+        if (editingSiteId) {
+            // 編集モード
+            const index = sites.findIndex(s => s.id === editingSiteId);
+            if (index !== -1) {
+                sites[index] = {
+                    ...sites[index],
+                    name,
+                    address,
+                    active
+                };
+            }
+        } else {
+            // 追加モード
+            const newSite = {
+                id: Date.now().toString(),
+                name,
+                address,
+                active
+            };
+            sites.push(newSite);
+        }
+        
+        // Firestoreに保存
+        await settingsRef.set({
+            sites: {
+                enabled: true,
+                requireSiteSelection: true,
+                sites
+            }
+        }, { merge: true });
+        
+        closeSiteModal();
+        loadSites();
+        
+        alert(editingSiteId ? '現場を更新しました' : '現場を追加しました');
+        
+    } catch (error) {
+        console.error('現場の保存に失敗しました:', error);
+        alert('現場の保存に失敗しました');
+    }
+}
+
+async function deleteSite(siteId, siteName) {
+    if (!confirm(`現場「${siteName}」を削除しますか？\n\n注意: この操作は取り消せません。`)) {
+        return;
+    }
+    
+    try {
+        const settingsRef = window.getTenantFirestore('settings').doc('config');
+        const settingsDoc = await settingsRef.get();
+        
+        if (!settingsDoc.exists) return;
+        
+        const data = settingsDoc.data();
+        if (!data.sites || !data.sites.sites) return;
+        
+        const sites = data.sites.sites.filter(s => s.id !== siteId);
+        
+        await settingsRef.set({
+            sites: {
+                enabled: true,
+                requireSiteSelection: true,
+                sites
+            }
+        }, { merge: true });
+        
+        loadSites();
+        alert('現場を削除しました');
+        
+    } catch (error) {
+        console.error('現場の削除に失敗しました:', error);
+        alert('現場の削除に失敗しました');
+    }
+}
+
+async function toggleSiteStatus(siteId, newStatus) {
+    try {
+        const settingsRef = window.getTenantFirestore('settings').doc('config');
+        const settingsDoc = await settingsRef.get();
+        
+        if (!settingsDoc.exists) return;
+        
+        const data = settingsDoc.data();
+        if (!data.sites || !data.sites.sites) return;
+        
+        const sites = data.sites.sites.map(site => {
+            if (site.id === siteId) {
+                return { ...site, active: newStatus };
+            }
+            return site;
+        });
+        
+        await settingsRef.set({
+            sites: {
+                enabled: true,
+                requireSiteSelection: true,
+                sites
+            }
+        }, { merge: true });
+        
+        loadSites();
+        
+    } catch (error) {
+        console.error('現場状態の更新に失敗しました:', error);
+        alert('現場状態の更新に失敗しました');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // グローバルスコープに関数をエクスポート
 window.initAdminPage = initAdminPage;
 window.switchTab = switchTab;
+window.showSiteManagement = showSiteManagement;
+window.initSiteManagement = initSiteManagement;
 
