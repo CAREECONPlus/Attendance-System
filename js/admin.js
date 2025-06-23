@@ -550,6 +550,12 @@ function switchTab(tab) {
         adminRequestsContent.classList.add('hidden');
     }
     
+    // 招待コンテンツを非表示
+    const inviteContent = document.getElementById('invite-content');
+    if (inviteContent) {
+        inviteContent.classList.add('hidden');
+    }
+    
     // 通常の勤怠データテーブルを表示
     const attendanceContainer = document.querySelector('.attendance-table-container');
     if (attendanceContainer) {
