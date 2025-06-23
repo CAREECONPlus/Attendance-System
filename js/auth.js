@@ -47,10 +47,18 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
+        // IDトークンを取得して認証状態を確実にする
+        const idToken = await user.getIdToken(true);
+        console.log('User authenticated, ID token obtained');
+        
+        // 認証状態の反映を待つ（最大3秒）
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
         // Firestoreにユーザー情報を保存（テナント対応）
+        console.log('Saving user data to Firestore...');
         const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
         await userCollection.doc(user.uid).set({
             email: email,
@@ -64,6 +72,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         });
 
         // global_usersにも追加（テナント間の重複チェック用）
+        console.log('Saving to global_users...');
         await firestoreDb.collection('global_users').doc(user.uid).set({
             email: email,
             displayName: displayName,
@@ -72,6 +81,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         });
 
         // 招待コードの使用回数を更新
+        console.log('Updating invite code usage...');
         await firestoreDb.collection('invite_codes').doc(validation.inviteId).update({
             used: firebase.firestore.FieldValue.increment(1),
             lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
