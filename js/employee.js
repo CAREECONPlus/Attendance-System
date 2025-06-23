@@ -926,15 +926,22 @@ function updateStatusDisplay(status, attendanceData, breakData = null) {
 
 // 最近の記録を安全に読み込み（直近3日間のみ）
 async function loadRecentRecordsSafely() {
+    console.log('loadRecentRecordsSafely called');
     
     const recentList = document.getElementById('recent-list');
-    if (!recentList) return;
+    if (!recentList) {
+        console.error('recent-list element not found');
+        return;
+    }
     
     try {
         if (!currentUser) {
+            console.log('currentUser not set, showing welcome message');
             showWelcomeMessage();
             return;
         }
+        
+        console.log('Loading records for user:', currentUser.uid);
         
         // 直近3日間の日付範囲を計算
         const today = getTodayJST();
@@ -949,16 +956,20 @@ async function loadRecentRecordsSafely() {
             .limit(20); // 多めに取得してクライアント側でフィルター
         
         const snapshot = await query.get();
+        console.log('Query completed, docs found:', snapshot.size);
         
         // クライアント側で直近3日間でフィルター
         const filteredDocs = [];
         snapshot.docs.forEach(doc => {
             const data = doc.data();
             const recordDate = data.date;
+            console.log('Processing record:', { id: doc.id, date: recordDate });
             if (recordDate && recordDate >= threeDaysAgoString && recordDate <= today) {
                 filteredDocs.push(doc);
             }
         });
+        
+        console.log('Filtered docs:', filteredDocs.length);
         
         // 擬似的なsnapshot作成
         const filteredSnapshot = {
@@ -968,13 +979,16 @@ async function loadRecentRecordsSafely() {
         };
         
         if (filteredSnapshot.empty) {
+            console.log('No recent records found, showing welcome message');
             showWelcomeMessage();
             return;
         }
         
+        console.log('Displaying records');
         displayRecentRecords(filteredSnapshot);
         
     } catch (error) {
+        console.error('Error loading recent records:', error);
         handleRecordLoadError(error);
     }
 }
@@ -1246,6 +1260,10 @@ function initEmployeePage() {
         // UI要素の設定
         setupEmployeeEventListeners();
         
+        // 最近の記録を読み込み
+        setTimeout(() => {
+            loadRecentRecordsSafely();
+        }, 1000);
         
     } catch (error) {
         showErrorMessage('従業員ページの初期化に失敗しました');
