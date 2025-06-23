@@ -212,22 +212,49 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
 
             // 2. global_usersに追加
             console.log('Saving to global_users...');
-            await authenticatedFirestore.collection('global_users').doc(user.uid).set({
+            
+            const globalUserPromise = authenticatedFirestore.collection('global_users').doc(user.uid).set({
                 email: email,
                 displayName: displayName,
                 tenantId: tenantId,
                 role: 'employee',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            console.log('✅ Global user data saved successfully');
+            
+            // タイムアウト付きで実行
+            const globalWriteTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Global user data write timeout after 15 seconds')), 15000);
+            });
+            
+            try {
+                await Promise.race([globalUserPromise, globalWriteTimeoutPromise]);
+                console.log('✅ Global user data saved successfully');
+            } catch (globalWriteError) {
+                console.error('❌ Global user data write failed:', globalWriteError);
+                throw new Error(`グローバルユーザーデータの保存に失敗: ${globalWriteError.message}`);
+            }
 
             // 3. 招待コードの使用回数を更新
             console.log('Updating invite code usage...');
-            await authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
+            
+            const inviteUpdatePromise = authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
                 used: firebase.firestore.FieldValue.increment(1),
                 lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            console.log('✅ Invite code updated successfully');
+            
+            // タイムアウト付きで実行
+            const inviteUpdateTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Invite code update timeout after 15 seconds')), 15000);
+            });
+            
+            try {
+                await Promise.race([inviteUpdatePromise, inviteUpdateTimeoutPromise]);
+                console.log('✅ Invite code updated successfully');
+            } catch (inviteUpdateError) {
+                console.error('❌ Invite code update failed:', inviteUpdateError);
+                // 招待コード更新の失敗は致命的ではないので、警告のみ
+                console.warn('招待コードの更新に失敗しましたが、ユーザー登録は完了しました');
+            }
             
         } catch (firestoreError) {
             console.error('Firestore operation failed:', firestoreError);
