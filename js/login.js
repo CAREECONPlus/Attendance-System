@@ -501,7 +501,7 @@ async function handleEmployeeRegister(e) {
         let message = '登録に失敗しました';
         
         if (error.code === 'auth/email-already-in-use') {
-            message = 'このメールアドレスは既に使用されています';
+            message = 'このメールアドレスは既に使用されています。別のメールアドレスを使用するか、既存のアカウントでログインしてください。';
         } else if (error.code === 'auth/invalid-email') {
             message = 'メールアドレスの形式が正しくありません';
         } else if (error.code === 'auth/weak-password') {
