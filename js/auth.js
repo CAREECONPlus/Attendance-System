@@ -47,20 +47,31 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
-        // Firebase Auth完了後、少し待機してからIDトークンを取得
-        console.log('User created, getting ID token...');
+        // Firebase Auth状態の同期を確実にする
+        console.log('User created, synchronizing auth state...');
+        
+        // Firebase Auth状態を強制的に更新
+        await firebaseAuth.updateCurrentUser(user);
+        console.log('Current user updated');
+        
+        // IDトークンを取得
         let idToken;
         try {
-            // 作成されたユーザーから直接IDトークンを取得
             idToken = await user.getIdToken(true);
             console.log('ID token obtained successfully');
         } catch (tokenError) {
             console.log('ID token error, retrying...', tokenError.message);
-            // 1秒待機してから再試行
             await new Promise(resolve => setTimeout(resolve, 1000));
             idToken = await user.getIdToken(true);
             console.log('ID token obtained on retry');
         }
+        
+        // 認証状態の確認
+        console.log('Auth state after update:', {
+            currentUser: firebaseAuth.currentUser?.uid,
+            targetUser: user.uid,
+            match: firebaseAuth.currentUser?.uid === user.uid
+        });
         
         // テナント情報を取得
         const tenantId = validation.tenantId;
