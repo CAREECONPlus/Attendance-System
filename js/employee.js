@@ -1114,7 +1114,11 @@ function handleLogout() {
         firebase.auth().signOut()
             .then(() => {
                 // 変数クリアは onAuthStateChanged で実行される
-                showPage('login');
+                if (typeof window.showPage === 'function') {
+                    window.showPage('login');
+                } else {
+                    window.location.href = 'index.html';
+                }
             })
             .catch((error) => {
                 alert('ログアウトでエラーが発生しました');
@@ -1285,6 +1289,13 @@ function setupEmployeeEventListeners() {
     if (siteSelect && !siteSelect.hasAttribute('data-listener-set')) {
         siteSelect.addEventListener('change', handleSiteSelection);
         siteSelect.setAttribute('data-listener-set', 'true');
+    }
+    
+    // ログアウトボタン
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn && !logoutBtn.hasAttribute('data-listener-set')) {
+        logoutBtn.addEventListener('click', handleLogout);
+        logoutBtn.setAttribute('data-listener-set', 'true');
     }
 }
 
