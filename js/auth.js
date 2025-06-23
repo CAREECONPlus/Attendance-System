@@ -47,33 +47,18 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
-        // Firebase Auth状態の同期を確実にする
-        console.log('User created, synchronizing auth state...');
-        
-        // Firebase Auth状態を確実に設定・保持
-        console.log('Setting and maintaining auth state...');
-        
-        // 即座に認証状態を設定
+        // Firebase Auth状態の同期
         await firebaseAuth.updateCurrentUser(user);
         
-        // 確実な同期を複数回試行
+        // 認証状態同期の確認
         let attempts = 0;
-        let authSuccess = false;
-        
-        while (!authSuccess && attempts < 15) {
+        while (firebaseAuth.currentUser?.uid !== user.uid && attempts < 10) {
             await new Promise(resolve => setTimeout(resolve, 200));
-            
-            if (firebaseAuth.currentUser?.uid === user.uid) {
-                authSuccess = true;
-                console.log(`Auth state synchronized on attempt ${attempts + 1}`);
-            } else {
-                console.log(`Auth sync attempt ${attempts + 1} - retrying...`);
-                await firebaseAuth.updateCurrentUser(user);
-                attempts++;
-            }
+            await firebaseAuth.updateCurrentUser(user);
+            attempts++;
         }
         
-        if (!authSuccess) {
+        if (firebaseAuth.currentUser?.uid !== user.uid) {
             throw new Error('認証状態の同期に失敗しました');
         }
         
@@ -81,110 +66,30 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         let idToken;
         try {
             idToken = await user.getIdToken(true);
-            console.log('ID token obtained successfully');
         } catch (tokenError) {
-            console.log('ID token error, retrying...', tokenError.message);
             await new Promise(resolve => setTimeout(resolve, 1000));
             idToken = await user.getIdToken(true);
-            console.log('ID token obtained on retry');
         }
         
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
-        // 認証状態を確実に同期
-        console.log('Ensuring auth state before Firestore operations...');
+        // 認証状態の最終確認
         if (firebaseAuth.currentUser?.uid !== user.uid) {
-            console.log('Auth state lost, re-synchronizing...');
             await firebaseAuth.updateCurrentUser(user);
+            await new Promise(resolve => setTimeout(resolve, 500));
             
-            // 確実な再同期
-            let retries = 0;
-            while (firebaseAuth.currentUser?.uid !== user.uid && retries < 10) {
-                console.log(`Re-sync attempt ${retries + 1}`);
-                await new Promise(resolve => setTimeout(resolve, 500));
-                await firebaseAuth.updateCurrentUser(user);
-                retries++;
-            }
-            
-            // 最終確認
             if (firebaseAuth.currentUser?.uid !== user.uid) {
-                console.error('Failed to sync auth state after 10 attempts');
                 throw new Error('認証状態の同期に失敗しました');
             }
         }
-        
-        console.log('Auth state confirmed:', {
-            currentUser: firebaseAuth.currentUser?.uid,
-            targetUser: user.uid,
-            match: firebaseAuth.currentUser?.uid === user.uid
-        });
 
-        // Firestore書き込みを順次実行（エラーハンドリング強化）
+        // Firestore書き込み処理
         try {
-            // デバッグ: 現在の認証状態を確認
-            console.log('=== FIRESTORE WRITE DEBUG ===');
-            console.log('Current auth user:', firebaseAuth.currentUser?.uid);
-            console.log('Target user UID:', user.uid);
-            console.log('ID Token available:', !!idToken);
-            console.log('Auth match:', firebaseAuth.currentUser?.uid === user.uid);
-            
-            // 認証コンテキストでFirestore操作を実行
-            // ユーザーコンテキストでFirestoreインスタンスを作成
             const authenticatedFirestore = firebase.firestore();
             
-            // 認証状態が確実に設定されていることを最終確認
-            if (!firebaseAuth.currentUser) {
-                console.log('Critical: currentUser is null, forcing manual set...');
-                // 最後の手段: Firebase Authを直接操作
-                Object.defineProperty(firebaseAuth, 'currentUser', {
-                    value: user,
-                    writable: true
-                });
-            }
-            
-            // Firestore接続テスト
-            console.log('Testing Firestore connection...');
-            try {
-                const testCollection = authenticatedFirestore.collection('_test');
-                console.log('Collection reference created successfully');
-            } catch (connectionError) {
-                console.error('Firestore connection failed:', connectionError);
-                throw new Error('Firestore接続に失敗しました');
-            }
-            
-            // テスト: 最初に簡単なコレクションに書き込みテスト
-            console.log('Testing write permissions with _test collection...');
-            
-            // タイムアウト付きでテスト
-            const testWritePromise = authenticatedFirestore.collection('_test').doc('test-' + Date.now()).set({
-                test: true,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userUid: user.uid,
-                authConfirmed: firebaseAuth.currentUser?.uid === user.uid,
-                testType: 'employee_registration'
-            });
-            
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Test write timeout after 10 seconds')), 10000);
-            });
-            
-            try {
-                await Promise.race([testWritePromise, timeoutPromise]);
-                console.log('✅ Test write successful');
-            } catch (testError) {
-                console.error('❌ Test write failed:', testError);
-                throw new Error(`テスト書き込みに失敗: ${testError.message}`);
-            }
-            
             // 1. テナント内ユーザー情報を保存
-            console.log('Saving user data to tenant collection...');
-            console.log('Tenant ID:', tenantId);
-            console.log('User UID:', user.uid);
-            
-            console.log('Creating user collection reference...');
             const userCollection = authenticatedFirestore.collection('tenants').doc(tenantId).collection('users');
-            console.log('Collection reference created, starting write operation...');
             
             const userDocPromise = userCollection.doc(user.uid).set({
                 email: email,
@@ -197,64 +102,29 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 siteHistory: []
             });
             
-            // より短いタイムアウトで問題を特定
-            const userWriteTimeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('User data write timeout after 10 seconds')), 10000);
-            });
-            
-            try {
-                await Promise.race([userDocPromise, userWriteTimeoutPromise]);
-                console.log('✅ Tenant user data saved successfully');
-            } catch (userWriteError) {
-                console.error('❌ User data write failed:', userWriteError);
-                throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
-            }
+            await userDocPromise;
 
-            // 2. global_usersに追加（権限問題対策）
-            console.log('Saving to global_users...');
-            
+            // 2. global_usersに追加
             try {
-                // global_usersの書き込みを試行
-                const globalUserPromise = authenticatedFirestore.collection('global_users').doc(user.uid).set({
+                await authenticatedFirestore.collection('global_users').doc(user.uid).set({
                     email: email,
                     displayName: displayName,
                     tenantId: tenantId,
                     role: 'employee',
                     createdAt: new Date()
                 });
-                
-                // タイムアウト付きで実行
-                const globalWriteTimeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Global user data write timeout after 15 seconds')), 15000);
-                });
-                
-                await Promise.race([globalUserPromise, globalWriteTimeoutPromise]);
-                console.log('✅ Global user data saved successfully');
-                
             } catch (globalWriteError) {
-                console.error('❌ Global user data write failed:', globalWriteError);
-                console.warn('Global usersの保存に失敗しましたが、テナントユーザー登録は完了しました');
                 // global_users の失敗は致命的ではないので、処理を継続
+                console.warn('Global usersの保存に失敗しましたが、テナントユーザー登録は完了しました');
             }
 
             // 3. 招待コードの使用回数を更新
-            console.log('Updating invite code usage...');
-            
-            const inviteUpdatePromise = authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
-                used: firebase.firestore.FieldValue.increment(1),
-                lastUsedAt: new Date()
-            });
-            
-            // タイムアウト付きで実行
-            const inviteUpdateTimeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Invite code update timeout after 15 seconds')), 15000);
-            });
-            
             try {
-                await Promise.race([inviteUpdatePromise, inviteUpdateTimeoutPromise]);
-                console.log('✅ Invite code updated successfully');
+                await authenticatedFirestore.collection('invite_codes').doc(validation.inviteId).update({
+                    used: firebase.firestore.FieldValue.increment(1),
+                    lastUsedAt: new Date()
+                });
             } catch (inviteUpdateError) {
-                console.error('❌ Invite code update failed:', inviteUpdateError);
                 // 招待コード更新の失敗は致命的ではないので、警告のみ
                 console.warn('招待コードの更新に失敗しましたが、ユーザー登録は完了しました');
             }

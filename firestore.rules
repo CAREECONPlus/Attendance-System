@@ -1,71 +1,74 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    
-    // Global users collection
-    match /global_users/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
+    // Global users collection - ユーザーは自分の情報のみ読み書き可能
+    match /global_users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && isSuperAdmin(request.auth.uid);
     }
     
-    // Legacy users collection
+    // Legacy users collection - ユーザーは自分の情報のみ読み書き可能
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && isSuperAdmin(request.auth.uid);
     }
     
-    // Tenants collection
+    // Tenants collection - テナント管理者またはスーパー管理者のみアクセス可能
     match /tenants/{tenantId} {
       allow read: if request.auth != null && 
-                 (isSuperAdmin(request.auth.token.email) || 
-                  getUserTenantId(request.auth.token.email) == tenantId);
+                 (isSuperAdmin(request.auth.uid) || 
+                  getUserTenantId(request.auth.uid) == tenantId);
       allow write: if request.auth != null && 
-                  (isSuperAdmin(request.auth.token.email) || 
-                   isAdmin(request.auth.token.email, tenantId));
+                  (isSuperAdmin(request.auth.uid) || 
+                   isAdmin(request.auth.uid, tenantId));
     }
     
-    // Tenant subcollections
+    // Tenant subcollections - 同一テナント内ユーザーのみアクセス可能
     match /tenants/{tenantId}/{subcollection}/{docId} {
       allow read, write: if request.auth != null && 
-                        (isSuperAdmin(request.auth.token.email) || 
-                         getUserTenantId(request.auth.token.email) == tenantId);
+                        (isSuperAdmin(request.auth.uid) || 
+                         getUserTenantId(request.auth.uid) == tenantId);
     }
     
-    // Admin requests
+    // Admin requests - スーパー管理者のみ読み書き可能、作成は未認証でも可能
     match /admin_requests/{docId} {
-      allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth.uid);
       allow create: if true; // 管理者登録依頼は未認証ユーザーが作成可能
     }
     
-    // Invite codes - 未認証ユーザーも読み取り可能
+    // Invite codes - 検証は未認証でも可能、管理はテナント管理者のみ
     match /invite_codes/{docId} {
       allow read: if true; // 招待リンクの検証は未認証ユーザーも必要
-      allow list: if true; // 招待リンクの一覧取得も未認証ユーザーが必要
+      allow list: if request.auth != null && 
+                 (isSuperAdmin(request.auth.uid) || 
+                  getUserTenantId(request.auth.uid) == resource.data.tenantId);
       allow write: if request.auth != null && 
-                  (isSuperAdmin(request.auth.token.email) || 
-                   isAdmin(request.auth.token.email, resource.data.tenantId));
+                  (isSuperAdmin(request.auth.uid) || 
+                   isAdmin(request.auth.uid, resource.data.tenantId));
       allow create: if request.auth != null && 
-                   (isSuperAdmin(request.auth.token.email) || 
-                    getUserTenantId(request.auth.token.email) == request.resource.data.tenantId);
+                   (isSuperAdmin(request.auth.uid) || 
+                    getUserTenantId(request.auth.uid) == request.resource.data.tenantId);
+      allow update: if request.auth != null; // 招待コードの使用回数更新は認証済みユーザーが可能
     }
     
     // Helper functions
-    function getUserTenantId(email) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? get(/databases/$(database)/documents/global_users/$(email)).data.tenantId 
+    function getUserTenantId(uid) {
+      return exists(/databases/$(database)/documents/global_users/$(uid)) 
+        ? get(/databases/$(database)/documents/global_users/$(uid)).data.tenantId 
         : '';
     }
     
-    function isSuperAdmin(email) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin' 
-        : false;
+    function isSuperAdmin(uid) {
+      return exists(/databases/$(database)/documents/global_users/$(uid)) 
+        ? get(/databases/$(database)/documents/global_users/$(uid)).data.role == 'super_admin' 
+        : (exists(/databases/$(database)/documents/users/$(uid)) &&
+           get(/databases/$(database)/documents/users/$(uid)).data.role == 'super_admin');
     }
     
-    function isAdmin(email, tenantId) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? (get(/databases/$(database)/documents/global_users/$(email)).data.tenantId == tenantId && 
-           get(/databases/$(database)/documents/global_users/$(email)).data.role in ['admin', 'super_admin'])
+    function isAdmin(uid, tenantId) {
+      return exists(/databases/$(database)/documents/global_users/$(uid)) 
+        ? (get(/databases/$(database)/documents/global_users/$(uid)).data.tenantId == tenantId && 
+           get(/databases/$(database)/documents/global_users/$(uid)).data.role in ['admin', 'super_admin'])
         : false;
     }
   }

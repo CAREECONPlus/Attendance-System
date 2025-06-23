@@ -148,13 +148,11 @@ async function handleLogin(e) {
         // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
         if (user.email === 'dxconsulting.branu2@gmail.com') {
             userRole = 'super_admin';
-            // Firestoreのroleも強制的に更新
             if (userData.role !== 'super_admin') {
                 await db.collection('users').doc(user.uid).update({ 
                     role: 'super_admin',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-            } else {
             }
         }
         
@@ -262,13 +260,11 @@ async function handleAuthStateChange(user) {
                 // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
                 if (user.email === 'dxconsulting.branu2@gmail.com') {
                     userRole = 'super_admin';
-                    // Firestoreのroleも強制的に更新
                     if (userData.role !== 'super_admin') {
                         await firebase.firestore().collection('users').doc(user.uid).update({ 
                             role: 'super_admin',
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
-                    } else {
                     }
                 }
                 
@@ -458,9 +454,6 @@ async function handleEmployeeRegister(e) {
         
         if (result.success) {
             // 登録成功 - ユーザー情報を設定してページ遷移
-            console.log('Employee registration successful');
-            console.log('User data:', result.user);
-            console.log('Tenant ID:', result.tenantId);
             
             // グローバル変数にユーザー情報を設定
             window.currentUser = {
@@ -471,25 +464,17 @@ async function handleEmployeeRegister(e) {
                 tenantId: result.tenantId
             };
             
-            // テナントURLにリダイレクト
-            console.log('Redirecting to tenant URL...');
             if (result.tenantId) {
                 const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${result.tenantId}`;
-                console.log('Redirecting to:', tenantUrl);
                 window.location.href = tenantUrl;
             } else {
-                // フォールバック: 従業員画面に遷移
-                console.log('No tenant ID, redirecting to employee page...');
                 if (typeof showPage === 'function') {
                     showPage('employee');
-                    // 従業員画面の初期化
                     setTimeout(() => {
                         if (typeof initEmployeePage === 'function') {
                             initEmployeePage();
                         }
                     }, 200);
-                } else {
-                    console.error('showPage function not found');
                 }
             }
         } else {
