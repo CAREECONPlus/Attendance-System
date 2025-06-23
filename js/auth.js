@@ -47,45 +47,74 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
-        // IDトークンを取得して認証状態を確実にする
-        const idToken = await user.getIdToken(true);
-        console.log('User authenticated, ID token obtained');
+        // 認証状態の確認を待機する関数
+        const waitForAuthState = async (maxAttempts = 10) => {
+            for (let i = 0; i < maxAttempts; i++) {
+                const currentUser = firebaseAuth.currentUser;
+                if (currentUser && currentUser.uid === user.uid) {
+                    try {
+                        // IDトークンを取得して認証状態を確認
+                        const token = await currentUser.getIdToken(true);
+                        console.log('Auth state confirmed, attempt:', i + 1);
+                        return true;
+                    } catch (error) {
+                        console.log('Auth token error on attempt', i + 1, error.message);
+                    }
+                }
+                console.log('Waiting for auth state, attempt:', i + 1);
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            throw new Error('認証状態の確認がタイムアウトしました');
+        };
         
-        // 認証状態の反映を待つ（最大3秒）
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 認証状態が確実に反映されるまで待機
+        await waitForAuthState();
         
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
-        // Firestoreにユーザー情報を保存（テナント対応）
-        console.log('Saving user data to Firestore...');
-        const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
-        await userCollection.doc(user.uid).set({
-            email: email,
-            displayName: displayName,
-            role: 'employee',
-            tenantId: tenantId,
-            inviteToken: inviteToken,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            siteHistory: []
-        });
+        // Firestore書き込みを順次実行（エラーハンドリング強化）
+        try {
+            // 1. テナント内ユーザー情報を保存
+            console.log('Saving user data to tenant collection...');
+            const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
+            await userCollection.doc(user.uid).set({
+                email: email,
+                displayName: displayName,
+                role: 'employee',
+                tenantId: tenantId,
+                inviteToken: inviteToken,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                siteHistory: []
+            });
+            console.log('✅ Tenant user data saved successfully');
 
-        // global_usersにも追加（テナント間の重複チェック用）
-        console.log('Saving to global_users...');
-        await firestoreDb.collection('global_users').doc(user.uid).set({
-            email: email,
-            displayName: displayName,
-            tenantId: tenantId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+            // 2. global_usersに追加
+            console.log('Saving to global_users...');
+            await firestoreDb.collection('global_users').doc(user.uid).set({
+                email: email,
+                displayName: displayName,
+                tenantId: tenantId,
+                role: 'employee',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ Global user data saved successfully');
 
-        // 招待コードの使用回数を更新
-        console.log('Updating invite code usage...');
-        await firestoreDb.collection('invite_codes').doc(validation.inviteId).update({
-            used: firebase.firestore.FieldValue.increment(1),
-            lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+            // 3. 招待コードの使用回数を更新
+            console.log('Updating invite code usage...');
+            await firestoreDb.collection('invite_codes').doc(validation.inviteId).update({
+                used: firebase.firestore.FieldValue.increment(1),
+                lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ Invite code updated successfully');
+            
+        } catch (firestoreError) {
+            console.error('Firestore operation failed:', firestoreError);
+            // ユーザー作成は成功したが、Firestore保存で失敗した場合
+            // ユーザーを削除するかログに記録する
+            throw new Error(`ユーザー情報の保存に失敗しました: ${firestoreError.message}`);
+        }
 
         return { success: true, user: user, tenantId: tenantId };
         
