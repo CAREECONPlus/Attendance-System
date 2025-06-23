@@ -50,23 +50,32 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         // Firebase Auth状態の同期を確実にする
         console.log('User created, synchronizing auth state...');
         
-        // Firebase Auth状態を確実に更新
-        console.log('Updating current user...');
+        // Firebase Auth状態を確実に設定・保持
+        console.log('Setting and maintaining auth state...');
+        
+        // 即座に認証状態を設定
         await firebaseAuth.updateCurrentUser(user);
         
-        // 認証状態が反映されるまで待機
+        // 確実な同期を複数回試行
         let attempts = 0;
-        while (firebaseAuth.currentUser?.uid !== user.uid && attempts < 10) {
-            console.log(`Waiting for auth state sync, attempt ${attempts + 1}`);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
+        let authSuccess = false;
+        
+        while (!authSuccess && attempts < 15) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            if (firebaseAuth.currentUser?.uid === user.uid) {
+                authSuccess = true;
+                console.log(`Auth state synchronized on attempt ${attempts + 1}`);
+            } else {
+                console.log(`Auth sync attempt ${attempts + 1} - retrying...`);
+                await firebaseAuth.updateCurrentUser(user);
+                attempts++;
+            }
         }
         
-        if (firebaseAuth.currentUser?.uid !== user.uid) {
+        if (!authSuccess) {
             throw new Error('認証状態の同期に失敗しました');
         }
-        
-        console.log('Auth state synchronized successfully');
         
         // IDトークンを取得
         let idToken;
@@ -83,19 +92,33 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
-        // 認証状態を再確認（認証が失われている場合があるため）
+        // 認証状態を確実に同期
+        console.log('Ensuring auth state before Firestore operations...');
         if (firebaseAuth.currentUser?.uid !== user.uid) {
             console.log('Auth state lost, re-synchronizing...');
             await firebaseAuth.updateCurrentUser(user);
             
-            // 再同期の確認
+            // 確実な再同期
             let retries = 0;
-            while (firebaseAuth.currentUser?.uid !== user.uid && retries < 5) {
+            while (firebaseAuth.currentUser?.uid !== user.uid && retries < 10) {
                 console.log(`Re-sync attempt ${retries + 1}`);
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await firebaseAuth.updateCurrentUser(user);
                 retries++;
             }
+            
+            // 最終確認
+            if (firebaseAuth.currentUser?.uid !== user.uid) {
+                console.error('Failed to sync auth state after 10 attempts');
+                throw new Error('認証状態の同期に失敗しました');
+            }
         }
+        
+        console.log('Auth state confirmed:', {
+            currentUser: firebaseAuth.currentUser?.uid,
+            targetUser: user.uid,
+            match: firebaseAuth.currentUser?.uid === user.uid
+        });
 
         // Firestore書き込みを順次実行（エラーハンドリング強化）
         try {
@@ -138,7 +161,8 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 test: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 userUid: user.uid,
-                authUser: firebaseAuth.currentUser?.uid || user.uid // fallback to user.uid
+                authConfirmed: firebaseAuth.currentUser?.uid === user.uid,
+                testType: 'employee_registration'
             });
             
             const timeoutPromise = new Promise((_, reject) => {
