@@ -251,14 +251,32 @@ async function loadInviteHistory() {
             throw new Error('テナント情報が取得できません');
         }
         
-        // テナントの招待コードを取得（作成日時の降順）
-        const inviteQuery = firebase.firestore()
-            .collection('invite_codes')
-            .where('tenantId', '==', currentTenantId)
-            .orderBy('createdAt', 'desc')
-            .limit(50);
+        // テナントの招待コードを取得
+        console.log('loadInviteHistory: Firestoreクエリ実行中...');
+        let inviteSnapshot;
         
-        const inviteSnapshot = await inviteQuery.get();
+        try {
+            // まず複合インデックスが必要なクエリを試行
+            const inviteQuery = firebase.firestore()
+                .collection('invite_codes')
+                .where('tenantId', '==', currentTenantId)
+                .orderBy('createdAt', 'desc')
+                .limit(50);
+            
+            inviteSnapshot = await inviteQuery.get();
+            console.log('loadInviteHistory: 複合インデックスクエリ成功');
+        } catch (indexError) {
+            console.warn('loadInviteHistory: 複合インデックスクエリ失敗、単純クエリにフォールバック:', indexError);
+            
+            // フォールバック: ソートなしのクエリ
+            const simpleQuery = firebase.firestore()
+                .collection('invite_codes')
+                .where('tenantId', '==', currentTenantId)
+                .limit(50);
+            
+            inviteSnapshot = await simpleQuery.get();
+            console.log('loadInviteHistory: 単純クエリ成功');
+        }
         
         if (inviteSnapshot.empty) {
             historyContainer.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6c757d;">招待リンクがまだ生成されていません</td></tr>';
@@ -267,9 +285,27 @@ async function loadInviteHistory() {
         
         // 招待履歴を表示
         const historyRows = [];
+        const inviteData = [];
         
+        // まずデータを配列に収集
         inviteSnapshot.forEach(doc => {
-            const data = doc.data();
+            inviteData.push({
+                id: doc.id,
+                data: doc.data()
+            });
+        });
+        
+        // 作成日時でソート（降順）
+        inviteData.sort((a, b) => {
+            const dateA = a.data.createdAt ? a.data.createdAt.toDate() : new Date(0);
+            const dateB = b.data.createdAt ? b.data.createdAt.toDate() : new Date(0);
+            return dateB - dateA;
+        });
+        
+        console.log('loadInviteHistory: 招待データ数:', inviteData.length);
+        
+        inviteData.forEach(invite => {
+            const data = invite.data;
             const createdAt = data.createdAt ? data.createdAt.toDate() : new Date();
             const expiresAt = data.expiresAt ? data.expiresAt.toDate() : null;
             const now = new Date();
@@ -293,7 +329,7 @@ async function loadInviteHistory() {
                     <td>${data.used || 0} / ${data.maxUses || '制限なし'}</td>
                     <td><span class="${statusClass}">${status}</span></td>
                     <td>
-                        <button class="btn btn-small btn-secondary" onclick="toggleInviteStatus('${doc.id}', ${data.active})">
+                        <button class="btn btn-small btn-secondary" onclick="toggleInviteStatus('${invite.id}', ${data.active})">
                             ${data.active ? '無効化' : '有効化'}
                         </button>
                     </td>
@@ -303,9 +339,16 @@ async function loadInviteHistory() {
         });
         
         historyContainer.innerHTML = historyRows.join('');
-        
+        console.log('loadInviteHistory: 履歴表示完了');
         
     } catch (error) {
+        console.error('loadInviteHistory: エラーが発生しました:', error);
+        console.error('エラーの詳細:', {
+            code: error.code,
+            message: error.message,
+            currentTenantId: currentTenantId,
+            currentUser: currentUser
+        });
         historyContainer.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #dc3545;">❌ 読み込みに失敗しました</td></tr>';
     }
 }
