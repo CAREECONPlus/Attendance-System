@@ -64,12 +64,21 @@ async function generateInviteLink() {
         generateBtn.textContent = '生成中...';
         
         // 現在のユーザーとテナント情報を取得
-        const currentUser = window.getCurrentUser();
-        if (!currentUser) {
-            throw new Error('ユーザー情報が取得できません');
+        console.log('generateInviteLink: ユーザー情報取得中...');
+        const currentUser = window.currentUser || window.getCurrentUser();
+        console.log('currentUser:', currentUser);
+        
+        let currentTenantId;
+        if (currentUser && currentUser.tenantId) {
+            currentTenantId = currentUser.tenantId;
+        } else if (typeof getCurrentTenantId === 'function') {
+            currentTenantId = getCurrentTenantId();
+        } else if (window.getCurrentTenantId) {
+            currentTenantId = window.getCurrentTenantId();
         }
         
-        const currentTenantId = currentUser.tenantId || getCurrentTenantId();
+        console.log('currentTenantId:', currentTenantId);
+        
         if (!currentTenantId) {
             throw new Error('テナント情報が取得できません');
         }
@@ -223,12 +232,21 @@ async function loadInviteHistory() {
         historyContainer.innerHTML = '<tr><td colspan="5" style="text-align: center;">🔄 読み込み中...</td></tr>';
         
         // 現在のユーザーとテナント情報を取得
-        const currentUser = window.getCurrentUser();
-        if (!currentUser) {
-            throw new Error('ユーザー情報が取得できません');
+        console.log('loadInviteHistory: ユーザー情報取得中...');
+        const currentUser = window.currentUser || window.getCurrentUser();
+        console.log('currentUser:', currentUser);
+        
+        let currentTenantId;
+        if (currentUser && currentUser.tenantId) {
+            currentTenantId = currentUser.tenantId;
+        } else if (typeof getCurrentTenantId === 'function') {
+            currentTenantId = getCurrentTenantId();
+        } else if (window.getCurrentTenantId) {
+            currentTenantId = window.getCurrentTenantId();
         }
         
-        const currentTenantId = currentUser.tenantId || getCurrentTenantId();
+        console.log('currentTenantId:', currentTenantId);
+        
         if (!currentTenantId) {
             throw new Error('テナント情報が取得できません');
         }
