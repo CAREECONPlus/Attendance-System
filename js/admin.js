@@ -84,7 +84,10 @@ function showInviteTab() {
     console.log('invite-content要素:', inviteContent);
     if (inviteContent) {
         inviteContent.classList.remove('hidden');
+        inviteContent.style.display = 'block'; // 強制的に表示
         console.log('invite-contentのhiddenクラスを削除しました');
+        console.log('invite-contentのスタイル:', window.getComputedStyle(inviteContent).display);
+        console.log('invite-contentのvisibility:', window.getComputedStyle(inviteContent).visibility);
     } else {
         console.warn('invite-content要素が見つかりません');
     }

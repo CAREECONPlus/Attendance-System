@@ -15,6 +15,10 @@ function initInviteAdmin() {
     if (generateBtn) {
         generateBtn.addEventListener('click', generateInviteLink);
         console.log('招待リンク生成ボタンにイベントリスナーを追加しました');
+        console.log('ボタンのdisplay:', window.getComputedStyle(generateBtn).display);
+        console.log('ボタンのvisibility:', window.getComputedStyle(generateBtn).visibility);
+        console.log('ボタンの親要素:', generateBtn.parentElement);
+        console.log('親要素のdisplay:', window.getComputedStyle(generateBtn.parentElement).display);
     } else {
         console.warn('generate-invite-btn要素が見つかりません');
     }
