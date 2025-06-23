@@ -338,7 +338,7 @@ function getStatusText(status) {
 function displayUserName() {
     const userNameElement = document.getElementById('user-name');
     if (userNameElement && currentUser) {
-        userNameElement.textContent = currentUser.email || 'ユーザー';
+        userNameElement.textContent = currentUser.displayName || currentUser.email || 'ユーザー';
     }
 }
 

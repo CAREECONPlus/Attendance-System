@@ -3653,7 +3653,7 @@ function setupAdminPageElements() {
     // ユーザー名表示
     const adminUserNameEl = document.getElementById('admin-user-name');
     if (adminUserNameEl && window.currentUser) {
-        adminUserNameEl.textContent = window.currentUser.email || '管理者';
+        adminUserNameEl.textContent = window.currentUser.displayName || window.currentUser.email || '管理者';
     }
     
     // ログアウトボタン
