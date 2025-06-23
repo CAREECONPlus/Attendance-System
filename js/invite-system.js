@@ -17,29 +17,79 @@ function getInviteTokenFromURL() {
  */
 async function validateInviteToken(inviteToken) {
     try {
+        console.log('=== 招待トークン検証開始 ===');
+        console.log('Token:', inviteToken);
         
+        if (!inviteToken) {
+            console.log('ERROR: 招待トークンが空です');
+            throw new Error('招待トークンが指定されていません');
+        }
+        
+        console.log('Firestore接続確認:', typeof firebase?.firestore);
+        if (!firebase || !firebase.firestore) {
+            console.log('ERROR: Firebase未初期化');
+            throw new Error('Firebase が初期化されていません');
+        }
+        
+        console.log('invite_codes コレクションにクエリ実行中...');
         const inviteRef = await firebase.firestore()
             .collection('invite_codes')
             .where('code', '==', inviteToken)
             .where('active', '==', true)
             .get();
         
+        console.log('クエリ結果:', {
+            empty: inviteRef.empty,
+            size: inviteRef.size,
+            docs: inviteRef.docs.length
+        });
+        
         if (inviteRef.empty) {
+            console.log('ERROR: 招待トークンが見つかりません');
+            console.log('全invite_codesをデバッグ用に取得中...');
+            
+            // デバッグ: 全ての招待コードを確認
+            const allInvites = await firebase.firestore()
+                .collection('invite_codes')
+                .limit(5)
+                .get();
+            
+            console.log('既存の招待コード一覧:');
+            allInvites.docs.forEach((doc, index) => {
+                console.log(`${index + 1}:`, {
+                    id: doc.id,
+                    code: doc.data().code,
+                    active: doc.data().active,
+                    companyName: doc.data().companyName
+                });
+            });
+            
             throw new Error('無効な招待トークンです');
         }
         
         const inviteData = inviteRef.docs[0].data();
+        console.log('招待データ:', {
+            tenantId: inviteData.tenantId,
+            companyName: inviteData.companyName,
+            expiresAt: inviteData.expiresAt,
+            used: inviteData.used,
+            maxUses: inviteData.maxUses,
+            active: inviteData.active
+        });
         
         // 有効期限チェック
         if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
+            console.log('ERROR: 有効期限切れ');
             throw new Error('招待トークンの有効期限が切れています');
         }
         
         // 使用回数チェック
         if (inviteData.maxUses && inviteData.used >= inviteData.maxUses) {
+            console.log('ERROR: 使用回数上限');
             throw new Error('招待トークンの使用回数上限に達しています');
         }
         
+        console.log('=== 招待トークン検証成功 ===');
         return {
             valid: true,
             tenantId: inviteData.tenantId,
@@ -49,6 +99,8 @@ async function validateInviteToken(inviteToken) {
         };
         
     } catch (error) {
+        console.log('=== 招待トークン検証失敗 ===');
+        console.error('Error details:', error);
         return {
             valid: false,
             error: error.message
