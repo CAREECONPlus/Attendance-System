@@ -405,6 +405,7 @@ function showPage(page) {
     if (page === 'login' || page === 'register') {
         // ログイン・登録画面では青い背景
         document.body.classList.add('login-screen');
+        document.body.classList.remove('employee-screen');
         
         if (page === 'login') {
             const emailInput = getElement('email');
@@ -413,9 +414,14 @@ function showPage(page) {
             const emailInput = getElement('reg-email');
             if (emailInput) emailInput.focus();
         }
-    } else {
-        // メイン画面では通常背景
+    } else if (page === 'employee') {
+        // 従業員画面ではグレー背景
         document.body.classList.remove('login-screen');
+        document.body.classList.add('employee-screen');
+    } else {
+        // その他の画面では通常背景
+        document.body.classList.remove('login-screen');
+        document.body.classList.remove('employee-screen');
     }
 }
 

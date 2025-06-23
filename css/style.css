@@ -64,6 +64,30 @@ body {
     min-height: 100vh;
 }
 
+/* ページ基本設定 */
+.page {
+    min-height: 100vh;
+}
+
+/* 従業員画面専用の背景設定 */
+#employee-page {
+    background: #e9ecef !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#employee-page .container {
+    background: transparent !important;
+    min-height: 100vh !important;
+}
+
+/* 従業員画面のbody背景を上書き */
+body:has(#employee-page:not(.hidden)),
+body.employee-screen {
+    background: #e9ecef !important;
+}
+
 /* ログイン・登録画面時の背景 */
 body.login-screen {
     background: var(--careecon-primary-blue) !important;
