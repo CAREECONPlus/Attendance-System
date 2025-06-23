@@ -176,10 +176,27 @@ body.login-screen .login-card {
 
 /* 従業員画面のフォーム要素のみグレー背景 */
 #employee-page .form-group {
-    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%) !important;
     padding: 15px;
     border-radius: var(--radius-lg);
     border: 1px solid rgba(124, 157, 254, 0.1);
+}
+
+/* 従業員画面の背景色統一（優先度強化） */
+#employee-page .app-header {
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%) !important;
+}
+
+#employee-page .clock-status {
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%) !important;
+}
+
+#employee-page .site-selection {
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%) !important;
+}
+
+#employee-page .record-item {
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%) !important;
 }
 
 label {
