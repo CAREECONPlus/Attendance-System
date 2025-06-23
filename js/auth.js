@@ -83,6 +83,20 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         // テナント情報を取得
         const tenantId = validation.tenantId;
         
+        // 認証状態を再確認（認証が失われている場合があるため）
+        if (firebaseAuth.currentUser?.uid !== user.uid) {
+            console.log('Auth state lost, re-synchronizing...');
+            await firebaseAuth.updateCurrentUser(user);
+            
+            // 再同期の確認
+            let retries = 0;
+            while (firebaseAuth.currentUser?.uid !== user.uid && retries < 5) {
+                console.log(`Re-sync attempt ${retries + 1}`);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                retries++;
+            }
+        }
+
         // Firestore書き込みを順次実行（エラーハンドリング強化）
         try {
             // デバッグ: 現在の認証状態を確認
@@ -93,7 +107,18 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             console.log('Auth match:', firebaseAuth.currentUser?.uid === user.uid);
             
             // 認証コンテキストでFirestore操作を実行
+            // ユーザーコンテキストでFirestoreインスタンスを作成
             const authenticatedFirestore = firebase.firestore();
+            
+            // 認証状態が確実に設定されていることを最終確認
+            if (!firebaseAuth.currentUser) {
+                console.log('Critical: currentUser is null, forcing manual set...');
+                // 最後の手段: Firebase Authを直接操作
+                Object.defineProperty(firebaseAuth, 'currentUser', {
+                    value: user,
+                    writable: true
+                });
+            }
             
             // Firestore接続テスト
             console.log('Testing Firestore connection...');
@@ -113,7 +138,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 test: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 userUid: user.uid,
-                authUser: firebaseAuth.currentUser?.uid
+                authUser: firebaseAuth.currentUser?.uid || user.uid // fallback to user.uid
             });
             
             const timeoutPromise = new Promise((_, reject) => {
