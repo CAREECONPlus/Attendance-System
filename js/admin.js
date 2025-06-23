@@ -736,6 +736,9 @@ async function loadAttendanceDataForSuperAdmin(activeTab) {
         // 日付でソート
         allData.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         
+        // 従業員情報を結合
+        await enrichAttendanceDataWithUserInfoForSuperAdmin(allData);
+        
         console.log('Super admin loaded records:', allData.length);
         
         // テーブルを描画
@@ -801,6 +804,9 @@ async function loadAttendanceData() {
             ...doc.data()
         }));
         
+        // 従業員情報を結合
+        await enrichAttendanceDataWithUserInfo(filteredData);
+        
         // 休憩データも取得
         await loadBreakDataForRecords(filteredData);
         
@@ -809,6 +815,93 @@ async function loadAttendanceData() {
         
     } catch (error) {
         showError('勤怠データの読み込みに失敗しました');
+    }
+}
+
+/**
+ * スーパー管理者用：全テナントの勤怠データに従業員情報を結合
+ * @param {Array} attendanceData 勤怠データ配列
+ */
+async function enrichAttendanceDataWithUserInfoForSuperAdmin(attendanceData) {
+    try {
+        // テナントごとにユーザー情報を取得
+        const tenantUserMaps = {};
+        
+        // 各テナントのユーザー情報を取得
+        const uniqueTenantIds = [...new Set(attendanceData.map(record => record.tenantId))];
+        
+        for (const tenantId of uniqueTenantIds) {
+            try {
+                const usersSnapshot = await firebase.firestore()
+                    .collection('tenants')
+                    .doc(tenantId)
+                    .collection('users')
+                    .get();
+                
+                const userMap = {};
+                usersSnapshot.forEach(doc => {
+                    const userData = doc.data();
+                    userMap[doc.id] = userData;
+                });
+                
+                tenantUserMaps[tenantId] = userMap;
+            } catch (error) {
+                console.error(`テナント${tenantId}のユーザー情報取得に失敗:`, error);
+                tenantUserMaps[tenantId] = {};
+            }
+        }
+        
+        // 勤怠データに従業員情報を結合
+        attendanceData.forEach(record => {
+            const userMap = tenantUserMaps[record.tenantId];
+            if (userMap && record.userId) {
+                const userInfo = userMap[record.userId];
+                if (userInfo) {
+                    record.displayName = userInfo.displayName;
+                    record.userName = userInfo.displayName || userInfo.email;
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('スーパー管理者用従業員情報の取得に失敗しました:', error);
+    }
+}
+
+/**
+ * 勤怠データに従業員情報を結合
+ * @param {Array} attendanceData 勤怠データ配列
+ */
+async function enrichAttendanceDataWithUserInfo(attendanceData) {
+    try {
+        const tenantId = getCurrentTenantId();
+        if (!tenantId) return;
+        
+        // 従業員情報を取得
+        const usersSnapshot = await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .get();
+        
+        // ユーザーIDからユーザー情報へのマップを作成
+        const userMap = {};
+        usersSnapshot.forEach(doc => {
+            const userData = doc.data();
+            userMap[doc.id] = userData;
+        });
+        
+        // 勤怠データに従業員情報を結合
+        attendanceData.forEach(record => {
+            const userInfo = userMap[record.userId];
+            if (userInfo) {
+                record.displayName = userInfo.displayName;
+                record.userName = userInfo.displayName || userInfo.email;
+            }
+        });
+        
+    } catch (error) {
+        console.error('従業員情報の取得に失敗しました:', error);
     }
 }
 
@@ -866,7 +959,7 @@ function renderAttendanceTable(data) {
         
         return `
             <tr>
-                <td>${record.userEmail || record.userName || '-'}</td>
+                <td>${record.displayName || record.userName || record.userEmail || '-'}</td>
                 <td>${formatDate(record.date)}</td>
                 <td>${record.siteName || '-'}</td>
                 <td>
