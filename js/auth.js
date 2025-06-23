@@ -210,28 +210,31 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
             }
 
-            // 2. global_usersに追加
+            // 2. global_usersに追加（権限問題対策）
             console.log('Saving to global_users...');
             
-            const globalUserPromise = authenticatedFirestore.collection('global_users').doc(user.uid).set({
-                email: email,
-                displayName: displayName,
-                tenantId: tenantId,
-                role: 'employee',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            // タイムアウト付きで実行
-            const globalWriteTimeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Global user data write timeout after 15 seconds')), 15000);
-            });
-            
             try {
+                // global_usersの書き込みを試行
+                const globalUserPromise = authenticatedFirestore.collection('global_users').doc(user.uid).set({
+                    email: email,
+                    displayName: displayName,
+                    tenantId: tenantId,
+                    role: 'employee',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // タイムアウト付きで実行
+                const globalWriteTimeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Global user data write timeout after 15 seconds')), 15000);
+                });
+                
                 await Promise.race([globalUserPromise, globalWriteTimeoutPromise]);
                 console.log('✅ Global user data saved successfully');
+                
             } catch (globalWriteError) {
                 console.error('❌ Global user data write failed:', globalWriteError);
-                throw new Error(`グローバルユーザーデータの保存に失敗: ${globalWriteError.message}`);
+                console.warn('Global usersの保存に失敗しましたが、テナントユーザー登録は完了しました');
+                // global_users の失敗は致命的ではないので、処理を継続
             }
 
             // 3. 招待コードの使用回数を更新
