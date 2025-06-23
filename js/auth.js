@@ -67,8 +67,25 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         
         // Firestore書き込みを順次実行（エラーハンドリング強化）
         try {
+            // デバッグ: 現在の認証状態を確認
+            console.log('Current auth user:', firebaseAuth.currentUser?.uid);
+            console.log('Target user UID:', user.uid);
+            console.log('ID Token available:', !!idToken);
+            
+            // テスト: 最初に簡単なコレクションに書き込みテスト
+            console.log('Testing write permissions with _test collection...');
+            await firestoreDb.collection('_test').doc('test-' + Date.now()).set({
+                test: true,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                userUid: user.uid
+            });
+            console.log('✅ Test write successful');
+            
             // 1. テナント内ユーザー情報を保存
             console.log('Saving user data to tenant collection...');
+            console.log('Tenant ID:', tenantId);
+            console.log('User UID:', user.uid);
+            
             const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
             await userCollection.doc(user.uid).set({
                 email: email,
