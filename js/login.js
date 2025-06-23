@@ -457,8 +457,41 @@ async function handleEmployeeRegister(e) {
         const result = await registerEmployeeWithInvite(email, password, name, inviteToken);
         
         if (result.success) {
-            // 登録成功 - ログイン状態になるので自動でページ遷移される
+            // 登録成功 - ユーザー情報を設定してページ遷移
             console.log('Employee registration successful');
+            console.log('User data:', result.user);
+            console.log('Tenant ID:', result.tenantId);
+            
+            // グローバル変数にユーザー情報を設定
+            window.currentUser = {
+                uid: result.user.uid,
+                email: result.user.email,
+                displayName: result.user.displayName || name,
+                role: 'employee',
+                tenantId: result.tenantId
+            };
+            
+            // テナントURLにリダイレクト
+            console.log('Redirecting to tenant URL...');
+            if (result.tenantId) {
+                const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${result.tenantId}`;
+                console.log('Redirecting to:', tenantUrl);
+                window.location.href = tenantUrl;
+            } else {
+                // フォールバック: 従業員画面に遷移
+                console.log('No tenant ID, redirecting to employee page...');
+                if (typeof showPage === 'function') {
+                    showPage('employee');
+                    // 従業員画面の初期化
+                    setTimeout(() => {
+                        if (typeof initEmployeePage === 'function') {
+                            initEmployeePage();
+                        }
+                    }, 200);
+                } else {
+                    console.error('showPage function not found');
+                }
+            }
         } else {
             showRegisterError(result.error || '登録に失敗しました');
         }
