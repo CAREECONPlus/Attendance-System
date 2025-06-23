@@ -659,12 +659,92 @@ async function loadSiteList() {
 }
 
 /**
+ * スーパー管理者向けの全テナント勤怠データ読み込み
+ */
+async function loadAttendanceDataForSuperAdmin(activeTab) {
+    try {
+        console.log('Loading attendance data for super admin');
+        
+        // 全テナントのデータを取得
+        const allData = [];
+        
+        // 全テナントを取得
+        const tenantsSnapshot = await firebase.firestore().collection('tenants').get();
+        
+        for (const tenantDoc of tenantsSnapshot.docs) {
+            const tenantId = tenantDoc.id;
+            const tenantData = tenantDoc.data();
+            
+            // 各テナントの勤怠データを取得
+            let query = firebase.firestore().collection(`tenants/${tenantId}/attendance`);
+            
+            // フィルター条件の適用
+            if (activeTab === 'daily') {
+                const filterDate = getElement('filter-date')?.value;
+                if (filterDate) {
+                    query = query.where('date', '==', filterDate);
+                }
+            } else if (activeTab === 'monthly') {
+                const filterMonth = getElement('filter-month')?.value;
+                if (filterMonth) {
+                    const startDate = `${filterMonth}-01`;
+                    const endDate = `${filterMonth}-31`;
+                    query = query.where('date', '>=', startDate).where('date', '<=', endDate);
+                }
+            } else if (activeTab === 'employee') {
+                const employeeId = getElement('filter-employee')?.value;
+                if (employeeId) {
+                    query = query.where('userId', '==', employeeId);
+                }
+            } else if (activeTab === 'site') {
+                const siteName = getElement('filter-site')?.value;
+                if (siteName) {
+                    query = query.where('siteName', '==', siteName);
+                }
+            }
+            
+            query = query.orderBy('date', 'desc');
+            
+            const attendanceSnapshot = await query.get();
+            
+            // テナント情報を追加してデータを収集
+            attendanceSnapshot.docs.forEach(doc => {
+                allData.push({
+                    id: doc.id,
+                    tenantId: tenantId,
+                    tenantName: tenantData.companyName || tenantId,
+                    ...doc.data()
+                });
+            });
+        }
+        
+        // 日付でソート
+        allData.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        
+        console.log('Super admin loaded records:', allData.length);
+        
+        // テーブルを描画
+        renderAttendanceTable(allData);
+        
+    } catch (error) {
+        console.error('Error loading super admin attendance data:', error);
+        showError('スーパー管理者データの読み込みでエラーが発生しました: ' + error.message);
+    }
+}
+
+/**
  * 勤怠データの読み込み（Firebase v8対応版）
  */
 async function loadAttendanceData() {
     try {
         const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
         if (!activeTab) return;
+        
+        // スーパー管理者の場合は全テナントのデータを取得
+        if (window.currentUser && window.currentUser.role === 'super_admin') {
+            await loadAttendanceDataForSuperAdmin(activeTab);
+            return;
+        }
         
         let query = getAttendanceCollection();
         let filteredData = [];
