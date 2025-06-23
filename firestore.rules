@@ -37,6 +37,17 @@ service cloud.firestore {
       allow create: if true; // 管理者登録依頼は未認証ユーザーが作成可能
     }
     
+    // Invite codes
+    match /invite_codes/{docId} {
+      allow read: if true; // 招待リンクの検証は未認証ユーザーも必要
+      allow write: if request.auth != null && 
+                  (isSuperAdmin(request.auth.token.email) || 
+                   isAdmin(request.auth.token.email, resource.data.tenantId));
+      allow create: if request.auth != null && 
+                   (isSuperAdmin(request.auth.token.email) || 
+                    getUserTenantId(request.auth.token.email) == request.resource.data.tenantId);
+    }
+    
     // Helper functions
     function getUserTenantId(email) {
       return exists(/databases/$(database)/documents/global_users/$(email)) 
