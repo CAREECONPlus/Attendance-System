@@ -3,7 +3,6 @@
  * URLパラメータ方式でテナント識別
  */
 
-console.log('tenant.js loaded');
 
 // テナント情報をグローバルに保持
 window.currentTenant = null;
@@ -61,14 +60,11 @@ async function loadTenantInfo(tenantId) {
                 id: tenantId,
                 ...tenantData
             };
-            console.log('✅ テナント情報読み込み完了:', window.currentTenant);
             return window.currentTenant;
         } else {
-            console.error('❌ テナントが見つかりません:', tenantId);
             return null;
         }
     } catch (error) {
-        console.error('❌ テナント情報読み込みエラー:', error);
         return null;
     }
 }
@@ -97,10 +93,8 @@ async function createTenant(tenantData) {
             .doc(tenantId)
             .set(tenantInfo);
         
-        console.log('✅ 新しいテナント作成完了:', tenantId);
         return tenantId;
     } catch (error) {
-        console.error('❌ テナント作成エラー:', error);
         throw error;
     }
 }
@@ -136,12 +130,10 @@ function isSuperAdmin() {
  */
 async function showTenantSelection(user = null) {
     try {
-        console.log('🏢 テナント選択機能を開始');
         
         // 現在のユーザーを取得
         const currentUser = user || firebase.auth().currentUser;
         if (!currentUser) {
-            console.log('❌ 未認証ユーザー - ログイン画面へリダイレクト');
             showPage('login');
             return;
         }
@@ -151,35 +143,29 @@ async function showTenantSelection(user = null) {
         const userData = userDoc.data();
         
         if (!userData) {
-            console.log('❌ ユーザーデータが見つからない - ログイン画面へ');
             showPage('login');
             return;
         }
         
-        console.log('📊 ユーザーロール:', userData.role);
         
         // super_adminの場合：テナント管理ダッシュボードを表示
         if (userData.role === 'super_admin') {
-            console.log('👑 super_admin - テナント管理ダッシュボードを表示');
             await showSuperAdminDashboard();
             return;
         }
         
         // 通常ユーザーの場合：自分のテナントに直接リダイレクト
         if (userData.tenantId) {
-            console.log('🏢 通常ユーザー - 自分のテナントにリダイレクト:', userData.tenantId);
             const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${userData.tenantId}`;
             window.location.href = tenantUrl;
             return;
         }
         
         // テナントIDがない場合：エラー処理
-        console.error('❌ テナントIDが見つからない');
         showError('テナント情報が見つかりません。管理者にお問い合わせください。');
         showPage('login');
         
     } catch (error) {
-        console.error('❌ テナント選択エラー:', error);
         showError('テナント情報の取得に失敗しました');
         showPage('login');
     }
@@ -190,7 +176,6 @@ async function showTenantSelection(user = null) {
  */
 async function showSuperAdminDashboard() {
     try {
-        console.log('👑 スーパー管理者ダッシュボードを初期化');
         
         // 全テナント一覧を取得
         const tenantsSnapshot = await firebase.firestore()
@@ -206,7 +191,6 @@ async function showSuperAdminDashboard() {
             });
         });
         
-        console.log('📊 取得テナント数:', tenants.length);
         
         // テナント管理画面を表示
         showPage('tenant-management');
@@ -215,7 +199,6 @@ async function showSuperAdminDashboard() {
         renderTenantList(tenants);
         
     } catch (error) {
-        console.error('❌ スーパー管理者ダッシュボードエラー:', error);
         showError('テナント管理画面の読み込みに失敗しました');
     }
 }
@@ -226,7 +209,6 @@ async function showSuperAdminDashboard() {
 function renderTenantList(tenants) {
     const container = document.getElementById('tenant-list-container');
     if (!container) {
-        console.error('❌ tenant-list-containerが見つかりません');
         return;
     }
     
@@ -271,7 +253,6 @@ function renderTenantList(tenants) {
  * テナントにアクセス（スーパー管理者用）
  */
 function accessTenant(tenantId) {
-    console.log('🔍 テナントアクセス:', tenantId);
     const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${tenantId}`;
     window.location.href = tenantUrl;
 }
@@ -280,7 +261,6 @@ function accessTenant(tenantId) {
  * テナント設定編集
  */
 function editTenant(tenantId) {
-    console.log('⚙️ テナント設定編集:', tenantId);
     // TODO: テナント設定編集モーダルを実装
     showInfo('テナント設定編集機能は準備中です');
 }
@@ -301,24 +281,19 @@ async function initializeTenant() {
         const tenantId = getTenantFromURL();
         
         if (tenantId) {
-            console.log('🏢 テナントID検出:', tenantId);
             const tenantInfo = await loadTenantInfo(tenantId);
             
             if (tenantInfo) {
-                console.log('✅ テナント初期化完了');
                 return tenantInfo;
             } else {
-                console.error('❌ 無効なテナントID:', tenantId);
                 // 無効なテナントIDの場合はパラメータを削除
                 window.history.replaceState({}, '', window.location.pathname);
             }
         } else {
-            console.log('📄 テナント未指定 - 通常モード');
         }
         
         return null;
     } catch (error) {
-        console.error('❌ テナント初期化エラー:', error);
         return null;
     }
 }
@@ -341,7 +316,6 @@ async function determineUserTenant(userEmail) {
         
         return null;
     } catch (error) {
-        console.error('❌ ユーザーテナント判定エラー:', error);
         return null;
     }
 }
@@ -373,4 +347,3 @@ window.initializeTenant = initializeTenant;
 window.determineUserTenant = determineUserTenant;
 window.generateSuccessUrl = generateSuccessUrl;
 
-console.log('✅ tenant.js ユーティリティ初期化完了');

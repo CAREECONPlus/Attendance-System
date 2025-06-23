@@ -3,7 +3,6 @@
  * マルチテナント化で欠落した関数を定義
  */
 
-console.log('missing-functions.js loaded');
 
 /**
  * 情報メッセージを表示
@@ -154,7 +153,6 @@ function getCurrentTenantId() {
         return window.currentUser.tenantId;
     }
     
-    console.warn('⚠️ テナントIDが取得できません');
     return null;
 }
 
@@ -174,7 +172,6 @@ function formatDate(date) {
             day: '2-digit'
         });
     } catch (error) {
-        console.error('日付フォーマットエラー:', error);
         return '-';
     }
 }
@@ -207,7 +204,6 @@ function formatTime(time) {
         
         return String(time);
     } catch (error) {
-        console.error('時間フォーマットエラー:', error);
         return '-';
     }
 }
@@ -216,7 +212,6 @@ function formatTime(time) {
  * エラーハンドリング強化
  */
 function handleError(error, context = '') {
-    console.error(`❌ エラー${context ? ` (${context})` : ''}:`, error);
     
     let message = 'エラーが発生しました';
     
@@ -248,7 +243,6 @@ function handleError(error, context = '') {
 function checkFunction(functionName) {
     const fn = window[functionName];
     if (typeof fn !== 'function') {
-        console.warn(`⚠️ 関数が見つかりません: ${functionName}`);
         return false;
     }
     return true;
@@ -262,7 +256,6 @@ function safeCall(functionName, ...args) {
         try {
             return window[functionName](...args);
         } catch (error) {
-            console.error(`❌ 関数実行エラー (${functionName}):`, error);
             return null;
         }
     }
@@ -285,4 +278,3 @@ if (!window.getCurrentTenantId) {
     window.getCurrentTenantId = getCurrentTenantId;
 }
 
-console.log('✅ missing-functions.js 読み込み完了');

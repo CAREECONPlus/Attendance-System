@@ -1,4 +1,3 @@
-console.log('admin.js loaded');
 
 // テナント対応のFirestoreコレクション取得関数（main.jsの統一関数を使用）
 function getAttendanceCollection() {
@@ -17,7 +16,6 @@ function getUsersCollection() {
  * 管理者登録依頼の管理機能
  */
 function initAdminRequestsManagement() {
-    console.log('🔧 管理者登録依頼管理機能を初期化');
     
     // 管理者依頼タブのクリックイベント
     const adminRequestsTab = document.getElementById('admin-requests-tab');
@@ -40,7 +38,6 @@ function initAdminRequestsManagement() {
 function showAdminRequestsTab() {
     // 権限チェック
     if (!window.currentUser || window.currentUser.role !== 'super_admin') {
-        console.log('🔒 管理者依頼タブ: スーパー管理者のみアクセス可能');
         return;
     }
     
@@ -71,7 +68,6 @@ function showAdminRequestsTab() {
  * 招待管理タブを表示
  */
 function showInviteTab() {
-    console.log('🔗 招待管理タブを表示');
     
     // 全てのタブコンテンツを非表示
     document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
@@ -104,11 +100,9 @@ function showInviteTab() {
  */
 async function loadAdminRequests() {
     try {
-        console.log('📋 管理者登録依頼を読み込み中...');
         
         const tbody = document.getElementById('admin-requests-data');
         if (!tbody) {
-            console.error('❌ admin-requests-data要素が見つかりません');
             return;
         }
         
@@ -118,11 +112,9 @@ async function loadAdminRequests() {
             .orderBy('requestedAt', 'desc')
             .get();
         
-        console.log('📋 管理者登録依頼を読み込み:', requestsSnapshot.size + '件');
         
         if (requestsSnapshot.empty) {
             tbody.innerHTML = '<tr><td colspan="7" class="no-data">管理者登録依頼はありません</td></tr>';
-            console.log('📋 依頼なし - 空のテーブルを表示');
             return;
         }
         
@@ -157,7 +149,6 @@ async function loadAdminRequests() {
         `).join('');
         
     } catch (error) {
-        console.error('❌ 管理者登録依頼の読み込みエラー:', error);
         const tbody = document.getElementById('admin-requests-data');
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="7" class="error">データの読み込みに失敗しました</td></tr>';
@@ -212,7 +203,6 @@ async function approveAdminRequest(requestId) {
     if (!confirm('この依頼を承認して管理者アカウントを作成しますか？')) return;
     
     try {
-        console.log('✅ 管理者登録依頼を承認中:', requestId);
         
         // 依頼データを取得
         const requestDoc = await firebase.firestore()
@@ -226,14 +216,11 @@ async function approveAdminRequest(requestId) {
         }
         
         const requestData = requestDoc.data();
-        console.log('📋 承認対象の依頼データ:', requestData);
         
         // テナントIDを生成
         const tenantId = generateTenantId(requestData.companyName);
-        console.log('🏢 生成されたテナントID:', tenantId);
         
         // Firebase Authアカウント作成
-        console.log('🔐 Firebase Authアカウント作成中...');
         let userCredential;
         try {
             userCredential = await firebase.auth().createUserWithEmailAndPassword(
@@ -246,13 +233,10 @@ async function approveAdminRequest(requestId) {
                 displayName: requestData.requesterName
             });
             
-            console.log('✅ Firebase Authアカウント作成完了:', userCredential.user.uid);
         } catch (authError) {
-            console.error('❌ Firebase Authアカウント作成エラー:', authError);
             
             // メールアドレスが既に使用されている場合の処理
             if (authError.code === 'auth/email-already-in-use') {
-                console.log('⚠️ 既存のFirebase Authアカウントを使用します');
                 // 既存アカウントの処理は後続のFirestoreデータ作成で対応
             } else {
                 throw new Error(`Firebase Authアカウント作成失敗: ${authError.message}`);
@@ -275,7 +259,6 @@ async function approveAdminRequest(requestId) {
             .collection('tenants')
             .doc(tenantId)
             .set(tenantData);
-        console.log('✅ テナント作成完了');
         
         // グローバルユーザー管理に管理者を登録
         const globalUserData = {
@@ -295,7 +278,6 @@ async function approveAdminRequest(requestId) {
             .collection('global_users')
             .doc(requestData.requesterEmail)
             .set(globalUserData);
-        console.log('✅ グローバルユーザーデータ保存完了');
         
         // テナント内のusersコレクションに管理者データを保存
         const userUID = userCredential ? userCredential.user.uid : 'pending-uid';
@@ -317,7 +299,6 @@ async function approveAdminRequest(requestId) {
             .collection('tenants').doc(tenantId)
             .collection('users').doc(userUID)
             .set(tenantUserData);
-        console.log('✅ テナント内ユーザーデータ保存完了');
         
         // legacy usersコレクションにも保存（後方互換性）
         if (userCredential) {
@@ -325,7 +306,6 @@ async function approveAdminRequest(requestId) {
                 .collection('users')
                 .doc(userCredential.user.uid)
                 .set(tenantUserData);
-            console.log('✅ Legacyユーザーデータ保存完了');
         }
         
         // 依頼ステータスを承認済みに更新
@@ -338,7 +318,6 @@ async function approveAdminRequest(requestId) {
                 approvedBy: window.currentUser?.email || 'system',
                 tenantId: tenantId
             });
-        console.log('✅ 依頼ステータス更新完了');
         
         const loginUrl = `${window.location.origin}${window.location.pathname}?tenant=${tenantId}`;
         
@@ -346,7 +325,6 @@ async function approveAdminRequest(requestId) {
         loadAdminRequests(); // リストを再読み込み
         
     } catch (error) {
-        console.error('❌ 管理者承認エラー:', error);
         alert('管理者アカウントの承認に失敗しました: ' + error.message);
     }
 }
@@ -374,7 +352,6 @@ async function rejectAdminRequest(requestId) {
     if (!confirm('この依頼を却下しますか？')) return;
     
     try {
-        console.log('❌ 管理者登録依頼を却下:', requestId);
         
         // 依頼ステータスを却下に更新
         await firebase.firestore()
@@ -386,13 +363,11 @@ async function rejectAdminRequest(requestId) {
                 rejectedBy: window.currentUser?.email || 'system',
                 rejectionReason: reason || ''
             });
-        console.log('✅ 依頼ステータス更新完了');
         
         alert('依頼を却下しました。');
         loadAdminRequests(); // リストを再読み込み
         
     } catch (error) {
-        console.error('❌ 管理者却下エラー:', error);
         alert('依頼の却下に失敗しました: ' + error.message);
     }
 }
@@ -446,7 +421,6 @@ async function viewRequestDetails(requestId) {
         alert(details);
         
     } catch (error) {
-        console.error('❌ 依頼詳細取得エラー:', error);
         alert('依頼詳細の取得に失敗しました。');
     }
 }
@@ -462,7 +436,6 @@ window.viewRequestDetails = viewRequestDetails;
  * 全てのイベントリスナーを設定し、初期データを読み込みます
  */
 async function initAdminPage() {
-    console.log('管理者ページの初期化開始');
     
     // 権限チェック
     if (!checkAuth('admin')) return;
@@ -472,10 +445,8 @@ async function initAdminPage() {
     if (adminRequestsTab) {
         if (window.currentUser && window.currentUser.role === 'super_admin') {
             adminRequestsTab.style.display = 'block';
-            console.log('✅ スーパー管理者: 管理者依頼タブを表示');
         } else {
             adminRequestsTab.style.display = 'none';
-            console.log('🔒 一般管理者: 管理者依頼タブを非表示');
         }
     }
 
@@ -516,9 +487,7 @@ async function initAdminPage() {
             // イベントリスナーの設定
             setupAdminEvents();
             
-            console.log('管理者ページの詳細初期化完了');
         } catch (error) {
-            console.error('管理者ページ初期化エラー:', error);
             showError('データの読み込みに失敗しました');
         }
     }, 200);
@@ -528,7 +497,6 @@ async function initAdminPage() {
  * 管理者画面の基本的なUI初期化
  */
 function setupAdminBasics() {
-    console.log('管理者画面の基本UI初期化');
     
     // ユーザー名を表示
     const currentUser = getCurrentUser();
@@ -566,7 +534,6 @@ function switchTab(tab) {
         if (window.currentUser && window.currentUser.role === 'super_admin') {
             showAdminRequestsTab();
         } else {
-            console.log('🔒 一般管理者: 管理者依頼タブへのアクセス拒否');
         }
         return;
     }
@@ -649,9 +616,7 @@ async function loadEmployeeList() {
             select.appendChild(option);
         });
         
-        console.log(`従業員リスト読み込み完了: ${querySnapshot.size}件`);
     } catch (error) {
-        console.error('従業員リスト読み込みエラー:', error);
         showError('従業員リストの読み込みに失敗しました');
     }
 }
@@ -688,9 +653,7 @@ async function loadSiteList() {
             select.appendChild(option);
         });
         
-        console.log(`現場リスト読み込み完了: ${sites.size}件`);
     } catch (error) {
-        console.error('現場リスト読み込みエラー:', error);
         showError('現場リストの読み込みに失敗しました');
     }
 }
@@ -749,9 +712,7 @@ async function loadAttendanceData() {
         // テーブルを描画
         renderAttendanceTable(filteredData);
         
-        console.log(`勤怠データ読み込み完了: ${filteredData.length}件`);
     } catch (error) {
-        console.error('勤怠データ読み込みエラー:', error);
         showError('勤怠データの読み込みに失敗しました');
     }
 }
@@ -785,7 +746,6 @@ async function loadBreakDataForRecords(attendanceData) {
         
         await Promise.all(promises);
     } catch (error) {
-        console.error('休憩データ読み込みエラー:', error);
     }
 }
 
@@ -849,7 +809,6 @@ function renderAttendanceTable(data) {
  * 管理者イベントの設定
  */
 function setupAdminEvents() {
-    console.log('管理者イベントを設定中...');
     
     // CSV出力ボタン
     const exportBtn = getElement('export-csv');
@@ -863,7 +822,6 @@ function setupAdminEvents() {
         input.addEventListener('change', loadAttendanceData);
     });
     
-    console.log('管理者イベント設定完了');
 }
 
 /**
@@ -883,7 +841,6 @@ async function exportToCSV() {
         
         showToast('CSVファイルをダウンロードしました', 'success');
     } catch (error) {
-        console.error('CSV出力エラー:', error);
         showToast('CSV出力に失敗しました', 'error');
     }
 }
@@ -992,7 +949,6 @@ let changeHistory = [];
 
 // ================== 編集ダイアログの表示 ==================
 function showEditDialog(record) {
-    console.log('📝 編集ダイアログを表示:', record);
     
     currentEditRecord = { ...record };
     editBreakRecords = [];
@@ -1161,7 +1117,6 @@ function convertFromTimeInput(timeInput) {
 
 // ================== 休憩記録の読み込み ==================
 async function loadBreakRecords(attendanceId) {
-    console.log('☕ 休憩記録を読み込み中...', attendanceId);
     
     try {
         const tenantId = getCurrentTenantId();
@@ -1191,7 +1146,6 @@ async function loadBreakRecords(attendanceId) {
         calculateTotalBreakTimeDisplay();
         
     } catch (error) {
-        console.error('❌ 休憩記録読み込みエラー:', error);
         showErrorMessage('休憩記録の読み込みに失敗しました');
     }
 }
@@ -1343,7 +1297,6 @@ function updateBreakTime(index, field, value) {
 
 // ================== 変更履歴の読み込み ==================
 async function loadChangeHistory(attendanceId) {
-    console.log('📜 変更履歴を読み込み中...', attendanceId);
     
     try {
         const query = firebase.firestore()
@@ -1370,7 +1323,6 @@ async function loadChangeHistory(attendanceId) {
         displayChangeHistory();
         
     } catch (error) {
-        console.error('❌ 変更履歴読み込みエラー:', error);
         displayChangeHistoryError();
     }
 }
@@ -1468,7 +1420,6 @@ function displayChangeHistoryError() {
 
 // ================== 勤怠記録の保存 ==================
 async function saveAttendanceChanges() {
-    console.log('💾 勤怠記録の変更を保存中...');
     
     const form = document.getElementById('edit-attendance-form');
     const formData = new FormData(form);
@@ -1513,7 +1464,6 @@ async function saveAttendanceChanges() {
         await loadAttendanceData();
         
     } catch (error) {
-        console.error('❌ 保存エラー:', error);
         alert('保存中にエラーが発生しました: ' + error.message);
     }
 }
@@ -1698,7 +1648,6 @@ async function deleteEditAttendanceRecord() {
         await loadAttendanceData();
         
     } catch (error) {
-        console.error('❌ 削除エラー:', error);
         alert('削除中にエラーが発生しました: ' + error.message);
     }
 }
@@ -1737,18 +1686,11 @@ function closeEditDialog() {
 
 // ================== 編集機能の初期化 ==================
 function initAdminEditFeatures() {
-    console.log('🔧 管理者編集機能を初期化中...');
     
     // スタイルを適用
     initEditFunctionStyles();
     
     // 編集機能が利用可能であることをログ出力
-    console.log('✅ 管理者編集機能が利用可能になりました');
-    console.log('📋 利用可能な機能:');
-    console.log('  • 勤怠記録の編集（現場名、勤務時間）');
-    console.log('  • 休憩時間の追加・削除・編集');
-    console.log('  • 勤怠記録の削除');
-    console.log('  • 変更履歴の表示');
 }
 
 // ================== 編集機能のスタイル適用 ==================
@@ -2190,7 +2132,6 @@ function getCurrentUser() {
 function checkAuth(requiredRole) {
     const user = getCurrentUser();
     if (!user) {
-        console.error('ユーザーが認証されていません');
         return false;
     }
     return true;
@@ -2288,7 +2229,6 @@ function calculateWorkingTime(startTime, endTime, breakTimes) {
  * エラーメッセージの表示
  */
 function showError(message) {
-    console.error('エラー:', message);
     const toast = document.createElement('div');
     toast.className = 'toast error';
     toast.textContent = message;
@@ -2319,7 +2259,6 @@ function showError(message) {
  * 成功メッセージの表示
  */
 function showSuccess(message) {
-    console.log('成功:', message);
     const toast = document.createElement('div');
     toast.className = 'toast success';
     toast.textContent = message;
@@ -2398,11 +2337,9 @@ function signOut() {
     if (confirm('ログアウトしますか？')) {
         firebase.auth().signOut()
             .then(() => {
-                console.log('✅ ログアウト完了');
                 showPage('login');
             })
             .catch((error) => {
-                console.error('❌ ログアウトエラー:', error);
                 showError('ログアウトでエラーが発生しました');
             });
     }
@@ -2412,7 +2349,6 @@ function signOut() {
  * 編集記録の処理（既存のeditRecord関数を置き換え）
  */
 function editRecord(recordId) {
-    console.log('編集レコードID:', recordId);
     
     // recordIdから完全なレコードデータを取得して編集ダイアログを表示
     const allRows = document.querySelectorAll('#attendance-data tr');
@@ -2482,9 +2418,7 @@ async function saveAttendanceRecordOriginal() {
         await loadAttendanceData();
         
         showSuccess('勤怠データを更新しました');
-        console.log('勤怠データ更新完了:', recordId);
     } catch (error) {
-        console.error('勤怠データ更新エラー:', error);
         showError('勤怠データの更新に失敗しました');
     }
 }
@@ -2524,9 +2458,7 @@ async function deleteAttendanceRecordOriginal() {
         await loadAttendanceData();
         
         showSuccess('勤怠データを削除しました');
-        console.log('勤怠データ削除完了:', recordId);
     } catch (error) {
-        console.error('勤怠データ削除エラー:', error);
         showError('勤怠データの削除に失敗しました');
     }
 }
@@ -2576,9 +2508,7 @@ async function addBreakTimeOriginal() {
         if (modal) modal.classList.add('hidden');
         
         showSuccess('休憩時間を追加しました');
-        console.log('休憩時間追加完了');
     } catch (error) {
-        console.error('休憩時間追加エラー:', error);
         showError('休憩時間の追加に失敗しました');
     }
 }
@@ -2605,7 +2535,6 @@ async function loadBreakTimesForEdit(attendanceId) {
         
         renderBreakTimesList(breakTimes);
     } catch (error) {
-        console.error('休憩時間読み込みエラー:', error);
     }
 }
 
@@ -2667,9 +2596,7 @@ async function removeBreakTimeOriginal(index) {
         await loadBreakTimesForEdit(attendanceId);
         
         showSuccess('休憩時間を削除しました');
-        console.log('休憩時間削除完了');
     } catch (error) {
-        console.error('休憩時間削除エラー:', error);
         showError('休憩時間の削除に失敗しました');
     }
 }
@@ -2734,7 +2661,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-console.log('✅ admin.js（完全版 - 編集機能統合）読み込み完了');
 
 
 // admin.js の修正版 - Firebase権限エラー対応
@@ -2743,7 +2669,6 @@ console.log('✅ admin.js（完全版 - 編集機能統合）読み込み完了'
 
 // 変更履歴の読み込み（権限エラー対応版）
 async function loadChangeHistory(attendanceId) {
-    console.log('📜 変更履歴を読み込み中...', attendanceId);
     
     const historyList = document.getElementById('change-history-list');
     if (!historyList) return;
@@ -2781,7 +2706,6 @@ async function loadChangeHistory(attendanceId) {
         displayChangeHistory();
         
     } catch (error) {
-        console.error('❌ 変更履歴読み込みエラー:', error);
         
         // 権限エラーの場合は適切なメッセージを表示
         if (error.code === 'permission-denied' || error.code === 'missing-or-insufficient-permissions') {
@@ -2940,7 +2864,6 @@ function displayChangeHistoryNotFound() {
 
 // Firestoreへの保存（権限エラー対応版）
 async function saveChangesToFirestore(newData, changes, reason) {
-    console.log('💾 Firestore保存開始...');
     
     try {
         // 基本的な保存（attendance_historyを除く）
@@ -2949,16 +2872,12 @@ async function saveChangesToFirestore(newData, changes, reason) {
         // テスト用に変更履歴も保存を試行
         try {
             await saveChangeHistory(changes, reason);
-            console.log('✅ 変更履歴も保存完了');
         } catch (historyError) {
-            console.warn('⚠️ 変更履歴の保存に失敗（権限不足の可能性）:', historyError);
             // 変更履歴の保存に失敗しても、基本的な保存は成功として扱う
         }
         
-        console.log('✅ 基本的な保存は完了');
         
     } catch (error) {
-        console.error('❌ 保存エラー:', error);
         throw error;
     }
 }
@@ -3063,9 +2982,7 @@ async function deleteEditAttendanceRecord() {
         // 変更履歴の保存を試行
         try {
             await saveDeleteHistory(reason);
-            console.log('✅ 削除履歴も保存完了');
         } catch (historyError) {
-            console.warn('⚠️ 削除履歴の保存に失敗（権限不足の可能性）:', historyError);
         }
         
         alert('✅ 記録を削除しました');
@@ -3075,7 +2992,6 @@ async function deleteEditAttendanceRecord() {
         await loadAttendanceData();
         
     } catch (error) {
-        console.error('❌ 削除エラー:', error);
         
         if (error.code === 'permission-denied') {
             alert('削除権限がありません。Firebase のセキュリティルールを確認してください。');
@@ -3336,7 +3252,6 @@ function addImprovedHistoryStyles() {
 
 // 編集機能の初期化時にスタイルを追加
 function initAdminEditFeaturesImproved() {
-    console.log('🔧 管理者編集機能を初期化中（改善版）...');
     
     // 既存のスタイルを適用
     initEditFunctionStyles();
@@ -3344,7 +3259,6 @@ function initAdminEditFeaturesImproved() {
     // 改善されたスタイルを追加
     addImprovedHistoryStyles();
     
-    console.log('✅ 管理者編集機能（改善版）が利用可能になりました');
 }
 
 // 既存の初期化関数を上書き
@@ -3357,7 +3271,6 @@ window.initAdminEditFeatures = initAdminEditFeaturesImproved;
  */
 async function loadTenantUsers() {
     try {
-        console.log('👥 テナント内ユーザー読み込み開始');
         
         const usersCollection = getUsersCollection();
         const querySnapshot = await usersCollection.orderBy('displayName').get();
@@ -3372,11 +3285,9 @@ async function loadTenantUsers() {
             });
         });
         
-        console.log('✅ ユーザー読み込み完了:', users.length + '名');
         return users;
         
     } catch (error) {
-        console.error('❌ ユーザー読み込みエラー:', error);
         return [];
     }
 }
@@ -3392,11 +3303,9 @@ async function updateUserInfo(userId, updates) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        console.log('✅ ユーザー情報更新完了:', userId);
         return true;
         
     } catch (error) {
-        console.error('❌ ユーザー情報更新エラー:', error);
         throw error;
     }
 }
@@ -3423,16 +3332,13 @@ async function changeUserRole(userId, newRole) {
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 } catch (globalError) {
-                    console.warn('グローバルユーザー更新スキップ:', globalError.message);
                 }
             }
         }
         
-        console.log('✅ ユーザーロール変更完了:', userId, '→', newRole);
         return true;
         
     } catch (error) {
-        console.error('❌ ユーザーロール変更エラー:', error);
         throw error;
     }
 }
@@ -3447,11 +3353,9 @@ async function toggleUserStatus(userId, isActive = true) {
             disabledAt: isActive ? null : firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        console.log('✅ ユーザーステータス変更完了:', userId, isActive ? '有効' : '無効');
         return true;
         
     } catch (error) {
-        console.error('❌ ユーザーステータス変更エラー:', error);
         throw error;
     }
 }
@@ -3480,7 +3384,6 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
         };
         
         // 招待記録を保存（実装に応じて調整）
-        console.log('📧 従業員招待データ:', inviteData);
         
         // 実際の招待メール送信は別途実装
         alert(`${emailAddress} への招待を準備しました。\n実際の招待機能は今後実装予定です。`);
@@ -3488,7 +3391,6 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
         return true;
         
     } catch (error) {
-        console.error('❌ 従業員招待エラー:', error);
         throw error;
     }
 }
@@ -3500,13 +3402,11 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
  * 管理者ページの初期化関数
  */
 function initAdminPage() {
-    console.log('🔧 管理者ページを初期化中...');
     
     try {
         // 管理者権限チェック
         const user = firebase.auth().currentUser;
         if (!user) {
-            console.error('❌ 認証済みユーザーが見つかりません');
             return;
         }
         
@@ -3531,10 +3431,8 @@ function initAdminPage() {
         // 初期データの読み込み
         loadAttendanceData();
         
-        console.log('✅ 管理者ページ初期化完了');
         
     } catch (error) {
-        console.error('❌ 管理者ページ初期化エラー:', error);
         showError('管理者ページの初期化に失敗しました');
     }
 }
@@ -3594,7 +3492,6 @@ function initAdminTabs() {
  * タブ切り替え機能
  */
 function switchTab(tabName) {
-    console.log('🔄 タブ切り替え:', tabName);
     
     // 全てのタブボタンを非アクティブ
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -3650,4 +3547,3 @@ window.inviteNewEmployee = inviteNewEmployee;
 window.initAdminPage = initAdminPage;
 window.switchTab = switchTab;
 
-console.log('✅ admin.js ユーザー管理機能付き読み込み完了');

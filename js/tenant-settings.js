@@ -8,7 +8,6 @@
  * - 通知設定
  */
 
-console.log('tenant-settings.js loaded');
 
 // ================ テナント設定のデフォルト値 ================
 
@@ -89,7 +88,6 @@ const DEFAULT_TENANT_SETTINGS = {
 async function getTenantSettings(tenantId) {
     try {
         if (!tenantId) {
-            console.warn('テナントIDが指定されていません');
             return DEFAULT_TENANT_SETTINGS;
         }
         
@@ -103,11 +101,9 @@ async function getTenantSettings(tenantId) {
             // デフォルト設定とマージ
             return mergeSettings(DEFAULT_TENANT_SETTINGS, settings);
         } else {
-            console.log('設定が見つかりません。デフォルト設定を使用します:', tenantId);
             return DEFAULT_TENANT_SETTINGS;
         }
     } catch (error) {
-        console.error('テナント設定取得エラー:', error);
         return DEFAULT_TENANT_SETTINGS;
     }
 }
@@ -135,7 +131,6 @@ async function saveTenantSettings(tenantId, settings) {
             .doc('config')
             .set(settingsData, { merge: true });
         
-        console.log('テナント設定保存完了:', tenantId);
         
         // キャッシュを更新
         if (window.currentTenant && window.currentTenant.id === tenantId) {
@@ -144,7 +139,6 @@ async function saveTenantSettings(tenantId, settings) {
         
         return true;
     } catch (error) {
-        console.error('テナント設定保存エラー:', error);
         throw error;
     }
 }
@@ -191,10 +185,8 @@ async function initializeTenantSettings(tenantId, companyInfo = {}) {
         };
         
         await saveTenantSettings(tenantId, initialSettings);
-        console.log('テナント設定初期化完了:', tenantId);
         return true;
     } catch (error) {
-        console.error('テナント設定初期化エラー:', error);
         throw error;
     }
 }
@@ -209,7 +201,6 @@ async function getTenantSites(tenantId) {
         const settings = await getTenantSettings(tenantId);
         return settings.sites.sites || [];
     } catch (error) {
-        console.error('サイト情報取得エラー:', error);
         return [];
     }
 }
@@ -228,7 +219,6 @@ async function saveTenantSites(tenantId, sites) {
         await saveTenantSettings(tenantId, currentSettings);
         return true;
     } catch (error) {
-        console.error('サイト情報保存エラー:', error);
         throw error;
     }
 }
@@ -243,7 +233,6 @@ async function getAttendanceSettings(tenantId) {
         const settings = await getTenantSettings(tenantId);
         return settings.attendance || DEFAULT_TENANT_SETTINGS.attendance;
     } catch (error) {
-        console.error('勤怠設定取得エラー:', error);
         return DEFAULT_TENANT_SETTINGS.attendance;
     }
 }
@@ -262,4 +251,3 @@ window.mergeSettings = mergeSettings;
 // デフォルト設定もエクスポート
 window.DEFAULT_TENANT_SETTINGS = DEFAULT_TENANT_SETTINGS;
 
-console.log('テナント設定管理機能が初期化されました');

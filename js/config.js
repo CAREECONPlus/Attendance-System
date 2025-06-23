@@ -16,5 +16,4 @@ if (typeof window !== 'undefined') {
         measurementId: "G-8DY7MWM44W"
     };
     
-    console.log('🔐 Firebase設定読み込み完了（制限付きAPIキー使用）');
 }

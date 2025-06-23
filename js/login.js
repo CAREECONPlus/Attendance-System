@@ -1,7 +1,6 @@
 /**
  * 勤怠管理システム - ログイン機能（簡略化版 v2）
  */
-console.log('login.js loaded - Simplified version v2');
 
 // 初期化フラグ
 let loginInitialized = false;
@@ -29,16 +28,13 @@ function waitForFirebase() {
  */
 async function initLogin() {
     if (loginInitialized) {
-        console.log('⚠️ ログイン機能は既に初期化済みです');
         return;
     }
     
-    console.log('🚀 ログイン機能初期化開始');
     
     try {
         // Firebase初期化完了を待つ
         await waitForFirebase();
-        console.log('✅ Firebase初期化確認完了');
         
         // ログインフォーム
         const loginForm = document.getElementById('loginForm');
@@ -50,9 +46,7 @@ async function initLogin() {
             // 新しいフォームにイベントリスナーを追加
             const freshLoginForm = document.getElementById('loginForm');
             freshLoginForm.addEventListener('submit', handleLogin);
-            console.log('✅ ログインフォーム設定完了');
         } else {
-            console.warn('⚠️ ログインフォームが見つかりません');
         }
         
         // 登録フォーム
@@ -65,9 +59,7 @@ async function initLogin() {
             // 新しいフォームにイベントリスナーを追加
             const freshRegisterForm = document.getElementById('registerForm');
             freshRegisterForm.addEventListener('submit', handleRegister);
-            console.log('✅ 登録フォーム設定完了');
         } else {
-            console.warn('⚠️ 登録フォームが見つかりません');
         }
         
         // フォーム切り替えボタン
@@ -99,10 +91,8 @@ async function initLogin() {
             await initInviteSystem();
         }
         
-        console.log('🎉 ログイン機能初期化完了');
         
     } catch (error) {
-        console.error('❌ ログイン初期化エラー:', error);
         // 3秒後に再試行
         setTimeout(() => {
             loginInitialized = false;
@@ -116,7 +106,6 @@ async function initLogin() {
  */
 async function handleLogin(e) {
     e.preventDefault();
-    console.log('🔐 ログイン処理開始');
     
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
@@ -138,11 +127,9 @@ async function handleLogin(e) {
         // Firebase認証
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
-        console.log('✅ Firebase認証成功:', user.uid);
         
         // ユーザーのテナント情報を取得
         const userTenantId = await determineUserTenant(user.email);
-        console.log('🏢 ユーザーテナント:', userTenantId);
         
         // テナント対応のユーザーデータ取得
         let userData;
@@ -155,13 +142,11 @@ async function handleLogin(e) {
             
             if (userDoc.exists) {
                 userData = userDoc.data();
-                console.log('✅ テナント内ユーザーデータ取得:', userData);
             } else {
                 // フォールバック: 従来のusersコレクションから取得
                 userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
                 if (userDoc.exists) {
                     userData = userDoc.data();
-                    console.log('✅ 従来のユーザーデータ取得（フォールバック）:', userData);
                 } else {
                     throw new Error('ユーザーデータが見つかりません');
                 }
@@ -173,7 +158,6 @@ async function handleLogin(e) {
                 throw new Error('ユーザーデータが見つかりません');
             }
             userData = userDoc.data();
-            console.log('✅ 従来のユーザーデータ取得:', userData);
         }
         
         // ユーザーのロールを決定
@@ -188,9 +172,7 @@ async function handleLogin(e) {
                     role: 'super_admin',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                console.log('✅ super_adminロールに強制更新:', user.email);
             } else {
-                console.log('✅ 既にsuper_adminロール:', user.email);
             }
         }
         
@@ -203,11 +185,9 @@ async function handleLogin(e) {
             tenantId: userTenantId || userData.tenantId
         };
         
-        console.log('🎉 ログイン成功:', window.currentUser);
         
         // テナント情報をURLに反映（スーパー管理者以外）
         if (userTenantId && userRole !== 'super_admin') {
-            console.log('🏢 テナント専用URLにリダイレクト:', userTenantId);
             const tenantUrl = generateSuccessUrl(userTenantId);
             window.location.href = tenantUrl;
             return;
@@ -215,7 +195,6 @@ async function handleLogin(e) {
         
         // 適切なページに遷移
         if (window.currentUser.role === 'admin' || window.currentUser.role === 'super_admin') {
-            console.log('👑 管理者画面に遷移 (role:', window.currentUser.role + ')');
             showPage('admin');
             // 管理者画面の初期化
             setTimeout(() => {
@@ -224,7 +203,6 @@ async function handleLogin(e) {
                 }
             }, 200);
         } else {
-            console.log('👤 従業員画面に遷移');
             showPage('employee');
             // 従業員画面の初期化
             setTimeout(() => {
@@ -235,7 +213,6 @@ async function handleLogin(e) {
         }
         
     } catch (error) {
-        console.error('❌ ログインエラー:', error);
         
         let message = 'ログインに失敗しました';
         if (error.code === 'auth/user-not-found') {
@@ -263,7 +240,6 @@ async function handleLogin(e) {
  */
 async function handleRegister(e) {
     e.preventDefault();
-    console.log('👤 登録処理開始');
     
     const email = document.getElementById('registerEmail')?.value?.trim();
     const password = document.getElementById('registerPassword')?.value?.trim();
@@ -299,7 +275,6 @@ async function handleRegister(e) {
         
         // スーパー管理者の場合は従来の処理
         if (email === 'dxconsulting.branu2@gmail.com') {
-            console.log('🔥 スーパー管理者として登録:', email);
             
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
@@ -315,7 +290,6 @@ async function handleRegister(e) {
             };
             
             await firebase.firestore().collection('global_users').doc(email).set(userData);
-            console.log('✅ スーパー管理者登録完了');
             
             registrationResult = { success: true, user: user };
             
@@ -337,10 +311,8 @@ async function handleRegister(e) {
         // フォームをリセット
         e.target.reset();
         
-        console.log('🎉 登録完了');
         
     } catch (error) {
-        console.error('❌ 登録エラー:', error);
         
         let message = '登録に失敗しました';
         if (error.code === 'auth/email-already-in-use') {
@@ -365,13 +337,11 @@ async function handleRegister(e) {
  * 認証状態変化の処理
  */
 async function handleAuthStateChange(user) {
-    console.log('🔐 認証状態変化:', user ? user.uid : 'null');
     
     if (user) {
         try {
             // ユーザーのテナント情報を取得
             const userTenantId = await determineUserTenant(user.email);
-            console.log('🏢 ユーザーテナント (認証状態変化):', userTenantId);
             
             // テナント対応のユーザーデータ取得
             let userData;
@@ -413,9 +383,7 @@ async function handleAuthStateChange(user) {
                             role: 'super_admin',
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
-                        console.log('✅ super_adminロールに強制更新 (認証状態変化時):', user.email);
                     } else {
-                        console.log('✅ 既にsuper_adminロール (認証状態変化時):', user.email);
                     }
                 }
                 
@@ -428,13 +396,11 @@ async function handleAuthStateChange(user) {
                     tenantId: userTenantId || userData.tenantId
                 };
                 
-                console.log('✅ 認証済みユーザー設定完了:', window.currentUser);
                 
                 // テナント情報をURLに反映（スーパー管理者以外）
                 if (userTenantId && userRole !== 'super_admin') {
                     const currentTenantFromUrl = getTenantFromURL();
                     if (currentTenantFromUrl !== userTenantId) {
-                        console.log('🏢 テナント専用URLにリダイレクト (認証状態変化):', userTenantId);
                         const tenantUrl = generateSuccessUrl(userTenantId);
                         window.location.href = tenantUrl;
                         return;
@@ -446,7 +412,6 @@ async function handleAuthStateChange(user) {
                 if (!currentPage || currentPage.id === 'login-page') {
                     // ログインページ表示中の場合のみ画面遷移
                     if (userRole === 'admin' || userRole === 'super_admin') {
-                        console.log('👑 管理者画面に遷移 (認証状態変化 role:', userRole + ')');
                         showPage('admin');
                         setTimeout(() => {
                             if (typeof initAdminPage === 'function') {
@@ -454,7 +419,6 @@ async function handleAuthStateChange(user) {
                             }
                         }, 200);
                     } else {
-                        console.log('👤 従業員画面に遷移 (認証状態変化)');
                         showPage('employee');
                         setTimeout(() => {
                             if (typeof initEmployeePage === 'function') {
@@ -464,18 +428,15 @@ async function handleAuthStateChange(user) {
                     }
                 }
             } else {
-                console.error('❌ ユーザーデータが見つかりません');
                 await firebase.auth().signOut();
             }
         } catch (error) {
-            console.error('❌ ユーザーデータ取得エラー:', error);
             await firebase.auth().signOut();
         }
     } else {
         // ログアウト状態
         window.currentUser = null;
         showPage('login');
-        console.log('✅ ログアウト状態');
     }
 }
 
@@ -495,7 +456,6 @@ function showRegisterForm() {
     if (showLoginBtn) showLoginBtn.style.display = 'inline';
     if (toggleText) toggleText.textContent = '既にアカウントをお持ちの方は';
     
-    console.log('🔄 登録フォームに切り替え');
 }
 
 /**
@@ -514,7 +474,6 @@ function showLoginForm() {
     if (showLoginBtn) showLoginBtn.style.display = 'none';
     if (toggleText) toggleText.textContent = 'アカウントをお持ちでない方は';
     
-    console.log('🔄 ログインフォームに切り替え');
 }
 
 /**
@@ -530,7 +489,6 @@ function showError(message) {
         }, 5000);
     }
     
-    console.error('❌ エラー:', message);
 }
 
 /**
@@ -546,7 +504,6 @@ function showRegisterError(message) {
         }, 5000);
     }
     
-    console.error('❌ 登録エラー:', message);
 }
 
 // showPage関数はutils.jsで定義済み
@@ -555,7 +512,6 @@ function showRegisterError(message) {
  * DOM読み込み完了時の初期化
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('📄 DOM読み込み完了 - ログイン初期化開始');
     
     // 初期状態では全ページを非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page, #admin-request-page')
@@ -565,7 +521,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initializeTenant();
     } catch (error) {
-        console.error('❌ テナント初期化エラー:', error);
     }
     
     // 少し遅延させてFirebase初期化を確実に待つ
@@ -580,9 +535,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.signOut = async function() {
     try {
         await firebase.auth().signOut();
-        console.log('✅ ログアウト成功');
     } catch (error) {
-        console.error('❌ ログアウトエラー:', error);
     }
 };
 
@@ -593,7 +546,6 @@ window.getCurrentUser = function() {
 window.checkAuth = function(requiredRole) {
     const user = window.getCurrentUser();
     if (!user) {
-        console.log('❌ ユーザーが認証されていません');
         showPage('login');
         return false;
     }
@@ -602,11 +554,9 @@ window.checkAuth = function(requiredRole) {
         // 管理者権限チェック（adminまたはsuper_adminで満たす）
         if (requiredRole === 'admin') {
             if (user.role !== 'admin' && user.role !== 'super_admin') {
-                console.log(`❌ 権限不足: 要求=${requiredRole}, 実際=${user.role}`);
                 return false;
             }
         } else if (user.role !== requiredRole) {
-            console.log(`❌ 権限不足: 要求=${requiredRole}, 実際=${user.role}`);
             return false;
         }
     }
@@ -617,4 +567,3 @@ window.checkAuth = function(requiredRole) {
 window.showPage = showPage;
 
 
-console.log('✅ login.js 読み込み完了');

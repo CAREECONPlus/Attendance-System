@@ -1,4 +1,3 @@
-console.log('auth.js loaded');
 
 /**
  * 勤怠管理システム - Firebase認証機能 (v8 SDK対応版)
@@ -18,11 +17,9 @@ function initAuth() {
     firestoreDb = window.db;
     
     if (!firebaseAuth || !firestoreDb) {
-        console.error('Firebase が初期化されていません');
         return;
     }
     
-    console.log('Firebase Auth初期化完了');
 }
 
 /**
@@ -37,7 +34,6 @@ async function registerUser(email, password, displayName, role = 'employee') {
     // セキュリティ: 通常の登録では管理者権限を付与しない
     if (role === 'admin' || role === 'super_admin') {
         role = 'employee';
-        console.warn('⚠️ 通常の登録フローでは管理者権限は付与されません。従業員として登録します。');
     }
     try {
         // Firebase Authenticationでユーザー作成
@@ -60,11 +56,9 @@ async function registerUser(email, password, displayName, role = 'employee') {
             siteHistory: []
         });
         
-        console.log('ユーザー登録成功:', user.email);
         return { success: true, user: user };
         
     } catch (error) {
-        console.error('ユーザー登録エラー:', error);
         return { success: false, error: error.message };
     }
 }
@@ -80,11 +74,9 @@ async function loginUser(email, password) {
         const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        console.log('ログイン成功:', user.email);
         return { success: true, user: user };
         
     } catch (error) {
-        console.error('ログインエラー:', error);
         return { success: false, error: error.message };
     }
 }
@@ -96,11 +88,9 @@ async function loginUser(email, password) {
 async function logoutUser() {
     try {
         await firebaseAuth.signOut();
-        console.log('ログアウト成功');
         return { success: true };
         
     } catch (error) {
-        console.error('ログアウトエラー:', error);
         return { success: false, error: error.message };
     }
 }
@@ -136,12 +126,10 @@ async function getUserRole(userId) {
                 userData: userData
             };
         } else {
-            console.warn('ユーザー情報が見つかりません:', userId);
             return { success: false, error: 'ユーザー情報が見つかりません' };
         }
         
     } catch (error) {
-        console.error('ユーザーロール取得エラー:', error);
         return { success: false, error: error.message };
     }
 }
@@ -153,7 +141,6 @@ async function getUserRole(userId) {
  */
 function onAuthChanged(callback) {
     if (!firebaseAuth) {
-        console.error('Firebase Authが初期化されていません');
         return () => {};
     }
     
@@ -184,4 +171,3 @@ window.getCurrentUser = getCurrentUser;
 window.getUserRole = getUserRole;
 window.onAuthChanged = onAuthChanged;
 
-console.log('Auth関数をグローバルにエクスポートしました');

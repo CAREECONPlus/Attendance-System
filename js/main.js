@@ -39,9 +39,6 @@ window.getGlobalUserDoc = function(userEmail) {
 // デバッグ用のグローバル関数（開発環境のみ）
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     window.debugInfo = function() {
-        console.log('Current Tenant:', window.currentTenant);
-        console.log('Current User:', window.currentUser);
-        console.log('Auth Status:', firebase.auth().currentUser);
         return {
             tenant: window.currentTenant,
             user: window.currentUser,
@@ -60,8 +57,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     };
     
     window.testTenantAccess = function(collection) {
-        console.log('Collection path for:', collection);
-        console.log('Result:', getTenantCollection(collection));
         return getTenantCollection(collection);
     };
 }

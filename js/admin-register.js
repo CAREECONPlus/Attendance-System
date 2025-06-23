@@ -2,7 +2,6 @@
  * 管理者登録フォーム専用JavaScript
  */
 
-console.log('admin-register.js loaded');
 
 // Firebase初期化待ち
 let firebaseInitialized = false;
@@ -37,7 +36,6 @@ function waitForFirebase() {
  */
 async function handleAdminRegister(e) {
     e.preventDefault();
-    console.log('👑 管理者登録処理開始');
     
     const email = document.getElementById('adminEmail')?.value?.trim();
     const password = document.getElementById('adminPassword')?.value?.trim();
@@ -74,7 +72,6 @@ async function handleAdminRegister(e) {
     
     try {
         // 管理者登録依頼をadmin_requestsコレクションに保存
-        console.log('📝 管理者登録依頼を送信中...');
         const requestData = {
             requesterEmail: email,
             requesterName: displayName,
@@ -88,13 +85,11 @@ async function handleAdminRegister(e) {
         };
         
         const requestRef = await firebase.firestore().collection('admin_requests').add(requestData);
-        console.log('✅ 管理者登録依頼を送信:', requestRef.id);
         
         // メール通知を送信
         const emailResult = await sendAdminRequestNotification(requestData, requestRef.id);
         if (!emailResult.success) {
-            console.warn('⚠️ メール送信に失敗しましたが、依頼は正常に保存されました:', emailResult.error);
-        }
+            }
         
         // 成功メッセージ表示
         showMessage('管理者登録依頼を送信しました。承認をお待ちください。', 'success');
@@ -102,10 +97,8 @@ async function handleAdminRegister(e) {
         // フォームをリセット
         document.getElementById('adminRegisterForm').reset();
         
-        console.log('✅ 管理者登録依頼送信完了:', email);
         
     } catch (error) {
-        console.error('❌ 管理者登録エラー:', error);
         
         let message = '管理者登録に失敗しました';
         
@@ -164,33 +157,27 @@ async function initAdminRegister() {
     try {
         // Firebase初期化待ち
         await waitForFirebase();
-        console.log('✅ Firebase初期化完了');
         
         // フォームイベントリスナー設定
         const form = document.getElementById('adminRegisterForm');
         if (form) {
             form.addEventListener('submit', handleAdminRegister);
-            console.log('✅ 管理者登録フォームイベントリスナー設定完了');
         }
         
-        console.log('✅ 管理者登録ページ初期化完了');
         
     } catch (error) {
-        console.error('❌ 管理者登録ページ初期化エラー:', error);
         showMessage('システムの初期化に失敗しました', 'error');
     }
 }
 
 // DOMContentLoaded後に初期化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM読み込み完了 - 管理者登録ページ');
     initAdminRegister();
 });
 
 // window.onloadでのバックアップ初期化
 window.onload = function() {
     if (!firebaseInitialized) {
-        console.warn('Firebase未初期化 - バックアップ初期化を実行');
         setTimeout(initAdminRegister, 500);
     }
 };

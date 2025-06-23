@@ -2,13 +2,11 @@
  * 管理者向け招待リンク生成・管理機能
  */
 
-console.log('invite-admin.js loaded');
 
 /**
  * 招待リンク生成機能の初期化
  */
 function initInviteAdmin() {
-    console.log('🔗 招待リンク管理機能初期化開始');
     
     // 招待リンク生成ボタン
     const generateBtn = document.getElementById('generate-invite-btn');
@@ -28,7 +26,6 @@ function initInviteAdmin() {
         refreshBtn.addEventListener('click', loadInviteHistory);
     }
     
-    console.log('✅ 招待リンク管理機能初期化完了');
 }
 
 /**
@@ -48,7 +45,6 @@ function generateRandomToken() {
  * 招待リンクを生成
  */
 async function generateInviteLink() {
-    console.log('🎫 招待リンク生成開始');
     
     const generateBtn = document.getElementById('generate-invite-btn');
     const originalText = generateBtn.textContent;
@@ -109,7 +105,6 @@ async function generateInviteLink() {
             .collection('invite_codes')
             .add(inviteData);
         
-        console.log('✅ 招待コードをFirestoreに保存:', inviteRef.id);
         
         // 招待リンクを生成
         const baseUrl = window.location.origin + window.location.pathname;
@@ -130,7 +125,6 @@ async function generateInviteLink() {
         // 招待履歴を更新
         await loadInviteHistory();
         
-        console.log('🎉 招待リンク生成完了:', inviteLink);
         
         // 成功メッセージ
         if (typeof showSuccess === 'function') {
@@ -138,7 +132,6 @@ async function generateInviteLink() {
         }
         
     } catch (error) {
-        console.error('❌ 招待リンク生成エラー:', error);
         
         let message = '招待リンクの生成に失敗しました';
         if (error.message) {
@@ -191,14 +184,12 @@ async function copyInviteLink() {
             copyBtn.classList.remove('btn-success');
         }, 2000);
         
-        console.log('✅ 招待リンクをクリップボードにコピー');
         
         if (typeof showSuccess === 'function') {
             showSuccess('招待リンクをクリップボードにコピーしました！');
         }
         
     } catch (error) {
-        console.error('❌ クリップボードコピーエラー:', error);
         
         // フォールバック: テキストを選択状態にする
         inviteLinkInput.select();
@@ -212,11 +203,9 @@ async function copyInviteLink() {
  * 招待履歴を読み込み
  */
 async function loadInviteHistory() {
-    console.log('📋 招待履歴読み込み開始');
     
     const historyContainer = document.getElementById('invite-history-data');
     if (!historyContainer) {
-        console.warn('⚠️ 招待履歴コンテナが見つかりません');
         return;
     }
     
@@ -288,10 +277,8 @@ async function loadInviteHistory() {
         
         historyContainer.innerHTML = historyRows.join('');
         
-        console.log('✅ 招待履歴読み込み完了:', inviteSnapshot.size, '件');
         
     } catch (error) {
-        console.error('❌ 招待履歴読み込みエラー:', error);
         historyContainer.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #dc3545;">❌ 読み込みに失敗しました</td></tr>';
     }
 }
@@ -311,7 +298,6 @@ async function toggleInviteStatus(inviteId, currentStatus) {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         
-        console.log('✅ 招待コード状態更新:', inviteId, newStatus);
         
         // 履歴を再読み込み
         await loadInviteHistory();
@@ -322,7 +308,6 @@ async function toggleInviteStatus(inviteId, currentStatus) {
         }
         
     } catch (error) {
-        console.error('❌ 招待コード状態更新エラー:', error);
         
         if (typeof showError === 'function') {
             showError('状態の更新に失敗しました');
@@ -362,4 +347,3 @@ window.copyInviteLink = copyInviteLink;
 window.loadInviteHistory = loadInviteHistory;
 window.toggleInviteStatus = toggleInviteStatus;
 
-console.log('✅ invite-admin.js 読み込み完了');

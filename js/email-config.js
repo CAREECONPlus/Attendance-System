@@ -24,10 +24,8 @@ const EMAIL_CONFIG = {
 function initEmailJS() {
     if (typeof emailjs !== 'undefined') {
         emailjs.init(EMAIL_CONFIG.PUBLIC_KEY);
-        console.log('✅ EmailJS初期化完了');
         return true;
     } else {
-        console.error('❌ EmailJSライブラリが読み込まれていません');
         return false;
     }
 }
@@ -41,7 +39,6 @@ async function sendAdminRequestNotification(requestData, requestId) {
             throw new Error('EmailJS初期化失敗');
         }
 
-        console.log('📧 管理者登録依頼通知メール送信開始...');
         
         const templateParams = {
             // EmailJSテンプレートで使用する変数
@@ -70,11 +67,9 @@ async function sendAdminRequestNotification(requestData, requestId) {
             templateParams
         );
         
-        console.log('✅ 管理者登録依頼通知メール送信完了:', response);
         return { success: true, response };
         
     } catch (error) {
-        console.error('❌ 管理者登録依頼通知メール送信エラー:', error);
         return { success: false, error: error.message };
     }
 }
@@ -84,4 +79,3 @@ window.EMAIL_CONFIG = EMAIL_CONFIG;
 window.sendAdminRequestNotification = sendAdminRequestNotification;
 window.initEmailJS = initEmailJS;
 
-console.log('📧 Email設定ファイル読み込み完了');

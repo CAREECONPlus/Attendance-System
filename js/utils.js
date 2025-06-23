@@ -5,7 +5,6 @@
  * 日付処理、時間計算、Firebase操作などの基本的な機能を提供します。
  */
 
-console.log('utils.js loaded - Firebase v8 version');
 
 // ================ データアクセス関連（Firebase v8対応版） ================
 
@@ -74,7 +73,6 @@ async function getAttendanceRecords(userId = null, date = null) {
         
         return records;
     } catch (error) {
-        console.error('勤怠記録取得エラー:', error);
         throw error;
     }
 }
@@ -108,7 +106,6 @@ async function getUsers(role = null) {
         
         return users;
     } catch (error) {
-        console.error('ユーザーデータ取得エラー:', error);
         throw error;
     }
 }
@@ -134,7 +131,6 @@ async function getUserById(userId) {
             return null;
         }
     } catch (error) {
-        console.error('ユーザー取得エラー:', error);
         throw error;
     }
 }
@@ -240,7 +236,6 @@ function calculateTimeDiff(startTime, endTime) {
             formatted: `${diffHrs}時間${diffMins}分`
         };
     } catch (error) {
-        console.error('時間差計算エラー:', error);
         return { hours: 0, minutes: 0, totalMinutes: 0, formatted: '0時間0分' };
     }
 }
@@ -378,7 +373,6 @@ function getJapaneseDayOfWeek(date) {
 function getElement(id) {
     const element = document.getElementById(id);
     if (!element) {
-        console.warn(`Element with id "${id}" not found`);
     }
     return element;
 }
@@ -388,7 +382,6 @@ function getElement(id) {
  * @param {string} page 表示するページ名（login/register/employee/admin）
  */
 function showPage(page) {
-    console.log(`画面切り替え: ${page}`);
 
     // すべての画面を非表示
     document.querySelectorAll('#login-page, #employee-page, #admin-page, #register-page').forEach(el => {
@@ -399,14 +392,11 @@ function showPage(page) {
     const pageElement = document.getElementById(`${page}-page`);
     if (pageElement) {
         pageElement.classList.remove('hidden');
-        console.log(`${page}-page を表示`);
     } else {
-        console.error(`ページ要素が見つかりません: ${page}-page`);
         // フォールバックとしてログイン画面を表示
         const loginPage = document.getElementById('login-page');
         if (loginPage) {
             loginPage.classList.remove('hidden');
-            console.log('ログイン画面にフォールバック');
         }
         return;
     }
@@ -438,13 +428,11 @@ function checkAuth(requiredRole) {
     const user = getCurrentUser();
     
     if (!user) {
-        console.log('ユーザーが認証されていません');
         showPage('login');
         return false;
     }
     
     if (requiredRole && user.role !== requiredRole) {
-        console.log(`権限不足: 要求=${requiredRole}, 実際=${user.role}`);
         // 権限がない場合は適切な画面にリダイレクト
         if (user.role === 'admin') {
             showPage('admin');

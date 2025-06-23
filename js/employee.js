@@ -1,6 +1,5 @@
 // employee.js - 従業員ページの機能（完全版 - 日付修正版）
 
-console.log('employee.js loading...');
 
 // 現在のユーザー情報とグローバル変数
 let currentUser = null;
@@ -25,11 +24,6 @@ Object.defineProperty(window, 'todayAttendanceData', {
         return _todayAttendanceData;
     },
     set: function(value) {
-        console.log('🔍 todayAttendanceData変更:', {
-            old: _todayAttendanceData,
-            new: value,
-            stack: new Error().stack
-        });
         _todayAttendanceData = value;
     }
 });
@@ -40,11 +34,6 @@ Object.defineProperty(window, 'currentAttendanceId', {
         return _currentAttendanceId;
     },
     set: function(value) {
-        console.log('🔍 currentAttendanceId変更:', {
-            old: _currentAttendanceId,
-            new: value,
-            stack: new Error().stack
-        });
         _currentAttendanceId = value;
     }
 });
@@ -57,19 +46,12 @@ function getTodayJST() {
     const jstDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
     const today = jstDate.toISOString().split('T')[0];
     
-    console.log('🕐 日付計算詳細:', {
-        現在時刻_UTC: now.toISOString(),
-        現在時刻_JST: jstDate.toISOString(),
-        今日の日付: today,
-        タイムゾーンオフセット: now.getTimezoneOffset()
-    });
     
     return today;
 }
 
 // 🔧 日付と現場設定の復元機能
 function restoreDateAndSiteSettings() {
-    console.log('📅 日付と現場設定を復元中...');
     
     try {
         // LocalStorageから最後に選択した現場名を復元
@@ -81,9 +63,7 @@ function restoreDateAndSiteSettings() {
                 const option = Array.from(siteSelect.options).find(opt => opt.value === savedSiteName);
                 if (option) {
                     siteSelect.value = savedSiteName;
-                    console.log('✅ 前回選択した現場を復元:', savedSiteName);
                 } else {
-                    console.log('⚠️ 保存された現場名がオプションに存在しません:', savedSiteName);
                 }
             }
         }
@@ -94,14 +74,11 @@ function restoreDateAndSiteSettings() {
             const notesTextarea = document.getElementById('work-notes');
             if (notesTextarea) {
                 notesTextarea.value = savedNotes;
-                console.log('✅ 前回のメモを復元');
             }
         }
         
-        console.log('✅ 日付と現場設定の復元完了');
         
     } catch (error) {
-        console.error('❌ 日付と現場設定の復元エラー:', error);
     }
 }
 
@@ -112,31 +89,26 @@ function saveDateAndSiteSettings() {
         const siteSelect = document.getElementById('site-name');
         if (siteSelect && siteSelect.value && siteSelect.value !== '') {
             localStorage.setItem('lastSelectedSite', siteSelect.value);
-            console.log('💾 現場選択を保存:', siteSelect.value);
         }
         
         // 現在のメモを保存
         const notesTextarea = document.getElementById('work-notes');
         if (notesTextarea && notesTextarea.value.trim()) {
             localStorage.setItem('lastWorkNotes', notesTextarea.value);
-            console.log('💾 メモを保存');
         }
         
     } catch (error) {
-        console.error('❌ 設定保存エラー:', error);
     }
 }
 
 // 🔧 現場選択変更の処理
 function handleSiteSelection() {
-    console.log('🏢 現場選択が変更されました');
     
     try {
         const siteSelect = document.getElementById('site-name');
         const manualInput = document.getElementById('site-name-manual');
         
         if (!siteSelect || !manualInput) {
-            console.warn('⚠️ 現場選択要素が見つかりません');
             return;
         }
         
@@ -145,20 +117,17 @@ function handleSiteSelection() {
             manualInput.style.display = 'block';
             manualInput.required = true;
             manualInput.focus();
-            console.log('📝 手動入力モードに切り替え');
         } else {
             // 選択モードの場合
             manualInput.style.display = 'none';
             manualInput.required = false;
             manualInput.value = '';
-            console.log('📋 選択モード:', siteSelect.value);
             
             // 選択した現場名を保存
             saveDateAndSiteSettings();
         }
         
     } catch (error) {
-        console.error('❌ 現場選択変更エラー:', error);
     }
 }
 
@@ -166,33 +135,23 @@ function handleSiteSelection() {
 
 // 🔧 修正版 restoreTodayAttendanceState関数（日付修正）
 async function restoreTodayAttendanceState() {
-    console.log('🔄 今日の勤怠状態を復元中...');
     
     try {
         if (!currentUser) {
-            console.error('❌ currentUserが設定されていません');
             return;
         }
         
         // 🎯 修正: JST確実取得
         const today = getTodayJST();
         
-        console.log('📅 正確な今日の日付:', today);
-        console.log('👤 検索対象ユーザー:', currentUser.uid);
         
         // 今日のデータのみを検索
         const todayQuery = getAttendanceCollection()
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today);
         
-        console.log('🔍 今日のデータをFirestoreで検索中...');
         const todaySnapshot = await todayQuery.get();
         
-        console.log('📊 今日のクエリ結果:', {
-            検索日付: today,
-            empty: todaySnapshot.empty,
-            size: todaySnapshot.size
-        });
         
         if (!todaySnapshot.empty) {
             // 今日のデータが見つかった場合
@@ -201,7 +160,6 @@ async function restoreTodayAttendanceState() {
             
             todaySnapshot.docs.forEach(doc => {
                 const data = doc.data();
-                console.log('📋 今日のデータ詳細:', data);
                 
                 if (!latestRecord || 
                     (data.createdAt && (!latestRecord.createdAt || data.createdAt > latestRecord.createdAt))) {
@@ -217,12 +175,10 @@ async function restoreTodayAttendanceState() {
                 ...latestRecord
             };
             
-            console.log('✅ 今日のデータ復元完了');
             await restoreCurrentState(latestRecord);
             
         } else {
             // 今日のデータがない場合は新規出勤待ち状態
-            console.log('📋 今日の勤怠記録なし - 新規出勤待ち状態');
             
             currentAttendanceId = null;
             todayAttendanceData = null;
@@ -232,17 +188,10 @@ async function restoreTodayAttendanceState() {
         
         // データ設定後の確認
         setTimeout(() => {
-            console.log('🔍 設定後確認:', {
-                currentAttendanceId,
-                todayAttendanceData: todayAttendanceData ? 
-                    { id: todayAttendanceData.id, status: todayAttendanceData.status, date: todayAttendanceData.date } : null
-            });
+            // Debug info available if needed
         }, 100);
         
     } catch (error) {
-        console.error('❌ 勤怠状態復元エラー:', error);
-        console.error('エラー詳細:', error.message);
-        console.error('エラーコード:', error.code);
         
         // エラー時はデフォルト状態
         currentAttendanceId = null;
@@ -254,12 +203,10 @@ async function restoreTodayAttendanceState() {
 
 // 現在の状態を復元
 async function restoreCurrentState(recordData) {
-    console.log('🔄 現在の状態を復元中...', recordData);
     
     try {
         // 勤務完了チェック
         if (recordData.endTime || recordData.status === 'completed') {
-            console.log('✅ 勤務完了状態を復元');
             updateClockButtons('completed');
             updateStatusDisplay('completed', recordData);
             return;
@@ -282,24 +229,20 @@ async function restoreCurrentState(recordData) {
         });
         
         if (activeBreakData) {
-            console.log('⏸️ 休憩中状態を復元');
             updateClockButtons('break');
             updateStatusDisplay('break', recordData, activeBreakData);
         } else {
-            console.log('💼 勤務中状態を復元');
             updateClockButtons('working');
             updateStatusDisplay('working', recordData);
         }
         
         // 🎯 重要：状態復元後に強制的にボタン表示を更新
         setTimeout(() => {
-            console.log('🔄 ボタン表示を再更新');
             const currentStatus = activeBreakData ? 'break' : 'working';
             updateClockButtons(currentStatus);
         }, 100);
         
     } catch (error) {
-        console.error('❌ 状態復元エラー:', error);
         updateClockButtons('working');
         updateStatusDisplay('working', recordData);
     }
@@ -307,16 +250,13 @@ async function restoreCurrentState(recordData) {
 
 // 🔧 修正版 1日1回制限チェック（日付修正）
 async function checkDailyLimit(userId) {
-    console.log('🔍 1日1回制限チェック開始');
     
     // 🎯 修正: JST確実取得
     const today = getTodayJST();
-    console.log('📅 今日の日付:', today);
     
     try {
         // メモリ内チェック（高速）
         if (todayAttendanceData && todayAttendanceData.date === today) {
-            console.log('🚫 メモリに既存の今日の記録があります:', todayAttendanceData);
             
             const message = `❌ 今日は既に出勤済みです！\n\n` +
                           `📋 出勤情報:\n` +
@@ -337,14 +277,10 @@ async function checkDailyLimit(userId) {
         
         const snapshot = await query.get();
         
-        console.log('📊 データベースクエリ結果:', {
-            isEmpty: snapshot.empty,
-            size: snapshot.size
-        });
+        // Query results available if needed
         
         if (!snapshot.empty) {
             const existingRecord = snapshot.docs[0].data();
-            console.log('❌ データベースに既存の出勤記録発見:', existingRecord);
             
             // グローバル変数を更新
             todayAttendanceData = {
@@ -365,11 +301,9 @@ async function checkDailyLimit(userId) {
             return false;
         }
         
-        console.log('✅ 今日の出勤記録なし - 出勤可能');
         return true;
         
     } catch (error) {
-        console.error('❌ 1日1回制限チェックエラー:', error);
         alert('出勤チェック中にエラーが発生しました。\n管理者にお問い合わせください。');
         return false;
     }
@@ -377,7 +311,6 @@ async function checkDailyLimit(userId) {
 
 // 状態テキスト変換
 function getStatusText(status) {
-    console.log('🔍 getStatusText呼び出し:', status, typeof status);
     
     const statusMap = {
         'working': '勤務中',
@@ -392,14 +325,12 @@ function getStatusText(status) {
     
     // より堅牢な日本語化処理
     if (!status) {
-        console.log('🔍 空のステータス:', status);
         return '不明';
     }
     
     const lowerStatus = String(status).toLowerCase();
     const result = statusMap[lowerStatus] || statusMap[status] || '不明';
     
-    console.log('🔍 ステータス変換:', status, '->', result);
     return result;
 }
 
@@ -434,7 +365,6 @@ function updateCurrentTime() {
 
 // イベントリスナーの設定
 function setupEmployeeEventListeners() {
-    console.log('🔘 イベントリスナーを設定中...');
     
     const clockInBtn = document.getElementById('clock-in-btn');
     const clockOutBtn = document.getElementById('clock-out-btn');
@@ -448,13 +378,11 @@ function setupEmployeeEventListeners() {
     if (breakEndBtn) breakEndBtn.addEventListener('click', handleBreakEnd);
     if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
     
-    console.log('✅ イベントリスナー設定完了');
 }
 
 // 現場選択の設定（直接入力対応）
 function setupSiteSelection() {
     // 直接入力に変更したため、特別な設定は不要
-    console.log('現場名は直接入力形式です');
 }
 
 // サイト一覧を読み込み（テナント設定から）
@@ -462,7 +390,6 @@ async function loadSiteOptions() {
     try {
         const tenantId = window.getCurrentTenantId ? window.getCurrentTenantId() : null;
         if (!tenantId) {
-            console.log('テナントID未設定 - デフォルトサイト設定を使用');
             return;
         }
         
@@ -486,10 +413,8 @@ async function loadSiteOptions() {
                 siteSelect.appendChild(option);
             });
             
-            console.log('✅ サイト一覧読み込み完了:', sites.length);
         }
     } catch (error) {
-        console.error('サイト一覧読み込みエラー:', error);
     }
 }
 
@@ -519,7 +444,6 @@ function getSiteNameFromSelection() {
     const manualInput = document.getElementById('site-name-manual');
     
     if (!siteSelect) {
-        console.error('❌ site-name要素が見つかりません');
         alert('現場名選択フォームに問題があります。\nページを再読み込みしてください。');
         return null;
     }
@@ -529,7 +453,6 @@ function getSiteNameFromSelection() {
     if (siteSelect.value === 'manual-input') {
         // 手動入力の場合
         if (!manualInput) {
-            console.error('❌ 手動入力フィールドが見つかりません');
             return null;
         }
         siteName = manualInput.value.trim();
@@ -548,17 +471,14 @@ function getSiteNameFromSelection() {
         }
     }
     
-    console.log('✅ 選択された現場:', siteName);
     return siteName;
 }
 
 // 🔧 修正版 handleClockIn関数（日付修正完全版）
 async function handleClockIn() {
-    console.log('🚀 出勤処理開始');
     
     // 二重実行防止
     if (dailyLimitProcessing) {
-        console.log('⚠️ 既に処理中です');
         alert('処理中です。しばらくお待ちください。');
         return;
     }
@@ -616,12 +536,7 @@ async function handleClockIn() {
         // 🆕 修正: getTodayJST()を使用
         const today = getTodayJST();
         
-        // デバッグ用ログ
-        console.log('🕐 時刻情報:', {
-            originalTime: now.toString(),
-            savedDate: today,
-            startTime: now.toLocaleTimeString('ja-JP')
-        });
+        // デバッグ用ログ available if needed
         
         const workNotesElement = document.getElementById('work-notes');
         const workNotes = workNotesElement ? workNotesElement.value.trim() : '';
@@ -641,13 +556,11 @@ async function handleClockIn() {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         };
         
-        console.log('💾 出勤データ保存中...', attendanceData);
         
         // Firestoreに保存
         const docRef = await getAttendanceCollection()
             .add(attendanceData);
         
-        console.log('✅ 出勤記録完了:', docRef.id);
         
         // グローバル変数更新
         currentAttendanceId = docRef.id;
@@ -674,7 +587,6 @@ async function handleClockIn() {
         dailyLimitProcessing = false;
         
     } catch (error) {
-        console.error('❌ 出勤処理エラー:', error);
         alert('出勤処理中にエラーが発生しました。\n' + error.message);
         
         restoreButton();
@@ -683,7 +595,6 @@ async function handleClockIn() {
 
 // 退勤処理（1日1回制限対応）
 async function handleClockOut() {
-    console.log('🏠 退勤処理を開始...');
     
     try {
         if (!currentUser || !currentAttendanceId) {
@@ -699,13 +610,11 @@ async function handleClockOut() {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        console.log('💾 退勤データを更新中...', updateData);
         
         await getAttendanceCollection()
             .doc(currentAttendanceId)
             .update(updateData);
         
-        console.log('✅ 退勤記録完了');
         
         // グローバル変数更新
         todayAttendanceData = {
@@ -724,14 +633,12 @@ async function handleClockOut() {
         loadRecentRecordsSafely();
         
     } catch (error) {
-        console.error('❌ 退勤エラー:', error);
         alert('退勤記録でエラーが発生しました: ' + error.message);
     }
 }
 
 // 🔧 修正版 休憩開始処理（日付修正）
 async function handleBreakStart() {
-    console.log('☕ 休憩開始処理...');
     
     try {
         if (!currentUser || !currentAttendanceId) {
@@ -789,14 +696,12 @@ async function handleBreakStart() {
         updateStatusDisplay('break', todayAttendanceData, breakData);
         
     } catch (error) {
-        console.error('❌ 休憩開始エラー:', error);
         alert('休憩記録でエラーが発生しました: ' + error.message);
     }
 }
 
 // 休憩終了処理
 async function handleBreakEnd() {
-    console.log('🔄 休憩終了処理...');
     
     try {
         if (!currentUser || !currentAttendanceId) {
@@ -827,7 +732,6 @@ async function handleBreakEnd() {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            console.log('✅ 休憩終了記録完了');
         } else {
             alert('休憩記録が見つかりませんでした');
             return;
@@ -849,14 +753,12 @@ async function handleBreakEnd() {
         updateStatusDisplay('working', todayAttendanceData);
         
     } catch (error) {
-        console.error('❌ 休憩終了エラー:', error);
         alert('休憩終了記録でエラーが発生しました: ' + error.message);
     }
 }
 
 // updateClockButtons関数
 function updateClockButtons(status) {
-    console.log('🔘 ボタン状態更新:', status);
     
     const clockInBtn = document.getElementById('clock-in-btn');
     const clockOutBtn = document.getElementById('clock-out-btn');
@@ -873,7 +775,6 @@ function updateClockButtons(status) {
     
     switch (status) {
         case 'waiting':
-            console.log('📋 出勤待ち状態');
             // 出勤ボタンのみ有効
             if (clockInBtn) {
                 clockInBtn.disabled = false;
@@ -894,7 +795,6 @@ function updateClockButtons(status) {
             break;
             
         case 'working':
-            console.log('💼 勤務中状態');
             // 出勤済み、退勤・休憩開始が有効
             if (clockInBtn) {
                 clockInBtn.disabled = true;
@@ -915,7 +815,6 @@ function updateClockButtons(status) {
             break;
             
         case 'break':
-            console.log('⏸️ 休憩中状態');
             // 出勤済み、退勤・休憩終了が有効
             if (clockInBtn) {
                 clockInBtn.disabled = true;
@@ -937,7 +836,6 @@ function updateClockButtons(status) {
             break;
             
         case 'completed':
-            console.log('🔒 勤務完了状態');
             // 全ボタン無効（勤務完了）
             if (clockInBtn) {
                 clockInBtn.disabled = true;
@@ -960,7 +858,6 @@ function updateClockButtons(status) {
     
     // 🎯 強制的にスタイルを再適用（キャッシュ問題対策）
     setTimeout(() => {
-        console.log('🔄 ボタンスタイル再適用');
         [clockInBtn, clockOutBtn, breakStartBtn, breakEndBtn].forEach(btn => {
             if (btn) {
                 // フォーカスを一瞬当てて外してスタイル更新を強制
@@ -973,7 +870,6 @@ function updateClockButtons(status) {
         });
     }, 50);
     
-    console.log('✅ ボタン状態更新完了');
 }
 
 // ステータス表示更新
@@ -1030,7 +926,6 @@ function updateStatusDisplay(status, attendanceData, breakData = null) {
 
 // 最近の記録を安全に読み込み（直近3日間のみ）
 async function loadRecentRecordsSafely() {
-    console.log('🔍 最近の記録を安全に読み込み中（直近3日間）...');
     
     const recentList = document.getElementById('recent-list');
     if (!recentList) return;
@@ -1047,7 +942,6 @@ async function loadRecentRecordsSafely() {
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 2); // 今日含めて3日間
         const threeDaysAgoString = threeDaysAgo.toISOString().split('T')[0];
         
-        console.log('📅 検索範囲:', threeDaysAgoString, '〜', today);
         
         // インデックス不要の簡素化クエリ（ユーザーIDのみでフィルター）
         const query = getAttendanceCollection()
@@ -1078,11 +972,9 @@ async function loadRecentRecordsSafely() {
             return;
         }
         
-        console.log('✅ 記録取得成功:', filteredSnapshot.size, '件（直近3日間）');
         displayRecentRecords(filteredSnapshot);
         
     } catch (error) {
-        console.error('❌ 記録読み込みエラー:', error);
         handleRecordLoadError(error);
     }
 }
@@ -1138,9 +1030,7 @@ function displayRecentRecords(snapshot) {
 
     let html = '';
     records.forEach(record => {
-        console.log('📋 記録表示:', record.id, 'ステータス:', record.status);
         const statusText = getStatusText(record.status);
-        console.log('📋 変換後ステータステキスト:', statusText);
         
         html += `
             <div class="record-item">
@@ -1165,7 +1055,6 @@ function displayRecentRecords(snapshot) {
 
 // 記録読み込みエラーの処理
 function handleRecordLoadError(error) {
-    console.log('🔧 記録読み込みエラーを処理中:', error.code);
     
     const recentList = document.getElementById('recent-list');
     if (recentList) {
@@ -1224,12 +1113,10 @@ function handleLogout() {
         
         firebase.auth().signOut()
             .then(() => {
-                console.log('✅ ログアウト完了');
                 // 変数クリアは onAuthStateChanged で実行される
                 showPage('login');
             })
             .catch((error) => {
-                console.error('❌ ログアウトエラー:', error);
                 alert('ログアウトでエラーが発生しました');
                 window.explicitLogout = false; // エラー時はフラグをリセット
             });
@@ -1238,7 +1125,6 @@ function handleLogout() {
 
 // データ取得を強制実行する関数
 async function forceDataReload() {
-    console.log('🔄 データを強制再読み込み');
     
     // 現在の変数をクリア
     currentAttendanceId = null;
@@ -1249,23 +1135,17 @@ async function forceDataReload() {
     
     // 結果確認
     setTimeout(() => {
-        console.log('🔍 再読み込み後の状態:', {
-            currentAttendanceId,
-            todayAttendanceData,
-            currentUser: currentUser?.email
-        });
+        // Debug info available if needed
     }, 200);
 }
 
 // グローバルエラーハンドリング
 window.addEventListener('unhandledrejection', function(event) {
     if (event.reason && event.reason.code) {
-        console.log('🔍 Firestoreエラーをキャッチ:', event.reason.code);
         
         // インデックスエラーなどを無視
         if (event.reason.code === 'failed-precondition' || 
             event.reason.code === 'permission-denied') {
-            console.log('🛠️ インデックスエラーを無視して続行');
             event.preventDefault();
         }
     }
@@ -1273,17 +1153,12 @@ window.addEventListener('unhandledrejection', function(event) {
 
 // 初期化実行
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📋 DOMContentLoaded - 従業員ページ初期化準備');
     // Firebase が読み込まれるまで少し待つ
     setTimeout(initEmployeePage, 500);
 });
 
 // デバッグ用関数
 function debugCurrentState() {
-    console.log('🔍 デバッグ：現在の状態');
-    console.log('currentUser:', currentUser?.email);
-    console.log('currentAttendanceId:', currentAttendanceId);
-    console.log('todayAttendanceData:', todayAttendanceData);
     
     // ボタンの現在の状態を確認
     const clockInBtn = document.getElementById('clock-in-btn');
@@ -1291,39 +1166,27 @@ function debugCurrentState() {
     const breakStartBtn = document.getElementById('break-start-btn');
     const breakEndBtn = document.getElementById('break-end-btn');
     
-    console.log('ボタン状態:', {
-        clockIn: { disabled: clockInBtn?.disabled, text: clockInBtn?.textContent },
-        clockOut: { disabled: clockOutBtn?.disabled, text: clockOutBtn?.textContent },
-        breakStart: { disabled: breakStartBtn?.disabled, text: breakStartBtn?.textContent },
-        breakEnd: { disabled: breakEndBtn?.disabled, text: breakEndBtn?.textContent }
-    });
+    // Button state info available if needed
     
     // 🆕 正確な今日の日付チェック
     const today = getTodayJST();
-    console.log('正確な今日の日付:', today);
-    console.log('記録の日付:', todayAttendanceData?.date);
 }
 
 // 強制的に勤務中状態に修正する緊急関数
 function forceWorkingState() {
-    console.log('🚨 緊急：勤務中状態に強制修正');
     
     if (todayAttendanceData) {
         updateClockButtons('working');
         updateStatusDisplay('working', todayAttendanceData);
-        console.log('✅ 勤務中状態に修正完了');
     } else {
-        console.error('❌ todayAttendanceData が存在しません');
         
         // todayAttendanceDataがない場合は再取得を試行
-        console.log('🔄 勤怠データ再取得を試行...');
         restoreTodayAttendanceState();
     }
 }
 
 // 状態を強制リセットして再初期化する関数
 function forceStateReset() {
-    console.log('🔄 状態を強制リセット');
     
     // グローバル変数をクリア
     currentAttendanceId = null;
@@ -1338,7 +1201,6 @@ function forceStateReset() {
 // 🆕 正確な日付でのテスト関数
 function testTodayDate() {
     const today = getTodayJST();
-    console.log('🧪 今日の日付テスト:', today);
     
     // 今日のデータを検索
     const query = getAttendanceCollection()
@@ -1346,13 +1208,9 @@ function testTodayDate() {
         .where('date', '==', today);
     
     query.get().then(snapshot => {
-        console.log('📊 今日のデータ件数:', snapshot.size);
         if (snapshot.empty) {
-            console.log('✅ 今日は出勤可能');
         } else {
-            console.log('❌ 今日は既に出勤済み');
             snapshot.docs.forEach(doc => {
-                console.log('今日のデータ:', doc.data());
             });
         }
     });
@@ -1362,7 +1220,6 @@ function testTodayDate() {
  * 従業員ページの初期化関数
  */
 function initEmployeePage() {
-    console.log('🔧 従業員ページを初期化中...');
     
     try {
         // 現在のユーザーを設定
@@ -1385,10 +1242,8 @@ function initEmployeePage() {
         // UI要素の設定
         setupEmployeeEventListeners();
         
-        console.log('✅ 従業員ページ初期化完了');
         
     } catch (error) {
-        console.error('❌ 従業員ページ初期化エラー:', error);
         showErrorMessage('従業員ページの初期化に失敗しました');
     }
 }
@@ -1433,4 +1288,3 @@ function setupEmployeeEventListeners() {
     }
 }
 
-console.log('✅ employee.js（完全版 - 日付修正版）読み込み完了');

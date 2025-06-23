@@ -3,7 +3,6 @@
  * 管理者が生成した招待リンクで従業員を安全に登録
  */
 
-console.log('invite-system.js loaded');
 
 /**
  * URLパラメータから招待トークンを取得
@@ -18,7 +17,6 @@ function getInviteTokenFromURL() {
  */
 async function validateInviteToken(inviteToken) {
     try {
-        console.log('🔍 招待トークン検証中:', inviteToken);
         
         const inviteRef = await firebase.firestore()
             .collection('invite_codes')
@@ -42,7 +40,6 @@ async function validateInviteToken(inviteToken) {
             throw new Error('招待トークンの使用回数上限に達しています');
         }
         
-        console.log('✅ 招待トークン検証成功:', inviteData);
         return {
             valid: true,
             tenantId: inviteData.tenantId,
@@ -52,7 +49,6 @@ async function validateInviteToken(inviteToken) {
         };
         
     } catch (error) {
-        console.error('❌ 招待トークン検証エラー:', error);
         return {
             valid: false,
             error: error.message
@@ -73,9 +69,7 @@ async function incrementInviteTokenUsage(inviteId) {
                 lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         
-        console.log('✅ 招待トークン使用回数を更新');
     } catch (error) {
-        console.error('❌ 招待トークン使用回数更新エラー:', error);
     }
 }
 
@@ -145,14 +139,12 @@ function setupInviteStyles() {
  * 招待リンクの初期化処理
  */
 async function initInviteSystem() {
-    console.log('🔗 招待リンクシステム初期化');
     
     setupInviteStyles();
     
     const inviteToken = getInviteTokenFromURL();
     
     if (inviteToken) {
-        console.log('🔗 招待リンク検出:', inviteToken);
         
         // 招待トークンを隠しフィールドに設定
         const inviteTokenInput = document.getElementById('inviteToken');
@@ -245,7 +237,6 @@ function showRegisterForm() {
  */
 async function registerEmployeeWithInvite(email, password, displayName, inviteToken) {
     try {
-        console.log('👤 招待トークン付き従業員登録開始');
         
         // 招待トークン再検証
         const validation = await validateInviteToken(inviteToken);
@@ -293,7 +284,6 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         // 招待トークン使用回数を増加
         await incrementInviteTokenUsage(validation.inviteId);
         
-        console.log('✅ 招待トークン付き従業員登録完了');
         
         return {
             success: true,
@@ -303,7 +293,6 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         };
         
     } catch (error) {
-        console.error('❌ 招待トークン付き従業員登録エラー:', error);
         throw error;
     }
 }
@@ -314,4 +303,3 @@ window.validateInviteToken = validateInviteToken;
 window.registerEmployeeWithInvite = registerEmployeeWithInvite;
 window.getInviteTokenFromURL = getInviteTokenFromURL;
 
-console.log('✅ invite-system.js 読み込み完了');
