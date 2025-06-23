@@ -65,19 +65,30 @@ async function generateInviteLink() {
         
         // 現在のユーザーとテナント情報を取得
         console.log('generateInviteLink: ユーザー情報取得中...');
-        const currentUser = window.currentUser || window.getCurrentUser();
-        console.log('currentUser:', currentUser);
         
         let currentTenantId;
-        if (currentUser && currentUser.tenantId) {
-            currentTenantId = currentUser.tenantId;
-        } else if (typeof getCurrentTenantId === 'function') {
+        
+        // まずwindow.currentUserのtenantIdを確認
+        if (window.currentUser && window.currentUser.tenantId) {
+            currentTenantId = window.currentUser.tenantId;
+            console.log('generateInviteLink: window.currentUser.tenantIdを使用:', currentTenantId);
+        }
+        // 次に関数から取得を試行
+        else if (typeof getCurrentTenantId === 'function') {
             currentTenantId = getCurrentTenantId();
+            console.log('generateInviteLink: getCurrentTenantId()を使用:', currentTenantId);
         } else if (window.getCurrentTenantId) {
             currentTenantId = window.getCurrentTenantId();
+            console.log('generateInviteLink: window.getCurrentTenantId()を使用:', currentTenantId);
+        }
+        // 最後にURLからテナントIDを取得
+        else {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentTenantId = urlParams.get('tenant');
+            console.log('generateInviteLink: URLパラメータからtenantIdを取得:', currentTenantId);
         }
         
-        console.log('currentTenantId:', currentTenantId);
+        console.log('generateInviteLink: 最終的なcurrentTenantId:', currentTenantId);
         
         if (!currentTenantId) {
             throw new Error('テナント情報が取得できません');
@@ -233,19 +244,37 @@ async function loadInviteHistory() {
         
         // 現在のユーザーとテナント情報を取得
         console.log('loadInviteHistory: ユーザー情報取得中...');
-        const currentUser = window.currentUser || window.getCurrentUser();
+        let currentUser = window.currentUser;
+        if (!currentUser || typeof currentUser.tenantId === 'undefined') {
+            currentUser = window.getCurrentUser();
+        }
         console.log('currentUser:', currentUser);
+        console.log('currentUser type:', typeof currentUser);
+        console.log('currentUser properties:', currentUser ? Object.keys(currentUser) : 'null');
         
         let currentTenantId;
-        if (currentUser && currentUser.tenantId) {
-            currentTenantId = currentUser.tenantId;
-        } else if (typeof getCurrentTenantId === 'function') {
+        
+        // まずwindow.currentUserのtenantIdを確認
+        if (window.currentUser && window.currentUser.tenantId) {
+            currentTenantId = window.currentUser.tenantId;
+            console.log('loadInviteHistory: window.currentUser.tenantIdを使用:', currentTenantId);
+        }
+        // 次に関数から取得を試行
+        else if (typeof getCurrentTenantId === 'function') {
             currentTenantId = getCurrentTenantId();
+            console.log('loadInviteHistory: getCurrentTenantId()を使用:', currentTenantId);
         } else if (window.getCurrentTenantId) {
             currentTenantId = window.getCurrentTenantId();
+            console.log('loadInviteHistory: window.getCurrentTenantId()を使用:', currentTenantId);
+        }
+        // 最後にURLからテナントIDを取得
+        else {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentTenantId = urlParams.get('tenant');
+            console.log('loadInviteHistory: URLパラメータからtenantIdを取得:', currentTenantId);
         }
         
-        console.log('currentTenantId:', currentTenantId);
+        console.log('loadInviteHistory: 最終的なcurrentTenantId:', currentTenantId);
         
         if (!currentTenantId) {
             throw new Error('テナント情報が取得できません');
