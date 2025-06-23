@@ -47,28 +47,20 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
-        // 認証状態の確認を待機する関数
-        const waitForAuthState = async (maxAttempts = 10) => {
-            for (let i = 0; i < maxAttempts; i++) {
-                const currentUser = firebaseAuth.currentUser;
-                if (currentUser && currentUser.uid === user.uid) {
-                    try {
-                        // IDトークンを取得して認証状態を確認
-                        const token = await currentUser.getIdToken(true);
-                        console.log('Auth state confirmed, attempt:', i + 1);
-                        return true;
-                    } catch (error) {
-                        console.log('Auth token error on attempt', i + 1, error.message);
-                    }
-                }
-                console.log('Waiting for auth state, attempt:', i + 1);
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            throw new Error('認証状態の確認がタイムアウトしました');
-        };
-        
-        // 認証状態が確実に反映されるまで待機
-        await waitForAuthState();
+        // Firebase Auth完了後、少し待機してからIDトークンを取得
+        console.log('User created, getting ID token...');
+        let idToken;
+        try {
+            // 作成されたユーザーから直接IDトークンを取得
+            idToken = await user.getIdToken(true);
+            console.log('ID token obtained successfully');
+        } catch (tokenError) {
+            console.log('ID token error, retrying...', tokenError.message);
+            // 1秒待機してから再試行
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            idToken = await user.getIdToken(true);
+            console.log('ID token obtained on retry');
+        }
         
         // テナント情報を取得
         const tenantId = validation.tenantId;
