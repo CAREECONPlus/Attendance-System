@@ -7,11 +7,16 @@
  * 招待リンク生成機能の初期化
  */
 function initInviteAdmin() {
+    console.log('initInviteAdmin: 招待機能を初期化中...');
     
     // 招待リンク生成ボタン
     const generateBtn = document.getElementById('generate-invite-btn');
+    console.log('generate-invite-btn要素:', generateBtn);
     if (generateBtn) {
         generateBtn.addEventListener('click', generateInviteLink);
+        console.log('招待リンク生成ボタンにイベントリスナーを追加しました');
+    } else {
+        console.warn('generate-invite-btn要素が見つかりません');
     }
     
     // 招待リンクコピーボタン

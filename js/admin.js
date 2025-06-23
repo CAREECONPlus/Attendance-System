@@ -68,6 +68,7 @@ function showAdminRequestsTab() {
  * 招待管理タブを表示
  */
 function showInviteTab() {
+    console.log('showInviteTab: 招待タブを表示中...');
     
     // 全てのタブコンテンツを非表示
     document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
@@ -80,8 +81,12 @@ function showInviteTab() {
     
     // 招待管理コンテンツを表示
     const inviteContent = document.getElementById('invite-content');
+    console.log('invite-content要素:', inviteContent);
     if (inviteContent) {
         inviteContent.classList.remove('hidden');
+        console.log('invite-contentのhiddenクラスを削除しました');
+    } else {
+        console.warn('invite-content要素が見つかりません');
     }
     
     // タブの状態を更新
@@ -462,9 +467,15 @@ async function initAdminPage() {
     }
     
     // 招待リンク管理機能を初期化（全ての管理者）
-    if (typeof initInviteAdmin === 'function') {
-        initInviteAdmin();
-    }
+    // DOMが完全に読み込まれた後に実行
+    setTimeout(() => {
+        if (typeof initInviteAdmin === 'function') {
+            console.log('initInviteAdminを呼び出し中...');
+            initInviteAdmin();
+        } else {
+            console.warn('initInviteAdmin関数が見つかりません');
+        }
+    }, 100);
     
     
     // 残りの初期化を少し遅延させて実行
@@ -3661,10 +3672,13 @@ function setupAdminPageElements() {
  */
 function initAdminTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
+    console.log('initAdminTabs: タブボタン数:', tabBtns.length);
     tabBtns.forEach(btn => {
+        console.log('タブボタン:', btn.getAttribute('data-tab'));
         if (!btn.hasAttribute('data-listener-set')) {
             btn.addEventListener('click', (e) => {
                 const tabName = e.target.getAttribute('data-tab');
+                console.log('タブクリック:', tabName);
                 if (tabName) {
                     switchTab(tabName);
                 }
@@ -3711,6 +3725,7 @@ function switchTab(tabName) {
             break;
         case 'invite':
             // 招待管理専用の処理
+            console.log('switchTab: inviteタブが選択されました');
             showInviteTab();
             return;
         case 'admin-requests':
