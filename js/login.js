@@ -38,6 +38,10 @@ async function initLogin() {
         
         // ログインフォーム
         const loginForm = document.getElementById('loginForm');
+        
+        // 従業員登録フォーム
+        const registerForm = document.getElementById('registerForm');
+        
         if (loginForm) {
             // 既存のイベントリスナーを削除（重複防止）
             const newLoginForm = loginForm.cloneNode(true);
@@ -46,7 +50,16 @@ async function initLogin() {
             // 新しいフォームにイベントリスナーを追加
             const freshLoginForm = document.getElementById('loginForm');
             freshLoginForm.addEventListener('submit', handleLogin);
-        } else {
+        }
+        
+        if (registerForm) {
+            // 既存のイベントリスナーを削除（重複防止）
+            const newRegisterForm = registerForm.cloneNode(true);
+            registerForm.parentNode.replaceChild(newRegisterForm, registerForm);
+            
+            // 新しいフォームにイベントリスナーを追加
+            const freshRegisterForm = document.getElementById('registerForm');
+            freshRegisterForm.addEventListener('submit', handleEmployeeRegister);
         }
         
         // Firebase認証状態の監視
@@ -397,5 +410,95 @@ window.checkAuth = function(requiredRole) {
 };
 
 window.showPage = showPage;
+
+/**
+ * 従業員登録処理
+ */
+async function handleEmployeeRegister(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('register-name')?.value?.trim();
+    const email = document.getElementById('register-email')?.value?.trim();
+    const password = document.getElementById('register-password')?.value?.trim();
+    const passwordConfirm = document.getElementById('register-password-confirm')?.value?.trim();
+    const inviteToken = window.currentInviteToken;
+    
+    // バリデーション
+    if (!name || !email || !password || !passwordConfirm) {
+        showRegisterError('すべての項目を入力してください');
+        return;
+    }
+    
+    if (password !== passwordConfirm) {
+        showRegisterError('パスワードが一致しません');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showRegisterError('パスワードは6文字以上で入力してください');
+        return;
+    }
+    
+    if (!inviteToken) {
+        showRegisterError('招待トークンが見つかりません');
+        return;
+    }
+    
+    // ローディング表示
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '登録中...';
+    }
+    
+    try {
+        // 招待トークンを使って従業員登録
+        const result = await registerEmployeeWithInvite(email, password, name, inviteToken);
+        
+        if (result.success) {
+            // 登録成功 - ログイン状態になるので自動でページ遷移される
+            console.log('Employee registration successful');
+        } else {
+            showRegisterError(result.error || '登録に失敗しました');
+        }
+        
+    } catch (error) {
+        console.error('Registration error:', error);
+        let message = '登録に失敗しました';
+        
+        if (error.code === 'auth/email-already-in-use') {
+            message = 'このメールアドレスは既に使用されています';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'メールアドレスの形式が正しくありません';
+        } else if (error.code === 'auth/weak-password') {
+            message = 'パスワードが弱すぎます';
+        }
+        
+        showRegisterError(message);
+    } finally {
+        // ローディング解除
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText || '登録';
+        }
+    }
+}
+
+/**
+ * 登録エラー表示
+ */
+function showRegisterError(message) {
+    const errorElement = document.getElementById('register-error-message');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.classList.remove('hidden');
+        
+        // 5秒後に自動で隠す
+        setTimeout(() => {
+            errorElement.classList.add('hidden');
+        }, 5000);
+    }
+}
 
 

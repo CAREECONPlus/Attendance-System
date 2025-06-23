@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
     // 本番環境用のFirebase設定
     // APIキーは制限付き（GitHub Pages からのアクセスのみ許可）
     window.FIREBASE_CONFIG = {
-        apiKey: "AIzaSyDRoE9DmPhHUINfKtkO7azI-ZTnNR4uimw",
+        apiKey: "AIzaSyCKDVzF-VQVDqMeBn9c4ZGkOToo1KOfiZ4",
         authDomain: "attendance-system-39ae6.firebaseapp.com",
         projectId: "attendance-system-39ae6",
         storageBucket: "attendance-system-39ae6.appspot.com",

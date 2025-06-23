@@ -143,35 +143,48 @@ async function initInviteSystem() {
     setupInviteStyles();
     
     const inviteToken = getInviteTokenFromURL();
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const inviteInfo = document.getElementById('invite-info');
     
     if (inviteToken) {
-        
-        // 招待トークンを隠しフィールドに設定
-        const inviteTokenInput = document.getElementById('inviteToken');
-        if (inviteTokenInput) {
-            inviteTokenInput.value = inviteToken;
-        }
+        console.log('Invite token found:', inviteToken);
         
         // 招待トークンを検証
         const validation = await validateInviteToken(inviteToken);
-        const inviteInfo = document.getElementById('invite-info');
-        const companyNameEl = document.getElementById('invite-company-name');
+        const companyNameDisplay = document.getElementById('company-name-display');
         
         if (validation.valid) {
-            // 有効な招待コードの場合
-            if (companyNameEl) {
-                companyNameEl.textContent = validation.companyName || '会社名';
-                companyNameEl.className = 'invite-company-name';
+            console.log('Valid invite token, showing registration form');
+            // 有効な招待コードの場合 - 登録フォームを表示
+            
+            // 会社名を表示
+            if (companyNameDisplay) {
+                companyNameDisplay.textContent = validation.companyName || '会社名';
             }
             
+            // 招待情報を表示
             if (inviteInfo) {
+                inviteInfo.classList.remove('hidden');
                 inviteInfo.className = 'invite-info';
-                inviteInfo.style.display = 'block';
             }
+            
+            // 登録フォームを表示、ログインフォームを隠す
+            if (registerForm) {
+                registerForm.classList.remove('hidden');
+            }
+            if (loginForm) {
+                loginForm.classList.add('hidden');
+            }
+            
+            // 招待トークンをグローバル変数として保存
+            window.currentInviteToken = inviteToken;
             
         } else {
-            // 無効な招待リンクの場合
+            console.log('Invalid invite token:', validation.error);
+            // 無効な招待リンクの場合 - エラー表示してログインフォーム表示
             if (inviteInfo) {
+                inviteInfo.classList.remove('hidden');
                 inviteInfo.className = 'invite-error';
                 inviteInfo.innerHTML = `
                     <div>❌ ${validation.error}</div>
@@ -179,14 +192,27 @@ async function initInviteSystem() {
                         管理者に正しい招待リンクを確認してください
                     </div>
                 `;
-                inviteInfo.style.display = 'block';
+            }
+            
+            // ログインフォームを表示
+            if (loginForm) {
+                loginForm.classList.remove('hidden');
+            }
+            if (registerForm) {
+                registerForm.classList.add('hidden');
             }
         }
     } else {
-        // 招待トークンなしの場合の処理
-        const inviteInfo = document.getElementById('invite-info');
+        console.log('No invite token, showing login form');
+        // 招待トークンなしの場合 - ログインフォームのみ表示
+        if (loginForm) {
+            loginForm.classList.remove('hidden');
+        }
+        if (registerForm) {
+            registerForm.classList.add('hidden');
+        }
         if (inviteInfo) {
-            inviteInfo.className = 'invite-warning';
+            inviteInfo.classList.add('hidden');
             inviteInfo.innerHTML = `
                 <div>⚠️ 招待リンクが必要です</div>
                 <div style="margin-top: 10px; font-size: 14px;">

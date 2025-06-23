@@ -430,6 +430,44 @@
             <div class="login-card">
                 <h1>勤怠管理システム</h1>
                 
+                <!-- 招待情報表示 -->
+                <div id="invite-info" class="invite-info hidden">
+                    <div class="invite-welcome">
+                        <h2>従業員登録</h2>
+                        <p>「<span id="company-name-display"></span>」への招待を受けました</p>
+                    </div>
+                </div>
+
+                <!-- 従業員登録フォーム -->
+                <form id="registerForm" class="hidden">
+                    <div class="form-group">
+                        <label for="register-name">氏名 <span class="required">*</span></label>
+                        <input type="text" id="register-name" name="name" required maxlength="50">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-email">メールアドレス <span class="required">*</span></label>
+                        <input type="email" id="register-email" name="email" autocomplete="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-password">パスワード <span class="required">*</span></label>
+                        <input type="password" id="register-password" name="password" autocomplete="new-password" required minlength="6">
+                        <small class="form-hint">6文字以上で入力してください</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="register-password-confirm">パスワード確認 <span class="required">*</span></label>
+                        <input type="password" id="register-password-confirm" name="passwordConfirm" autocomplete="new-password" required minlength="6">
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-full">登録</button>
+                    </div>
+                    
+                    <div id="register-error-message" class="error-text hidden"></div>
+                </form>
+
                 <!-- ログインフォーム -->
                 <form id="loginForm">
                     <div class="form-group">

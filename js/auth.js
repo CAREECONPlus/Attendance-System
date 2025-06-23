@@ -23,6 +23,69 @@ function initAuth() {
 }
 
 /**
+ * 招待トークンを使った従業員登録
+ * @param {string} email メールアドレス
+ * @param {string} password パスワード
+ * @param {string} displayName 表示名
+ * @param {string} inviteToken 招待トークン
+ * @returns {Object} { success: boolean, user?: User, error?: string }
+ */
+async function registerEmployeeWithInvite(email, password, displayName, inviteToken) {
+    try {
+        // 招待トークンを検証
+        const validation = await validateInviteToken(inviteToken);
+        if (!validation.valid) {
+            return { success: false, error: validation.error };
+        }
+
+        // Firebase Authenticationでユーザー作成
+        const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // ユーザープロフィールを更新
+        await user.updateProfile({
+            displayName: displayName
+        });
+        
+        // テナント情報を取得
+        const tenantId = validation.tenantId;
+        
+        // Firestoreにユーザー情報を保存（テナント対応）
+        const userCollection = firestoreDb.collection('tenants').doc(tenantId).collection('users');
+        await userCollection.doc(user.uid).set({
+            email: email,
+            displayName: displayName,
+            role: 'employee',
+            tenantId: tenantId,
+            inviteToken: inviteToken,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            siteHistory: []
+        });
+
+        // global_usersにも追加（テナント間の重複チェック用）
+        await firestoreDb.collection('global_users').doc(user.uid).set({
+            email: email,
+            displayName: displayName,
+            tenantId: tenantId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 招待コードの使用回数を更新
+        await firestoreDb.collection('invite_codes').doc(validation.inviteId).update({
+            used: firebase.firestore.FieldValue.increment(1),
+            lastUsedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        return { success: true, user: user, tenantId: tenantId };
+        
+    } catch (error) {
+        console.error('Employee registration with invite failed:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * メールアドレスとパスワードでユーザー登録
  * @param {string} email メールアドレス
  * @param {string} password パスワード
