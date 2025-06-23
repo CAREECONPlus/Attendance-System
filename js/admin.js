@@ -538,6 +538,12 @@ function switchTab(tab) {
         return;
     }
     
+    // 従業員招待タブの特別処理
+    if (tab === 'invite') {
+        showInviteTab();
+        return;
+    }
+    
     // 管理者依頼コンテンツを非表示
     const adminRequestsContent = document.getElementById('admin-requests-content');
     if (adminRequestsContent) {
