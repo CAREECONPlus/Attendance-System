@@ -197,9 +197,9 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 siteHistory: []
             });
             
-            // タイムアウト付きで実行
+            // より短いタイムアウトで問題を特定
             const userWriteTimeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('User data write timeout after 15 seconds')), 15000);
+                setTimeout(() => reject(new Error('User data write timeout after 10 seconds')), 10000);
             });
             
             try {
@@ -207,7 +207,23 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 console.log('✅ Tenant user data saved successfully');
             } catch (userWriteError) {
                 console.error('❌ User data write failed:', userWriteError);
-                throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
+                
+                // フォールバック: より簡単なデータ構造で再試行
+                console.log('Attempting fallback with simpler data structure...');
+                try {
+                    await authenticatedFirestore.collection('tenants').doc(tenantId).collection('users').doc(user.uid).set({
+                        email: email,
+                        displayName: displayName,
+                        role: 'employee',
+                        tenantId: tenantId,
+                        createdAt: new Date(),
+                        status: 'active'
+                    });
+                    console.log('✅ Fallback user data saved successfully');
+                } catch (fallbackError) {
+                    console.error('❌ Fallback also failed:', fallbackError);
+                    throw new Error(`テナントユーザーデータの保存に失敗: ${userWriteError.message}`);
+                }
             }
 
             // 2. global_usersに追加（権限問題対策）
