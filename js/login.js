@@ -106,91 +106,13 @@ async function handleLogin(e) {
     }
     
     try {
-        // Firebase認証
+        // ログイン処理中フラグを設定
+        window.isLoggingIn = true;
+        
+        // Firebase認証のみ実行（以降の処理はhandleAuthStateChangeに委譲）
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
         
-        // ユーザーのテナント情報を取得
-        const userTenantId = await determineUserTenant(user.email);
-        
-        // テナント対応のユーザーデータ取得
-        let userData;
-        let userDoc;
-        
-        if (userTenantId) {
-            // テナント内からユーザーデータを取得
-            const tenantUsersPath = `tenants/${userTenantId}/users`;
-            userDoc = await firebase.firestore().collection(tenantUsersPath).doc(user.uid).get();
-            
-            if (userDoc.exists) {
-                userData = userDoc.data();
-            } else {
-                // フォールバック: 従来のusersコレクションから取得
-                userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-                if (userDoc.exists) {
-                    userData = userDoc.data();
-                } else {
-                    throw new Error('ユーザーデータが見つかりません');
-                }
-            }
-        } else {
-            // テナント未設定の場合は従来のusersコレクションから取得
-            userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-            if (!userDoc.exists) {
-                throw new Error('ユーザーデータが見つかりません');
-            }
-            userData = userDoc.data();
-        }
-        
-        // ユーザーのロールを決定
-        let userRole = userData.role || 'employee';
-        
-        // dxconsulting.branu2@gmail.comは自動的にsuper_adminに設定
-        if (user.email === 'dxconsulting.branu2@gmail.com') {
-            userRole = 'super_admin';
-            if (userData.role !== 'super_admin') {
-                await db.collection('users').doc(user.uid).update({ 
-                    role: 'super_admin',
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-        }
-        
-        // グローバル変数設定
-        window.currentUser = {
-            uid: user.uid,
-            email: user.email,
-            displayName: userData.displayName || user.displayName,
-            role: userRole,
-            tenantId: userTenantId || userData.tenantId
-        };
-        
-        
-        // テナント情報をURLに反映（スーパー管理者以外）
-        if (userTenantId && userRole !== 'super_admin') {
-            const tenantUrl = generateSuccessUrl(userTenantId);
-            window.location.href = tenantUrl;
-            return;
-        }
-        
-        // 適切なページに遷移
-        if (window.currentUser.role === 'admin' || window.currentUser.role === 'super_admin') {
-            showPage('admin');
-            // 管理者画面の初期化
-            setTimeout(() => {
-                if (typeof initAdminPage === 'function') {
-                    initAdminPage();
-                }
-            }, 200);
-        } else {
-            showPage('employee');
-            // 従業員画面の初期化
-            setTimeout(() => {
-                if (typeof initEmployeePage === 'function') {
-                    initEmployeePage();
-                }
-            }, 200);
-        }
+        // handleAuthStateChangeが自動的に呼ばれるため、ここでは何もしない
         
     } catch (error) {
         
@@ -207,6 +129,10 @@ async function handleLogin(e) {
         
         showError(message);
     } finally {
+        // フラグをクリア
+        window.isLoggingIn = false;
+        hideLoadingOverlay();
+        
         // ローディング解除
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -220,9 +146,21 @@ async function handleLogin(e) {
  * 認証状態変化の処理
  */
 async function handleAuthStateChange(user) {
+    // 初期化中または既に処理済みの場合はスキップ
+    if (window.isInitializingUser || (user && window.currentUser && window.currentUser.uid === user.uid)) {
+        return;
+    }
     
     if (user) {
         try {
+            // 初期化開始フラグ
+            window.isInitializingUser = true;
+            
+            // ローディング表示
+            showLoadingOverlay('システムを初期化中...');
+            
+            // 明示的ログインかページリロードかを判定
+            const isExplicitLogin = window.isLoggingIn;
             // ユーザーのテナント情報を取得
             const userTenantId = await determineUserTenant(user.email);
             
@@ -313,10 +251,18 @@ async function handleAuthStateChange(user) {
             }
         } catch (error) {
             await firebase.auth().signOut();
+        } finally {
+            // 初期化完了
+            window.isInitializingUser = false;
+            window.isLoggingIn = false;
+            hideLoadingOverlay();
         }
     } else {
         // ログアウト状態
         window.currentUser = null;
+        window.isInitializingUser = false;
+        window.isLoggingIn = false;
+        hideLoadingOverlay();
         showPage('login');
     }
 }

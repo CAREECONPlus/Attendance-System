@@ -555,3 +555,79 @@ window.updateDateTime = updateDateTime;
 window.setLoadingState = setLoadingState;
 window.showToast = showToast;
 window.createTimestamp = createTimestamp;
+
+// ================ ローディングオーバーレイ ================
+
+/**
+ * ローディングオーバーレイを表示
+ * @param {string} message - 表示するメッセージ
+ */
+function showLoadingOverlay(message = 'ロード中...') {
+    // 既存のオーバーレイを削除
+    hideLoadingOverlay();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+        ">
+            <div style="
+                width: 40px;
+                height: 40px;
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #007bff;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+            "></div>
+            <p style="
+                margin: 0;
+                color: #333;
+                font-size: 16px;
+                font-weight: 500;
+            ">${message}</p>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
+/**
+ * ローディングオーバーレイを非表示
+ */
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+// グローバル関数として公開
+window.showLoadingOverlay = showLoadingOverlay;
+window.hideLoadingOverlay = hideLoadingOverlay;
