@@ -188,6 +188,34 @@ function setupInviteStyles() {
 }
 
 /**
+ * Firebase初期化完了を待つ
+ */
+function waitForFirebaseInit() {
+    return new Promise((resolve) => {
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            console.log('Firebase already initialized');
+            resolve();
+        } else {
+            console.log('Waiting for Firebase initialization...');
+            const checkInterval = setInterval(() => {
+                if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                    console.log('Firebase initialization detected');
+                    clearInterval(checkInterval);
+                    resolve();
+                }
+            }, 100);
+            
+            // 10秒でタイムアウト
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                console.error('Firebase initialization timeout');
+                resolve();
+            }, 10000);
+        }
+    });
+}
+
+/**
  * 招待リンクの初期化処理
  */
 async function initInviteSystem() {
@@ -201,6 +229,9 @@ async function initInviteSystem() {
     
     if (inviteToken) {
         console.log('Invite token found:', inviteToken);
+        
+        // Firebase初期化完了を待つ
+        await waitForFirebaseInit();
         
         // 招待トークンを検証
         const validation = await validateInviteToken(inviteToken);
