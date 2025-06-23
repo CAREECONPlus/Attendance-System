@@ -94,6 +94,12 @@ function showInviteTab() {
     const inviteTab = document.querySelector('[data-tab="invite"]');
     if (inviteTab) inviteTab.classList.add('active');
     
+    // 招待機能を確実に初期化
+    if (typeof initInviteAdmin === 'function') {
+        console.log('showInviteTab内でinitInviteAdminを呼び出し');
+        initInviteAdmin();
+    }
+    
     // 招待履歴を読み込み
     if (typeof loadInviteHistory === 'function') {
         loadInviteHistory();
@@ -441,6 +447,7 @@ window.viewRequestDetails = viewRequestDetails;
  * 全てのイベントリスナーを設定し、初期データを読み込みます
  */
 async function initAdminPage() {
+    console.log('initAdminPage: 管理者画面を初期化中...');
     
     // 権限チェック
     if (!checkAuth('admin')) return;
@@ -468,7 +475,9 @@ async function initAdminPage() {
     
     // 招待リンク管理機能を初期化（全ての管理者）
     // DOMが完全に読み込まれた後に実行
+    console.log('initInviteAdmin呼び出し前チェック:', typeof initInviteAdmin);
     setTimeout(() => {
+        console.log('setTimeout内でのinitInviteAdminチェック:', typeof initInviteAdmin);
         if (typeof initInviteAdmin === 'function') {
             console.log('initInviteAdminを呼び出し中...');
             initInviteAdmin();
