@@ -1352,60 +1352,6 @@
             </main>
         </div>
 
-        <!-- 勤怠データ編集モーダル -->
-        <div id="edit-modal" class="modal hidden">
-            <div class="modal-content">
-                <button class="close-btn">&times;</button>
-                <h2>勤怠データ編集</h2>
-                <form id="edit-form">
-                    <input type="hidden" id="edit-id">
-                    
-                    <div class="form-group">
-                        <label for="edit-date">日付:</label>
-                        <input type="date" id="edit-date" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="edit-site">現場名:</label>
-                        <input type="text" id="edit-site" required>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label for="edit-clock-in">出勤時間:</label>
-                            <input type="datetime-local" id="edit-clock-in" required>
-                        </div>
-                        <div class="form-col">
-                            <label for="edit-clock-out">退勤時間:</label>
-                            <input type="datetime-local" id="edit-clock-out">
-                        </div>
-                    </div>
-                    
-                    <div class="break-times">
-                        <div class="break-title">
-                            <span>休憩時間</span>
-                            <button type="button" id="add-break-btn" class="btn btn-small btn-warning">追加</button>
-                        </div>
-                        <div id="break-list" class="break-list">
-                            <!-- 休憩時間リスト -->
-                        </div>
-                        <div id="total-break-time" class="form-hint" style="text-align: right; margin-top: 10px;">
-                            合計休憩時間: 0時間0分
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="edit-notes">メモ:</label>
-                        <textarea id="edit-notes" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">保存</button>
-                        <button type="button" id="delete-record" class="btn btn-danger">削除</button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
         <!-- 休憩時間追加モーダル -->
         <div id="break-modal" class="modal hidden">
