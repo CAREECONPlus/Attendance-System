@@ -4511,8 +4511,14 @@ async function editAttendanceRecord(recordId) {
         console.log('Modal element:', modal);
         
         if (modal) {
+            // hiddenクラスを削除
             modal.classList.remove('hidden');
-            console.log('Modal display after removing hidden class:', window.getComputedStyle(modal).display);
+            
+            // 強制的にdisplayスタイルを設定
+            modal.style.display = 'flex';
+            
+            console.log('Modal display after setting style:', window.getComputedStyle(modal).display);
+            console.log('Modal classList:', modal.classList.toString());
         } else {
             console.error('Modal element not found!');
             alert('編集画面が見つかりません');
@@ -4529,7 +4535,10 @@ async function editAttendanceRecord(recordId) {
  */
 function closeEditModal() {
     const modal = document.getElementById('edit-attendance-modal');
-    modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
     currentEditingRecordId = null;
 }
 
