@@ -465,6 +465,16 @@ async function initAdminPage() {
         }
     }
 
+    // 従業員招待タブの表示制御（スーパー管理者では非表示）
+    const employeeInviteTab = document.querySelector('[data-tab="invite"]');
+    if (employeeInviteTab) {
+        if (window.currentUser && window.currentUser.role === 'super_admin') {
+            employeeInviteTab.style.display = 'none';
+        } else {
+            employeeInviteTab.style.display = 'block';
+        }
+    }
+
     // 基本的なUI初期化
     setupAdminBasics();
     
@@ -3679,6 +3689,20 @@ function initAdminPage() {
         
         // 管理者登録依頼管理（スーパー管理者のみ）
         initAdminRequestsManagement();
+        
+        // タブ表示制御（スーパー管理者用）
+        const adminRequestsTab = document.getElementById('admin-requests-tab');
+        const employeeInviteTab = document.querySelector('[data-tab="invite"]');
+        
+        if (window.currentUser && window.currentUser.role === 'super_admin') {
+            // スーパー管理者：管理者依頼タブを表示、従業員招待タブを非表示
+            if (adminRequestsTab) adminRequestsTab.style.display = 'block';
+            if (employeeInviteTab) employeeInviteTab.style.display = 'none';
+        } else {
+            // 通常管理者：管理者依頼タブを非表示、従業員招待タブを表示
+            if (adminRequestsTab) adminRequestsTab.style.display = 'none';
+            if (employeeInviteTab) employeeInviteTab.style.display = 'block';
+        }
         
         // 現場管理機能の初期化
         initSiteManagement();
