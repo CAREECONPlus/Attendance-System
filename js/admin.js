@@ -805,10 +805,7 @@ async function loadAttendanceDataForSuperAdmin(activeTab) {
         // グローバル currentData 配列を更新
         currentData = allData;
         
-        // テーブルを描画
-        renderAttendanceTable(allData);
-        
-        // ソート機能を適用
+        // ソート機能を適用（テーブル描画も含む）
         applySortToTable();
         
     } catch (error) {
@@ -880,10 +877,7 @@ async function loadAttendanceData() {
         // グローバル currentData 配列を更新
         currentData = filteredData;
         
-        // テーブルを描画
-        renderAttendanceTable(filteredData);
-        
-        // ソート機能を適用
+        // ソート機能を適用（テーブル描画も含む）
         applySortToTable();
         
     } catch (error) {
@@ -4298,7 +4292,14 @@ function handleHeaderSort(field) {
  * テーブルにソートを適用
  */
 function applySortToTable() {
-    if (currentData.length === 0) return;
+    if (currentData.length === 0) {
+        // データがない場合は空のテーブルを表示
+        const tbody = document.getElementById('attendance-data');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="8" class="no-data">データがありません</td></tr>';
+        }
+        return;
+    }
     
     const sortedData = [...currentData].sort((a, b) => {
         let valueA = getSortValue(a, currentSortField);
