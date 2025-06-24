@@ -114,6 +114,12 @@ async function generateInviteLink() {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
         
+        // 現在のユーザー情報を確実に取得
+        const currentUser = window.currentUser || window.getCurrentUser();
+        if (!currentUser || !currentUser.uid) {
+            throw new Error('ユーザー情報が取得できません。再度ログインしてください。');
+        }
+        
         // 招待コードデータを作成
         const inviteData = {
             code: inviteToken,
