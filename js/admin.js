@@ -4474,8 +4474,20 @@ let currentEditingRecordId = null;
  */
 async function editAttendanceRecord(recordId) {
     try {
+        console.log('editAttendanceRecord called with ID:', recordId);
+        console.log('currentData length:', currentData.length);
+        console.log('currentData:', currentData);
+        
+        // データが読み込まれていない場合の対応
+        if (currentData.length === 0) {
+            alert('データが読み込み中です。少々お待ちください。');
+            return;
+        }
+        
         // レコードを検索
         const record = currentData.find(r => r.id === recordId);
+        console.log('Found record:', record);
+        
         if (!record) {
             alert('レコードが見つかりません');
             return;
@@ -4484,6 +4496,7 @@ async function editAttendanceRecord(recordId) {
         currentEditingRecordId = recordId;
         
         // モーダルのフォームに値を設定
+        console.log('Setting modal form values...');
         document.getElementById('edit-employee-name').value = record.userName || record.userEmail || '';
         document.getElementById('edit-date').value = record.date || '';
         document.getElementById('edit-site-name').value = record.siteName || '';
@@ -4493,8 +4506,17 @@ async function editAttendanceRecord(recordId) {
         document.getElementById('edit-notes').value = record.notes || '';
         
         // モーダルを表示
+        console.log('Showing modal...');
         const modal = document.getElementById('edit-attendance-modal');
-        modal.classList.remove('hidden');
+        console.log('Modal element:', modal);
+        
+        if (modal) {
+            modal.classList.remove('hidden');
+            console.log('Modal display after removing hidden class:', window.getComputedStyle(modal).display);
+        } else {
+            console.error('Modal element not found!');
+            alert('編集画面が見つかりません');
+        }
         
     } catch (error) {
         console.error('勤怠データ編集エラー:', error);
