@@ -421,6 +421,227 @@
             }
         }
 
+        /* ==================== 現場管理用CSS ==================== */
+
+        /* 現場管理セクション */
+        .site-management-section {
+            padding: 20px 0;
+        }
+
+        .site-management-header {
+            margin-bottom: 30px;
+        }
+
+        .site-management-header h3 {
+            margin: 0 0 10px 0;
+            color: var(--careecon-blue);
+        }
+
+        .site-management-description {
+            color: #666;
+            margin: 0;
+        }
+
+        /* 現場カード */
+        .site-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .site-card-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .site-card-header h4 {
+            margin: 0;
+            color: var(--careecon-blue);
+            font-size: 16px;
+        }
+
+        .site-card-body {
+            padding: 20px;
+        }
+
+        /* フォームスタイル */
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .required {
+            color: #dc3545;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-actions {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        /* 現場一覧テーブル */
+        .site-list-section {
+            margin-top: 30px;
+        }
+
+        .site-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .site-list-header h4 {
+            margin: 0;
+            color: var(--careecon-blue);
+        }
+
+        .site-list-container {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .site-list-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .site-list-table th,
+        .site-list-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .site-list-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .site-list-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .site-name {
+            font-weight: 600;
+            color: var(--careecon-blue);
+        }
+
+        .site-address {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .site-created {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .site-usage {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* ステータスバッジ */
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* アクションボタン */
+        .site-actions {
+            white-space: nowrap;
+        }
+
+        .site-actions .btn {
+            margin-right: 5px;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* エラー・情報表示 */
+        .no-data,
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .site-list-table {
+                font-size: 14px;
+            }
+
+            .site-list-table th,
+            .site-list-table td {
+                padding: 8px;
+            }
+
+            .site-actions .btn {
+                display: block;
+                margin: 2px 0;
+                width: 100%;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -579,6 +800,7 @@
                     <button class="tab-btn" data-tab="monthly">月別表示</button>
                     <button class="tab-btn" data-tab="employee">従業員別</button>
                     <button class="tab-btn" data-tab="site">現場別</button>
+                    <button class="tab-btn" data-tab="site-management">現場管理</button>
                     <button class="tab-btn" data-tab="invite">従業員招待</button>
                     <button class="tab-btn" data-tab="admin-requests" id="admin-requests-tab" style="display: none;">管理者依頼</button>
                 </div>
@@ -709,6 +931,77 @@
                     </div>
                 </div>
 
+                <!-- 現場管理セクション -->
+                <div id="site-management-content" class="tab-content hidden">
+                    <div class="site-management-section">
+                        <div class="site-management-header">
+                            <h3>🏢 現場管理</h3>
+                            <p class="site-management-description">従業員が選択できる現場を管理できます。</p>
+                        </div>
+                        
+                        <!-- 新規現場追加 -->
+                        <div class="site-add-section">
+                            <div class="site-card">
+                                <div class="site-card-header">
+                                    <h4>➕ 新しい現場を追加</h4>
+                                </div>
+                                <div class="site-card-body">
+                                    <form id="add-site-form">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="site-name">現場名 <span class="required">*</span></label>
+                                                <input type="text" id="site-name" name="siteName" required 
+                                                       placeholder="例: 東京本社" maxlength="50">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="site-address">住所</label>
+                                                <input type="text" id="site-address" name="siteAddress" 
+                                                       placeholder="例: 東京都渋谷区..." maxlength="100">
+                                            </div>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="site-description">説明・備考</label>
+                                                <textarea id="site-description" name="siteDescription" 
+                                                          placeholder="現場の詳細情報や注意事項など" rows="3"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="form-actions">
+                                            <button type="submit" class="btn btn-primary">
+                                                ✅ 現場を追加
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 現場一覧 -->
+                        <div class="site-list-section">
+                            <div class="site-list-header">
+                                <h4>📋 現場一覧</h4>
+                                <button id="refresh-sites-btn" class="btn btn-secondary btn-small">🔄 更新</button>
+                            </div>
+                            <div class="site-list-container">
+                                <table class="site-list-table">
+                                    <thead>
+                                        <tr>
+                                            <th>現場名</th>
+                                            <th>住所</th>
+                                            <th>作成日</th>
+                                            <th>状態</th>
+                                            <th>使用状況</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="site-list-data">
+                                        <!-- 現場データが表示されます -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 管理者登録依頼管理セクション（スーパー管理者のみ表示） -->
                 <div id="admin-requests-content" class="tab-content hidden">
