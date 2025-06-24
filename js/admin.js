@@ -455,23 +455,56 @@ async function initAdminPage() {
     // 権限チェック
     if (!checkAuth('admin')) return;
 
-    // 管理者依頼タブの表示制御
-    const adminRequestsTab = document.getElementById('admin-requests-tab');
-    if (adminRequestsTab) {
-        if (window.currentUser && window.currentUser.role === 'super_admin') {
-            adminRequestsTab.style.display = 'block';
-        } else {
-            adminRequestsTab.style.display = 'none';
+    // ユーザー情報を再確認・設定
+    const currentFirebaseUser = firebase.auth().currentUser;
+    if (currentFirebaseUser && (!window.currentUser || !window.currentUser.role)) {
+        // Firestoreからユーザー情報を取得
+        try {
+            const userDoc = await firebase.firestore().collection('global_users').doc(currentFirebaseUser.email).get();
+            if (userDoc.exists) {
+                window.currentUser = {
+                    ...currentFirebaseUser,
+                    ...userDoc.data()
+                };
+                console.log('User data loaded from Firestore:', window.currentUser);
+            }
+        } catch (error) {
+            console.error('Error loading user data:', error);
         }
     }
 
-    // 従業員招待タブの表示制御（スーパー管理者では非表示）
+    // デバッグ: 現在のユーザー情報を確認
+    console.log('Current user in initAdminPage:', window.currentUser);
+    console.log('User role:', window.currentUser ? window.currentUser.role : 'No role');
+    
+    // 管理者依頼タブの表示制御
+    const adminRequestsTab = document.getElementById('admin-requests-tab');
     const employeeInviteTab = document.querySelector('[data-tab="invite"]');
-    if (employeeInviteTab) {
-        if (window.currentUser && window.currentUser.role === 'super_admin') {
+    
+    console.log('Admin requests tab:', adminRequestsTab);
+    console.log('Employee invite tab:', employeeInviteTab);
+    
+    if (window.currentUser && window.currentUser.role === 'super_admin') {
+        console.log('Setting up super admin tabs...');
+        // スーパー管理者：管理者依頼タブを表示、従業員招待タブを非表示
+        if (adminRequestsTab) {
+            adminRequestsTab.style.display = 'block';
+            console.log('Admin requests tab shown');
+        }
+        if (employeeInviteTab) {
             employeeInviteTab.style.display = 'none';
-        } else {
+            console.log('Employee invite tab hidden');
+        }
+    } else {
+        console.log('Setting up regular admin tabs...');
+        // 通常管理者：管理者依頼タブを非表示、従業員招待タブを表示
+        if (adminRequestsTab) {
+            adminRequestsTab.style.display = 'none';
+            console.log('Admin requests tab hidden');
+        }
+        if (employeeInviteTab) {
             employeeInviteTab.style.display = 'block';
+            console.log('Employee invite tab shown');
         }
     }
 
