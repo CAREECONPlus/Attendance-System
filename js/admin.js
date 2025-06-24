@@ -3860,19 +3860,9 @@ function initSiteManagement() {
 async function handleAddSite(e) {
     e.preventDefault();
     
-    console.log('handleAddSite: フォーム送信開始');
-    
-    const siteNameElement = document.getElementById('add-site-name');
-    const siteAddressElement = document.getElementById('add-site-address');
-    const siteDescriptionElement = document.getElementById('add-site-description');
-    
-    console.log('フォーム要素:', { siteNameElement, siteAddressElement, siteDescriptionElement });
-    
-    const siteName = siteNameElement?.value?.trim() || '';
-    const siteAddress = siteAddressElement?.value?.trim() || '';
-    const siteDescription = siteDescriptionElement?.value?.trim() || '';
-    
-    console.log('取得した値:', { siteName, siteAddress, siteDescription });
+    const siteName = document.getElementById('add-site-name')?.value?.trim() || '';
+    const siteAddress = document.getElementById('add-site-address')?.value?.trim() || '';
+    const siteDescription = document.getElementById('add-site-description')?.value?.trim() || '';
     
     if (!siteName) {
         alert('現場名を入力してください');
@@ -3924,10 +3914,18 @@ async function handleAddSite(e) {
         updatedSites.sites = updatedSites.sites || [];
         updatedSites.sites.push(siteData);
         
-        await tenantSettingsRef.update({
+        // ドキュメントが存在しない場合はsetを使用、存在する場合はupdateを使用
+        const updateData = {
+            ...currentSettings,
             sites: updatedSites,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        
+        if (settingsDoc.exists) {
+            await tenantSettingsRef.update(updateData);
+        } else {
+            await tenantSettingsRef.set(updateData);
+        }
         
         // フォームをリセット
         document.getElementById('add-site-form').reset();
@@ -4148,10 +4146,17 @@ async function updateTenantSites(tenantId, sites) {
     const updatedSites = currentSettings.sites || { enabled: true, requireSiteSelection: true, sites: [] };
     updatedSites.sites = sites;
     
-    await tenantSettingsRef.update({
+    const updateData = {
+        ...currentSettings,
         sites: updatedSites,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    
+    if (settingsDoc.exists) {
+        await tenantSettingsRef.update(updateData);
+    } else {
+        await tenantSettingsRef.set(updateData);
+    }
 }
 
 /**
