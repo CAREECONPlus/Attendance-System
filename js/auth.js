@@ -109,9 +109,10 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             
             await userDocPromise;
 
-            // 2. global_usersに追加
+            // 2. global_usersに追加（メールアドレスをキーとして使用）
             try {
-                await authenticatedFirestore.collection('global_users').doc(user.uid).set({
+                await authenticatedFirestore.collection('global_users').doc(email).set({
+                    uid: user.uid,
                     email: email,
                     displayName: displayName,
                     tenantId: tenantId,
@@ -120,7 +121,7 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
                 });
             } catch (globalWriteError) {
                 // global_users の失敗は致命的ではないので、処理を継続
-                console.warn('Global usersの保存に失敗しましたが、テナントユーザー登録は完了しました');
+                console.warn('Global usersの保存に失敗しましたが、テナントユーザー登録は完了しました', globalWriteError);
             }
 
             // 3. 招待コードの使用回数を更新

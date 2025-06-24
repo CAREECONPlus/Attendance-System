@@ -65,6 +65,17 @@ async function initLogin() {
         // Firebase認証状態の監視
         firebase.auth().onAuthStateChanged(handleAuthStateChange);
         
+        // localStorage から認証状態を復元
+        try {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                window.currentUser = JSON.parse(savedUser);
+                console.log('認証状態をlocalStorageから復元しました:', window.currentUser);
+            }
+        } catch (error) {
+            console.warn('localStorage認証状態の復元に失敗:', error);
+            localStorage.removeItem('currentUser');
+        }
         
         loginInitialized = true;
         
