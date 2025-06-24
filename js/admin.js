@@ -63,6 +63,15 @@ function showAdminRequestsTab() {
     if (adminRequestsContent) {
         adminRequestsContent.classList.remove('hidden');
         adminRequestsContent.style.display = 'block'; // 強制的に表示
+        
+        // 管理者依頼テーブルコンテナも表示
+        const tableContainer = adminRequestsContent.querySelector('.attendance-table-container');
+        if (tableContainer) {
+            tableContainer.classList.remove('hidden');
+            tableContainer.style.display = 'block';
+            console.log('showAdminRequestsTab: テーブルコンテナも表示設定');
+        }
+        
         console.log('showAdminRequestsTab: コンテンツを表示設定');
         console.log('showAdminRequestsTab: コンテンツのdisplay:', window.getComputedStyle(adminRequestsContent).display);
     } else {
