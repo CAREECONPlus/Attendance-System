@@ -394,9 +394,10 @@ async function handleEmployeeRegister(e) {
         submitBtn.textContent = '登録中...';
     }
     
+    let result = null;
     try {
         // 招待トークンを使って従業員登録
-        const result = await registerEmployeeWithInvite(email, password, name, inviteToken);
+        result = await registerEmployeeWithInvite(email, password, name, inviteToken);
         
         if (result.success) {
             // 登録成功メッセージを表示
@@ -424,6 +425,9 @@ async function handleEmployeeRegister(e) {
                 role: 'employee',
                 tenantId: result.tenantId
             };
+            
+            // localStorage にも保存して認証状態を維持
+            localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
             
             // 3秒後にページ遷移
             setTimeout(() => {
