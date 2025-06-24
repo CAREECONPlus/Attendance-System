@@ -3860,9 +3860,19 @@ function initSiteManagement() {
 async function handleAddSite(e) {
     e.preventDefault();
     
-    const siteName = document.getElementById('site-name').value.trim();
-    const siteAddress = document.getElementById('site-address').value.trim();
-    const siteDescription = document.getElementById('site-description').value.trim();
+    console.log('handleAddSite: フォーム送信開始');
+    
+    const siteNameElement = document.getElementById('add-site-name');
+    const siteAddressElement = document.getElementById('add-site-address');
+    const siteDescriptionElement = document.getElementById('add-site-description');
+    
+    console.log('フォーム要素:', { siteNameElement, siteAddressElement, siteDescriptionElement });
+    
+    const siteName = siteNameElement?.value?.trim() || '';
+    const siteAddress = siteAddressElement?.value?.trim() || '';
+    const siteDescription = siteDescriptionElement?.value?.trim() || '';
+    
+    console.log('取得した値:', { siteName, siteAddress, siteDescription });
     
     if (!siteName) {
         alert('現場名を入力してください');
