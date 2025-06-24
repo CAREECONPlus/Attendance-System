@@ -3901,7 +3901,22 @@ async function handleAddSite(e) {
         
         // 現場名の重複チェック
         const existingSites = await getTenantSites(tenantId);
-        if (existingSites.some(site => site.name === siteName)) {
+        console.log('既存現場一覧:', existingSites);
+        console.log('入力された現場名:', siteName);
+        
+        const duplicateCheck = existingSites.some(site => {
+            console.log('比較中:');
+            console.log('  既存現場名:', site.name, '型:', typeof site.name);
+            console.log('  入力現場名:', siteName, '型:', typeof siteName);
+            console.log('  trimされた既存名:', site.name?.trim());
+            console.log('  厳密比較結果:', site.name === siteName);
+            console.log('  trim比較結果:', site.name?.trim() === siteName?.trim());
+            return site.name?.trim() === siteName?.trim();
+        });
+        
+        console.log('重複チェック結果:', duplicateCheck);
+        
+        if (duplicateCheck) {
             alert('同じ名前の現場が既に存在します');
             return;
         }
