@@ -4482,10 +4482,14 @@ function setupModalEventListeners() {
         saveBtn.replaceWith(saveBtn.cloneNode(true));
         const newSaveBtn = document.querySelector('#edit-attendance-modal .btn-primary');
         
-        newSaveBtn.addEventListener('click', function(e) {
+        newSaveBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             console.log('Save button clicked via event listener');
-            saveAttendanceRecord();
+            try {
+                await saveAttendanceRecordInternal();
+            } catch (error) {
+                console.error('Error in save button handler:', error);
+            }
         });
         console.log('Save button event listener added');
     }
@@ -4497,10 +4501,14 @@ function setupModalEventListeners() {
         deleteBtn.replaceWith(deleteBtn.cloneNode(true));
         const newDeleteBtn = document.querySelector('#edit-attendance-modal .btn-danger');
         
-        newDeleteBtn.addEventListener('click', function(e) {
+        newDeleteBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             console.log('Delete button clicked via event listener');
-            deleteAttendanceRecord();
+            try {
+                await deleteAttendanceRecordInternal();
+            } catch (error) {
+                console.error('Error in delete button handler:', error);
+            }
         });
         console.log('Delete button event listener added');
     }
@@ -4601,8 +4609,16 @@ function closeEditModal() {
  * 勤怠レコードを保存
  */
 async function saveAttendanceRecord() {
+    console.log('saveAttendanceRecord called (wrapper)');
+    return await saveAttendanceRecordInternal();
+}
+
+/**
+ * 勤怠レコードを保存（内部実装）
+ */
+async function saveAttendanceRecordInternal() {
     try {
-        console.log('saveAttendanceRecord called');
+        console.log('saveAttendanceRecordInternal called');
         console.log('currentEditingRecordId:', currentEditingRecordId);
         
         if (!currentEditingRecordId) {
@@ -4678,8 +4694,16 @@ async function saveAttendanceRecord() {
  * 勤怠レコードを削除
  */
 async function deleteAttendanceRecord() {
+    console.log('deleteAttendanceRecord called (wrapper)');
+    return await deleteAttendanceRecordInternal();
+}
+
+/**
+ * 勤怠レコードを削除（内部実装）
+ */
+async function deleteAttendanceRecordInternal() {
     try {
-        console.log('deleteAttendanceRecord called');
+        console.log('deleteAttendanceRecordInternal called');
         console.log('currentEditingRecordId:', currentEditingRecordId);
         
         if (!currentEditingRecordId) {
