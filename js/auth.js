@@ -47,20 +47,35 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
             displayName: displayName
         });
         
-        // Firebase Auth状態の同期
-        await firebaseAuth.updateCurrentUser(user);
-        
-        // 認証状態同期の確認
-        let attempts = 0;
-        while (firebaseAuth.currentUser?.uid !== user.uid && attempts < 10) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            await firebaseAuth.updateCurrentUser(user);
-            attempts++;
-        }
-        
-        if (firebaseAuth.currentUser?.uid !== user.uid) {
-            throw new Error('認証状態の同期に失敗しました');
-        }
+        // Firebase Auth状態の同期 - onAuthStateChangedを使用した確実な同期
+        await new Promise(async (resolve, reject) => {
+            let timeoutId;
+            let unsubscribe;
+            
+            // タイムアウト設定（10秒）
+            timeoutId = setTimeout(() => {
+                if (unsubscribe) unsubscribe();
+                reject(new Error('認証状態の同期がタイムアウトしました'));
+            }, 10000);
+            
+            // 認証状態変更リスナー
+            unsubscribe = firebaseAuth.onAuthStateChanged(async (currentUser) => {
+                if (currentUser && currentUser.uid === user.uid) {
+                    // 認証状態が正しく同期された
+                    clearTimeout(timeoutId);
+                    unsubscribe();
+                    resolve();
+                }
+            });
+            
+            // 手動で認証状態を更新
+            try {
+                await firebaseAuth.updateCurrentUser(user);
+            } catch (error) {
+                // 手動更新が失敗した場合でも、リスナーで同期を待つ
+                console.log('Manual updateCurrentUser failed, waiting for auth state change:', error);
+            }
+        });
         
         // IDトークンを取得
         let idToken;
@@ -73,16 +88,6 @@ async function registerEmployeeWithInvite(email, password, displayName, inviteTo
         
         // テナント情報を取得
         const tenantId = validation.tenantId;
-        
-        // 認証状態の最終確認
-        if (firebaseAuth.currentUser?.uid !== user.uid) {
-            await firebaseAuth.updateCurrentUser(user);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            if (firebaseAuth.currentUser?.uid !== user.uid) {
-                throw new Error('認証状態の同期に失敗しました');
-            }
-        }
 
         // Firestore書き込み処理
         try {
