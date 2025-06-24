@@ -394,23 +394,35 @@ async function loadSiteOptions() {
         }
         
         const sites = await window.getTenantSites(tenantId);
+        console.log('loadSiteOptions - 取得した現場データ:', sites);
+        
         const siteSelect = document.getElementById('site-name');
+        console.log('loadSiteOptions - セレクト要素:', siteSelect);
+        console.log('loadSiteOptions - 現在のオプション数:', siteSelect?.children.length);
         
         if (siteSelect && sites && sites.length > 0) {
-            // 既存のオプションをクリア（最初の2つは残す）
-            while (siteSelect.children.length > 2) {
+            // 既存のオプションをクリア（最初の1つ「現場を選択してください」のみ残す）
+            while (siteSelect.children.length > 1) {
                 siteSelect.removeChild(siteSelect.lastChild);
             }
             
-            // アクティブなサイトのみを追加
-            sites.filter(site => site.active).forEach(site => {
-                const option = document.createElement('option');
-                option.value = site.name;
-                option.textContent = `🏢 ${site.name}`;
-                if (site.address) {
-                    option.textContent += ` (${site.address})`;
+            // アクティブなサイトのみを追加（重複チェック付き）
+            const activeSites = sites.filter(site => site.active);
+            const addedSiteNames = new Set(); // 重複チェック用
+            
+            activeSites.forEach(site => {
+                // 重複チェック
+                if (!addedSiteNames.has(site.name)) {
+                    addedSiteNames.add(site.name);
+                    
+                    const option = document.createElement('option');
+                    option.value = site.name;
+                    option.textContent = `🏢 ${site.name}`;
+                    if (site.address) {
+                        option.textContent += ` (${site.address})`;
+                    }
+                    siteSelect.appendChild(option);
                 }
-                siteSelect.appendChild(option);
             });
             
         }
