@@ -418,57 +418,26 @@ async function loadSiteOptions() {
     }
 }
 
-// サイト選択の変更イベント
+// サイト選択の変更イベント（手動入力は削除済み）
 function setupSiteSelection() {
-    const siteSelect = document.getElementById('site-name');
-    const manualInput = document.getElementById('site-name-manual');
-    
-    if (siteSelect && manualInput) {
-        siteSelect.addEventListener('change', function() {
-            if (this.value === 'manual-input') {
-                manualInput.style.display = 'block';
-                manualInput.required = true;
-                manualInput.focus();
-            } else {
-                manualInput.style.display = 'none';
-                manualInput.required = false;
-                manualInput.value = '';
-            }
-        });
-    }
+    // 手動入力機能は削除されました
+    // 管理者が事前に設定した現場のみ選択可能
 }
 
-// 現場名取得関数（選択式+手動入力対応）
+// 現場名取得関数（管理者設定現場のみ）
 function getSiteNameFromSelection() {
     const siteSelect = document.getElementById('site-name');
-    const manualInput = document.getElementById('site-name-manual');
     
     if (!siteSelect) {
         alert('現場名選択フォームに問題があります。\nページを再読み込みしてください。');
         return null;
     }
     
-    let siteName = '';
-    
-    if (siteSelect.value === 'manual-input') {
-        // 手動入力の場合
-        if (!manualInput) {
-            return null;
-        }
-        siteName = manualInput.value.trim();
-        if (!siteName) {
-            alert('⚠️ 現場名を入力してください');
-            manualInput.focus();
-            return null;
-        }
-    } else {
-        // 選択式の場合
-        siteName = siteSelect.value.trim();
-        if (!siteName) {
-            alert('⚠️ 現場を選択してください');
-            siteSelect.focus();
-            return null;
-        }
+    const siteName = siteSelect.value.trim();
+    if (!siteName) {
+        alert('⚠️ 現場を選択してください');
+        siteSelect.focus();
+        return null;
     }
     
     return siteName;
