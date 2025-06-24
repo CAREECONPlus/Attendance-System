@@ -136,12 +136,38 @@ async function loadAdminRequests() {
             return;
         }
         
-        // admin_requestsコレクションから依頼データを取得
-        console.log('loadAdminRequests: Firestoreクエリを実行中...');
-        const requestsSnapshot = await firebase.firestore()
-            .collection('admin_requests')
-            .orderBy('requestedAt', 'desc')
-            .get();
+        // 現在のユーザーの役割とテナント情報を確認
+        const currentUser = window.currentUser;
+        const isSuper = currentUser && currentUser.role === 'super_admin';
+        
+        console.log('loadAdminRequests: ユーザー権限確認:', isSuper ? 'スーパー管理者' : '通常管理者');
+        
+        let requestsSnapshot;
+        
+        if (isSuper) {
+            // スーパー管理者：全ての依頼を表示
+            console.log('loadAdminRequests: 全ての管理者依頼を取得中...');
+            requestsSnapshot = await firebase.firestore()
+                .collection('admin_requests')
+                .orderBy('requestedAt', 'desc')
+                .get();
+        } else {
+            // 通常管理者：自分のテナントの依頼のみ表示
+            const tenantId = getCurrentTenantId();
+            console.log('loadAdminRequests: テナント固有の依頼を取得中...', tenantId);
+            
+            if (!tenantId) {
+                console.error('loadAdminRequests: テナントIDが取得できません');
+                tbody.innerHTML = '<tr><td colspan="7" class="error">テナント情報が取得できません</td></tr>';
+                return;
+            }
+            
+            requestsSnapshot = await firebase.firestore()
+                .collection('admin_requests')
+                .where('targetTenantId', '==', tenantId)
+                .orderBy('requestedAt', 'desc')
+                .get();
+        }
         
         console.log('loadAdminRequests: クエリ結果:', requestsSnapshot);
         console.log('loadAdminRequests: ドキュメント数:', requestsSnapshot.size);
