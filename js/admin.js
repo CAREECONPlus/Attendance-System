@@ -4340,6 +4340,8 @@ function getSortValue(record, field) {
             return record.siteName || '';
         case 'startTime':
             return record.startTime || '';
+        case 'endTime':
+            return record.endTime || '';
         default:
             return '';
     }
@@ -4353,15 +4355,19 @@ function displaySortedData(data) {
     if (!tbody) return;
     
     tbody.innerHTML = data.map(record => {
+        const breakDuration = calculateBreakDuration(record);
         const workDuration = calculateWorkDuration(record);
-        const statusBadge = getStatusBadge(record.status);
+        const actualWorkDuration = calculateActualWorkDuration(record, breakDuration);
         
         return `
             <tr>
                 <td class="${currentSortField === 'userName' ? 'sorted-column' : ''}">${escapeHtml(record.userName || record.userEmail)}</td>
                 <td class="${currentSortField === 'date' ? 'sorted-column' : ''}">${record.date}</td>
                 <td class="${currentSortField === 'siteName' ? 'sorted-column' : ''}">${escapeHtml(record.siteName || '未設定')}</td>
-                <td>${workDuration}</td>
+                <td class="${currentSortField === 'startTime' ? 'sorted-column' : ''}">${record.startTime || '未出勤'}</td>
+                <td class="${currentSortField === 'endTime' ? 'sorted-column' : ''}">${record.endTime || '勤務中'}</td>
+                <td>${breakDuration}</td>
+                <td>${actualWorkDuration}</td>
                 <td>
                     <button class="btn btn-secondary btn-small" onclick="editAttendanceRecord('${record.id}')">編集</button>
                 </td>
@@ -4387,7 +4393,23 @@ function updateSortIndicators() {
 }
 
 /**
- * 勤務時間の計算（既存関数の流用）
+ * 休憩時間の計算
+ */
+function calculateBreakDuration(record) {
+    if (record.breakDuration && record.breakDuration > 0) {
+        const hours = Math.floor(record.breakDuration / 60);
+        const minutes = record.breakDuration % 60;
+        if (hours > 0) {
+            return `${hours}時間${minutes}分`;
+        } else {
+            return `${minutes}分`;
+        }
+    }
+    return '0分';
+}
+
+/**
+ * 勤務時間の計算（総勤務時間）
  */
 function calculateWorkDuration(record) {
     if (!record.startTime) return '未出勤';
@@ -4406,6 +4428,32 @@ function calculateWorkDuration(record) {
 }
 
 /**
+ * 実稼働時間の計算（総勤務時間 - 休憩時間）
+ */
+function calculateActualWorkDuration(record, breakDurationText) {
+    if (!record.startTime) return '未出勤';
+    if (!record.endTime) return '勤務中';
+    
+    try {
+        const start = new Date(`${record.date} ${record.startTime}`);
+        const end = new Date(`${record.date} ${record.endTime}`);
+        const totalMinutes = Math.floor((end - start) / (1000 * 60));
+        
+        // 休憩時間を分に変換
+        const breakMinutes = record.breakDuration || 0;
+        
+        // 実稼働時間を計算
+        const actualMinutes = Math.max(0, totalMinutes - breakMinutes);
+        const hours = Math.floor(actualMinutes / 60);
+        const minutes = actualMinutes % 60;
+        
+        return `${hours}時間${minutes}分`;
+    } catch (error) {
+        return '計算エラー';
+    }
+}
+
+/**
  * ステータスバッジの取得（既存関数の流用）
  */
 function getStatusBadge(status) {
@@ -4417,8 +4465,11 @@ function getStatusBadge(status) {
     return badges[status] || '<span class="status-badge">不明</span>';
 }
 
+// 現在編集中のレコードID
+let currentEditingRecordId = null;
+
 /**
- * 勤怠レコードを編集
+ * 勤怠レコードを編集（モーダル表示）
  */
 async function editAttendanceRecord(recordId) {
     try {
@@ -4429,53 +4480,98 @@ async function editAttendanceRecord(recordId) {
             return;
         }
         
-        // 編集フォームを表示
-        const newDate = prompt('日付を編集してください (YYYY-MM-DD):', record.date || '');
-        if (newDate === null) return; // キャンセル
+        currentEditingRecordId = recordId;
         
-        const newStartTime = prompt('出勤時刻を編集してください (HH:MM):', record.startTime || '');
-        if (newStartTime === null) return; // キャンセル
+        // モーダルのフォームに値を設定
+        document.getElementById('edit-employee-name').value = record.userName || record.userEmail || '';
+        document.getElementById('edit-date').value = record.date || '';
+        document.getElementById('edit-site-name').value = record.siteName || '';
+        document.getElementById('edit-start-time').value = record.startTime || '';
+        document.getElementById('edit-end-time').value = record.endTime || '';
+        document.getElementById('edit-break-duration').value = record.breakDuration || 0;
+        document.getElementById('edit-notes').value = record.notes || '';
         
-        const newEndTime = prompt('退勤時刻を編集してください (HH:MM、空白可):', record.endTime || '');
-        if (newEndTime === null) return; // キャンセル
+        // モーダルを表示
+        const modal = document.getElementById('edit-attendance-modal');
+        modal.classList.remove('hidden');
         
-        const newSiteName = prompt('現場名を編集してください:', record.siteName || '');
-        if (newSiteName === null) return; // キャンセル
-        
-        // データ検証
-        if (!newDate || !newStartTime) {
-            alert('日付と出勤時刻は必須です');
+    } catch (error) {
+        console.error('勤怠データ編集エラー:', error);
+        alert('編集画面の表示に失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * モーダルを閉じる
+ */
+function closeEditModal() {
+    const modal = document.getElementById('edit-attendance-modal');
+    modal.classList.add('hidden');
+    currentEditingRecordId = null;
+}
+
+/**
+ * 勤怠レコードを保存
+ */
+async function saveAttendanceRecord() {
+    try {
+        if (!currentEditingRecordId) {
+            alert('編集対象のレコードが見つかりません');
             return;
         }
         
-        // 日付フォーマット検証
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-            alert('日付は YYYY-MM-DD 形式で入力してください');
+        // フォームデータを取得
+        const date = document.getElementById('edit-date').value;
+        const siteName = document.getElementById('edit-site-name').value.trim();
+        const startTime = document.getElementById('edit-start-time').value;
+        const endTime = document.getElementById('edit-end-time').value;
+        const breakDuration = parseInt(document.getElementById('edit-break-duration').value) || 0;
+        const notes = document.getElementById('edit-notes').value.trim();
+        
+        // バリデーション
+        if (!date || !siteName || !startTime) {
+            alert('日付、現場名、出勤時間は必須です');
             return;
         }
         
-        // 時刻フォーマット検証
-        if (!/^\d{2}:\d{2}$/.test(newStartTime) || (newEndTime && !/^\d{2}:\d{2}$/.test(newEndTime))) {
-            alert('時刻は HH:MM 形式で入力してください');
+        // 終了時刻が開始時刻より前でないかチェック
+        if (endTime && startTime >= endTime) {
+            alert('退勤時刻は出勤時刻より後に設定してください');
+            return;
+        }
+        
+        // レコードを検索
+        const record = currentData.find(r => r.id === currentEditingRecordId);
+        if (!record) {
+            alert('レコードが見つかりません');
             return;
         }
         
         // 更新データを準備
         const updateData = {
-            date: newDate,
-            startTime: newStartTime,
-            siteName: newSiteName.trim(),
+            date: date,
+            siteName: siteName,
+            startTime: startTime,
+            breakDuration: breakDuration,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: firebase.auth().currentUser?.email || 'admin'
         };
         
         // 退勤時刻がある場合のみ追加
-        if (newEndTime && newEndTime.trim()) {
-            updateData.endTime = newEndTime;
+        if (endTime) {
+            updateData.endTime = endTime;
+        }
+        
+        // メモがある場合のみ追加
+        if (notes) {
+            updateData.notes = notes;
         }
         
         // Firestoreを更新
-        await updateAttendanceRecord(recordId, record.tenantId, updateData);
+        await updateAttendanceRecordInFirestore(currentEditingRecordId, record.tenantId, updateData);
+        
+        // モーダルを閉じる
+        closeEditModal();
         
         // データを再読み込み
         await loadAttendanceData();
@@ -4483,15 +4579,54 @@ async function editAttendanceRecord(recordId) {
         alert('勤怠データを更新しました');
         
     } catch (error) {
-        console.error('勤怠データ編集エラー:', error);
-        alert('勤怠データの更新に失敗しました: ' + error.message);
+        console.error('勤怠データ保存エラー:', error);
+        alert('勤怠データの保存に失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * 勤怠レコードを削除
+ */
+async function deleteAttendanceRecord() {
+    try {
+        if (!currentEditingRecordId) {
+            alert('削除対象のレコードが見つかりません');
+            return;
+        }
+        
+        // 確認ダイアログ
+        if (!confirm('この勤怠レコードを削除してもよろしいですか？\n削除したデータは復元できません。')) {
+            return;
+        }
+        
+        // レコードを検索
+        const record = currentData.find(r => r.id === currentEditingRecordId);
+        if (!record) {
+            alert('レコードが見つかりません');
+            return;
+        }
+        
+        // Firestoreから削除
+        await deleteAttendanceRecordFromFirestore(currentEditingRecordId, record.tenantId);
+        
+        // モーダルを閉じる
+        closeEditModal();
+        
+        // データを再読み込み
+        await loadAttendanceData();
+        
+        alert('勤怠データを削除しました');
+        
+    } catch (error) {
+        console.error('勤怠データ削除エラー:', error);
+        alert('勤怠データの削除に失敗しました: ' + error.message);
     }
 }
 
 /**
  * Firestoreの勤怠レコードを更新
  */
-async function updateAttendanceRecord(recordId, tenantId, updateData) {
+async function updateAttendanceRecordInFirestore(recordId, tenantId, updateData) {
     if (tenantId) {
         // テナント専用データの場合
         await firebase.firestore()
@@ -4508,11 +4643,34 @@ async function updateAttendanceRecord(recordId, tenantId, updateData) {
     }
 }
 
+/**
+ * Firestoreの勤怠レコードを削除
+ */
+async function deleteAttendanceRecordFromFirestore(recordId, tenantId) {
+    if (tenantId) {
+        // テナント専用データの場合
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('attendance')
+            .doc(recordId)
+            .delete();
+    } else {
+        // 通常のattendanceコレクションの場合
+        await getAttendanceCollection()
+            .doc(recordId)
+            .delete();
+    }
+}
+
 // グローバルスコープに関数をエクスポート
 window.initAdminPage = initAdminPage;
 window.switchTab = switchTab;
 window.initSiteManagement = initSiteManagement;
 window.initSortFeatures = initSortFeatures;
 window.editAttendanceRecord = editAttendanceRecord;
+window.closeEditModal = closeEditModal;
+window.saveAttendanceRecord = saveAttendanceRecord;
+window.deleteAttendanceRecord = deleteAttendanceRecord;
 window.currentData = currentData;
 

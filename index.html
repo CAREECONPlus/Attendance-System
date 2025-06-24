@@ -723,6 +723,168 @@
             }
         }
 
+        /* ==================== モーダル用CSS ==================== */
+
+        /* モーダル基本スタイル */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        /* モーダルオーバーレイ */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+        }
+
+        /* モーダルコンテンツ */
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1002;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* モーダルヘッダー */
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #000;
+        }
+
+        /* モーダルボディ */
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* フォーム行 */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        /* フォームグループ */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-group input[readonly] {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        /* モーダルフッター */
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-top: 1px solid #eee;
+            gap: 10px;
+        }
+
+        .modal-footer .btn {
+            min-width: 80px;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -932,7 +1094,14 @@
                                 <th class="sortable" data-sort="siteName">
                                     現場名 <span class="sort-indicator" data-sort="siteName"></span>
                                 </th>
-                                <th>勤務時間</th>
+                                <th class="sortable" data-sort="startTime">
+                                    出勤時間 <span class="sort-indicator" data-sort="startTime"></span>
+                                </th>
+                                <th class="sortable" data-sort="endTime">
+                                    退勤時間 <span class="sort-indicator" data-sort="endTime"></span>
+                                </th>
+                                <th>休憩時間</th>
+                                <th>実稼働時間</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -940,6 +1109,64 @@
                             <!-- 勤怠データが表示されます -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- 勤怠データ編集モーダル -->
+                <div id="edit-attendance-modal" class="modal hidden">
+                    <div class="modal-overlay" onclick="closeEditModal()"></div>
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>📝 勤怠データ編集</h3>
+                            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="edit-attendance-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-employee-name">従業員名</label>
+                                        <input type="text" id="edit-employee-name" readonly>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-date">日付 *</label>
+                                        <input type="date" id="edit-date" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-site-name">現場名 *</label>
+                                        <input type="text" id="edit-site-name" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-start-time">出勤時間 *</label>
+                                        <input type="time" id="edit-start-time" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-end-time">退勤時間</label>
+                                        <input type="time" id="edit-end-time">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-break-duration">休憩時間（分）</label>
+                                        <input type="number" id="edit-break-duration" min="0" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="edit-notes">メモ</label>
+                                        <textarea id="edit-notes" rows="3" placeholder="作業内容や特記事項"></textarea>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-danger" onclick="deleteAttendanceRecord()">🗑️ 削除</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
+                            <button type="button" class="btn btn-primary" onclick="saveAttendanceRecord()">💾 保存</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 従業員招待管理セクション -->
