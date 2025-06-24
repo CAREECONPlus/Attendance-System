@@ -642,6 +642,87 @@
             }
         }
 
+        /* ==================== ソート機能用CSS ==================== */
+
+        /* ソートコントロール */
+        .sort-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 10px;
+        }
+
+        .sort-controls select {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        /* ソート可能なテーブルヘッダー */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+
+        .sortable:hover {
+            background-color: #f8f9fa;
+        }
+
+        .sortable.active {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        /* ソートインジケーター */
+        .sort-indicator {
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sort-indicator::after {
+            content: "⇅";
+        }
+
+        .sortable.active .sort-indicator {
+            opacity: 1;
+        }
+
+        .sortable.active.asc .sort-indicator::after {
+            content: "↑";
+            color: #4caf50;
+        }
+
+        .sortable.active.desc .sort-indicator::after {
+            content: "↓";
+            color: #f44336;
+        }
+
+        /* ソートされた列のハイライト */
+        .attendance-table tbody tr td.sorted-column {
+            background-color: #f8f9fa;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .sort-controls {
+                flex-direction: column;
+                gap: 5px;
+                margin: 10px 0;
+            }
+
+            .sort-controls select {
+                width: 100%;
+                min-width: unset;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -820,6 +901,19 @@
                             <option value="">全ての現場</option>
                         </select>
                     </div>
+                    <div class="sort-controls">
+                        <label class="filter-label">並び順:</label>
+                        <select id="sort-field">
+                            <option value="date">日付順</option>
+                            <option value="userName">従業員名順</option>
+                            <option value="siteName">現場名順</option>
+                            <option value="startTime">出勤時刻順</option>
+                        </select>
+                        <select id="sort-direction">
+                            <option value="asc">昇順 ↑</option>
+                            <option value="desc">降順 ↓</option>
+                        </select>
+                    </div>
                     <div class="filter-actions">
                         <button id="export-csv" class="btn btn-primary">CSV出力</button>
                     </div>
@@ -829,9 +923,15 @@
                     <table class="attendance-table">
                         <thead>
                             <tr>
-                                <th class="sortable" data-sort="userName">従業員名</th>
-                                <th class="sortable" data-sort="date">日付</th>
-                                <th class="sortable" data-sort="siteName">現場名</th>
+                                <th class="sortable" data-sort="userName">
+                                    従業員名 <span class="sort-indicator" data-sort="userName"></span>
+                                </th>
+                                <th class="sortable" data-sort="date">
+                                    日付 <span class="sort-indicator" data-sort="date"></span>
+                                </th>
+                                <th class="sortable" data-sort="siteName">
+                                    現場名 <span class="sort-indicator" data-sort="siteName"></span>
+                                </th>
                                 <th>勤務時間</th>
                                 <th>操作</th>
                             </tr>

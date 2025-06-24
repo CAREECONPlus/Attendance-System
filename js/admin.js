@@ -802,8 +802,14 @@ async function loadAttendanceDataForSuperAdmin(activeTab) {
         
         console.log('Super admin loaded records:', allData.length);
         
+        // グローバル currentData 配列を更新
+        currentData = allData;
+        
         // テーブルを描画
         renderAttendanceTable(allData);
+        
+        // ソート機能を適用
+        applySortToTable();
         
     } catch (error) {
         console.error('Error loading super admin attendance data:', error);
@@ -871,8 +877,14 @@ async function loadAttendanceData() {
         // 休憩データも取得
         await loadBreakDataForRecords(filteredData);
         
+        // グローバル currentData 配列を更新
+        currentData = filteredData;
+        
         // テーブルを描画
         renderAttendanceTable(filteredData);
+        
+        // ソート機能を適用
+        applySortToTable();
         
     } catch (error) {
         showError('勤怠データの読み込みに失敗しました');
@@ -3677,6 +3689,9 @@ function initAdminPage() {
         // 現場管理機能の初期化
         initSiteManagement();
         
+        // ソート機能の初期化
+        initSortFeatures();
+        
         // 編集機能の初期化
         initAdminEditFeatures();
         
@@ -4218,8 +4233,194 @@ window.editSite = editSite;
 window.toggleSiteStatus = toggleSiteStatus;
 window.loadSiteManagementList = loadSiteManagementList;
 
+// ================== ソート機能 ==================
+
+// ソート状態を管理
+let currentSortField = 'date';
+let currentSortDirection = 'desc';
+let currentData = [];
+
+/**
+ * ソート機能の初期化
+ */
+function initSortFeatures() {
+    // プルダウンソートのイベントリスナー
+    const sortField = document.getElementById('sort-field');
+    const sortDirection = document.getElementById('sort-direction');
+    
+    if (sortField) {
+        sortField.addEventListener('change', () => {
+            currentSortField = sortField.value;
+            applySortToTable();
+        });
+    }
+    
+    if (sortDirection) {
+        sortDirection.addEventListener('change', () => {
+            currentSortDirection = sortDirection.value;
+            applySortToTable();
+        });
+    }
+    
+    // テーブルヘッダーのクリックソート
+    document.querySelectorAll('.sortable').forEach(header => {
+        header.addEventListener('click', () => {
+            const sortField = header.getAttribute('data-sort');
+            handleHeaderSort(sortField);
+        });
+    });
+}
+
+/**
+ * ヘッダークリックによるソート処理
+ */
+function handleHeaderSort(field) {
+    if (currentSortField === field) {
+        // 同じフィールドをクリックした場合は昇順/降順を切り替え
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        // 異なるフィールドをクリックした場合は新しいフィールドで昇順
+        currentSortField = field;
+        currentSortDirection = 'asc';
+    }
+    
+    // プルダウンを更新
+    const sortFieldSelect = document.getElementById('sort-field');
+    const sortDirectionSelect = document.getElementById('sort-direction');
+    
+    if (sortFieldSelect) sortFieldSelect.value = currentSortField;
+    if (sortDirectionSelect) sortDirectionSelect.value = currentSortDirection;
+    
+    applySortToTable();
+}
+
+/**
+ * テーブルにソートを適用
+ */
+function applySortToTable() {
+    if (currentData.length === 0) return;
+    
+    const sortedData = [...currentData].sort((a, b) => {
+        let valueA = getSortValue(a, currentSortField);
+        let valueB = getSortValue(b, currentSortField);
+        
+        // 日付の場合は Date オブジェクトとして比較
+        if (currentSortField === 'date') {
+            valueA = new Date(valueA);
+            valueB = new Date(valueB);
+        }
+        // 時刻の場合は時刻文字列として比較
+        else if (currentSortField === 'startTime') {
+            valueA = valueA || '00:00:00';
+            valueB = valueB || '00:00:00';
+        }
+        
+        let comparison = 0;
+        if (valueA < valueB) comparison = -1;
+        if (valueA > valueB) comparison = 1;
+        
+        return currentSortDirection === 'desc' ? -comparison : comparison;
+    });
+    
+    // テーブルを更新
+    displaySortedData(sortedData);
+    updateSortIndicators();
+}
+
+/**
+ * ソート用の値を取得
+ */
+function getSortValue(record, field) {
+    switch (field) {
+        case 'userName':
+            return record.userName || record.userEmail || '';
+        case 'date':
+            return record.date || '';
+        case 'siteName':
+            return record.siteName || '';
+        case 'startTime':
+            return record.startTime || '';
+        default:
+            return '';
+    }
+}
+
+/**
+ * ソートされたデータを表示
+ */
+function displaySortedData(data) {
+    const tbody = document.getElementById('attendance-data');
+    if (!tbody) return;
+    
+    tbody.innerHTML = data.map(record => {
+        const workDuration = calculateWorkDuration(record);
+        const statusBadge = getStatusBadge(record.status);
+        
+        return `
+            <tr>
+                <td class="${currentSortField === 'userName' ? 'sorted-column' : ''}">${escapeHtml(record.userName || record.userEmail)}</td>
+                <td class="${currentSortField === 'date' ? 'sorted-column' : ''}">${record.date}</td>
+                <td class="${currentSortField === 'siteName' ? 'sorted-column' : ''}">${escapeHtml(record.siteName || '未設定')}</td>
+                <td>${workDuration}</td>
+                <td>
+                    <button class="btn btn-secondary btn-small" onclick="editAttendanceRecord('${record.id}')">編集</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * ソートインジケーターを更新
+ */
+function updateSortIndicators() {
+    // すべてのヘッダーからアクティブクラスを削除
+    document.querySelectorAll('.sortable').forEach(header => {
+        header.classList.remove('active', 'asc', 'desc');
+    });
+    
+    // 現在のソートフィールドにアクティブクラスを追加
+    const activeHeader = document.querySelector(`[data-sort="${currentSortField}"]`);
+    if (activeHeader) {
+        activeHeader.classList.add('active', currentSortDirection);
+    }
+}
+
+/**
+ * 勤務時間の計算（既存関数の流用）
+ */
+function calculateWorkDuration(record) {
+    if (!record.startTime) return '未出勤';
+    if (!record.endTime) return '勤務中';
+    
+    try {
+        const start = new Date(`${record.date} ${record.startTime}`);
+        const end = new Date(`${record.date} ${record.endTime}`);
+        const diffMs = end - start;
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${hours}時間${minutes}分`;
+    } catch (error) {
+        return '計算エラー';
+    }
+}
+
+/**
+ * ステータスバッジの取得（既存関数の流用）
+ */
+function getStatusBadge(status) {
+    const badges = {
+        'working': '<span class="status-badge status-working">勤務中</span>',
+        'break': '<span class="status-badge status-break">休憩中</span>',
+        'completed': '<span class="status-badge status-completed">退勤済み</span>'
+    };
+    return badges[status] || '<span class="status-badge">不明</span>';
+}
+
 // グローバルスコープに関数をエクスポート
 window.initAdminPage = initAdminPage;
 window.switchTab = switchTab;
 window.initSiteManagement = initSiteManagement;
+window.initSortFeatures = initSortFeatures;
+window.currentData = currentData;
 
