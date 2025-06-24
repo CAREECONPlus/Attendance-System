@@ -3835,28 +3835,43 @@ window.inviteNewEmployee = inviteNewEmployee;
  * 現場管理機能の初期化
  */
 function initSiteManagement() {
+    console.log('initSiteManagement: 現場管理機能初期化開始');
+    
     // 現場追加フォームのイベント
     const addSiteForm = document.getElementById('add-site-form');
+    console.log('現場追加フォーム:', addSiteForm);
     if (addSiteForm) {
         addSiteForm.addEventListener('submit', handleAddSite);
+        console.log('現場追加フォームのイベントリスナーを設定しました');
+    } else {
+        console.warn('現場追加フォームが見つかりません');
     }
     
     // 現場更新ボタンのイベント
     const refreshSitesBtn = document.getElementById('refresh-sites-btn');
+    console.log('現場更新ボタン:', refreshSitesBtn);
     if (refreshSitesBtn) {
-        refreshSitesBtn.addEventListener('click', loadSiteList);
+        refreshSitesBtn.addEventListener('click', loadSiteManagementList);
+        console.log('現場更新ボタンのイベントリスナーを設定しました');
+    } else {
+        console.warn('現場更新ボタンが見つかりません');
     }
+    
+    console.log('initSiteManagement: 現場管理機能初期化完了');
 }
 
 /**
  * 新規現場追加処理
  */
 async function handleAddSite(e) {
+    console.log('handleAddSite: 現場追加処理開始');
     e.preventDefault();
     
     const siteName = document.getElementById('site-name').value.trim();
     const siteAddress = document.getElementById('site-address').value.trim();
     const siteDescription = document.getElementById('site-description').value.trim();
+    
+    console.log('入力値:', { siteName, siteAddress, siteDescription });
     
     if (!siteName) {
         alert('現場名を入力してください');
@@ -3913,7 +3928,7 @@ async function handleAddSite(e) {
         document.getElementById('add-site-form').reset();
         
         // 現場一覧を更新
-        await loadSiteList();
+        await loadSiteManagementList();
         
         alert('現場を追加しました');
         
@@ -3924,9 +3939,9 @@ async function handleAddSite(e) {
 }
 
 /**
- * 現場一覧を読み込み表示
+ * 現場管理用の現場一覧を読み込み表示
  */
-async function loadSiteList() {
+async function loadSiteManagementList() {
     try {
         const tenantId = getCurrentTenantId();
         if (!tenantId) return;
@@ -4059,7 +4074,7 @@ async function editSite(siteId) {
         await updateTenantSites(tenantId, updatedSites);
         
         // 現場一覧を更新
-        await loadSiteList();
+        await loadSiteManagementList();
         
         alert('現場情報を更新しました');
         
@@ -4101,7 +4116,7 @@ async function toggleSiteStatus(siteId, newStatus) {
         await updateTenantSites(tenantId, updatedSites);
         
         // 現場一覧を更新
-        await loadSiteList();
+        await loadSiteManagementList();
         
         alert(`現場を${action}しました`);
         
@@ -4137,37 +4152,48 @@ async function updateTenantSites(tenantId, sites) {
  * 現場管理タブを表示
  */
 function showSiteManagementTab() {
+    console.log('showSiteManagementTab: 現場管理タブ表示開始');
+    
     // 勤怠テーブルを非表示
     const attendanceContainer = document.querySelector('.attendance-table-container');
     if (attendanceContainer) {
         attendanceContainer.classList.add('hidden');
+        console.log('勤怠テーブルを非表示にしました');
     }
     
     // フィルター行を非表示
     const filterRow = document.querySelector('.filter-row');
     if (filterRow) {
         filterRow.classList.add('hidden');
+        console.log('フィルター行を非表示にしました');
     }
     
     // 他のコンテンツを非表示
     const inviteContent = document.getElementById('invite-content');
     if (inviteContent) {
         inviteContent.classList.add('hidden');
+        console.log('招待コンテンツを非表示にしました');
     }
     
     const adminRequestsContent = document.getElementById('admin-requests-content');
     if (adminRequestsContent) {
         adminRequestsContent.classList.add('hidden');
+        console.log('管理者依頼コンテンツを非表示にしました');
     }
     
     // 現場管理コンテンツを表示
     const siteManagementContent = document.getElementById('site-management-content');
+    console.log('現場管理コンテンツ要素:', siteManagementContent);
     if (siteManagementContent) {
         siteManagementContent.classList.remove('hidden');
+        console.log('現場管理コンテンツを表示しました');
+    } else {
+        console.error('現場管理コンテンツ要素が見つかりません');
     }
     
     // 現場一覧を読み込み
-    loadSiteList();
+    console.log('現場一覧の読み込みを開始');
+    loadSiteManagementList();
 }
 
 /**
@@ -4182,7 +4208,7 @@ function escapeHtml(text) {
 // 現場管理関数をグローバルスコープに公開
 window.editSite = editSite;
 window.toggleSiteStatus = toggleSiteStatus;
-window.loadSiteList = loadSiteList;
+window.loadSiteManagementList = loadSiteManagementList;
 
 // グローバルスコープに関数をエクスポート
 window.initAdminPage = initAdminPage;
