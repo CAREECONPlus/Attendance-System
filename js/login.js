@@ -399,7 +399,22 @@ async function handleEmployeeRegister(e) {
         const result = await registerEmployeeWithInvite(email, password, name, inviteToken);
         
         if (result.success) {
-            // 登録成功 - ユーザー情報を設定してページ遷移
+            // 登録成功メッセージを表示
+            showRegisterSuccess(`${name}さん、従業員登録が完了しました！3秒後に勤怠画面に移動します...`);
+            
+            // ボタンを成功状態に変更
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '登録完了！';
+                submitBtn.style.backgroundColor = 'var(--careecon-green)';
+                submitBtn.style.borderColor = 'var(--careecon-green)';
+            }
+            
+            // フォームをリセット
+            document.getElementById('register-name').value = '';
+            document.getElementById('register-email').value = '';
+            document.getElementById('register-password').value = '';
+            document.getElementById('register-password-confirm').value = '';
             
             // グローバル変数にユーザー情報を設定
             window.currentUser = {
@@ -410,19 +425,22 @@ async function handleEmployeeRegister(e) {
                 tenantId: result.tenantId
             };
             
-            if (result.tenantId) {
-                const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${result.tenantId}`;
-                window.location.href = tenantUrl;
-            } else {
-                if (typeof showPage === 'function') {
-                    showPage('employee');
-                    setTimeout(() => {
-                        if (typeof initEmployeePage === 'function') {
-                            initEmployeePage();
-                        }
-                    }, 200);
+            // 3秒後にページ遷移
+            setTimeout(() => {
+                if (result.tenantId) {
+                    const tenantUrl = `${window.location.origin}${window.location.pathname}?tenant=${result.tenantId}`;
+                    window.location.href = tenantUrl;
+                } else {
+                    if (typeof showPage === 'function') {
+                        showPage('employee');
+                        setTimeout(() => {
+                            if (typeof initEmployeePage === 'function') {
+                                initEmployeePage();
+                            }
+                        }, 200);
+                    }
                 }
-            }
+            }, 3000);
         } else {
             showRegisterError(result.error || '登録に失敗しました');
         }
@@ -441,10 +459,12 @@ async function handleEmployeeRegister(e) {
         
         showRegisterError(message);
     } finally {
-        // ローディング解除
-        if (submitBtn) {
+        // ローディング解除（成功時以外）
+        if (submitBtn && !result?.success) {
             submitBtn.disabled = false;
             submitBtn.textContent = originalText || '登録';
+            submitBtn.style.backgroundColor = '';
+            submitBtn.style.borderColor = '';
         }
     }
 }
@@ -454,6 +474,13 @@ async function handleEmployeeRegister(e) {
  */
 function showRegisterError(message) {
     const errorElement = document.getElementById('register-error-message');
+    const successElement = document.getElementById('register-success-message');
+    
+    // 成功メッセージを隠す
+    if (successElement) {
+        successElement.classList.add('hidden');
+    }
+    
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.classList.remove('hidden');
@@ -462,6 +489,29 @@ function showRegisterError(message) {
         setTimeout(() => {
             errorElement.classList.add('hidden');
         }, 5000);
+    }
+}
+
+/**
+ * 登録成功表示
+ */
+function showRegisterSuccess(message) {
+    const successElement = document.getElementById('register-success-message');
+    const errorElement = document.getElementById('register-error-message');
+    
+    // エラーメッセージを隠す
+    if (errorElement) {
+        errorElement.classList.add('hidden');
+    }
+    
+    if (successElement) {
+        successElement.textContent = message;
+        successElement.classList.remove('hidden');
+        
+        // 10秒後に自動で隠す（成功メッセージは少し長めに表示）
+        setTimeout(() => {
+            successElement.classList.add('hidden');
+        }, 10000);
     }
 }
 
