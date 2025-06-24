@@ -163,7 +163,7 @@ async function loadAdminRequests() {
                 <td>${request.requesterEmail}</td>
                 <td>${request.companyName}</td>
                 <td>${request.department || '-'}</td>
-                <td><span class="status-${request.status}">${getAdminStatusText(request.status)}</span></td>
+                <td><span class="status-${request.status}">${getAdminRequestStatusText(request.status)}</span></td>
                 <td class="action-buttons">
                     ${request.status === 'pending' ? 
                         `<button class="btn btn-primary btn-sm" onclick="approveAdminRequest('${request.id}')">承認</button>
