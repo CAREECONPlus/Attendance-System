@@ -199,12 +199,7 @@ async function initializeTenantSettings(tenantId, companyInfo = {}) {
 async function getTenantSites(tenantId) {
     try {
         const settings = await getTenantSettings(tenantId);
-        console.log('getTenantSites - 取得した設定:', settings);
-        console.log('getTenantSites - sites設定:', settings.sites);
-        
-        const sites = settings.sites?.sites || [];
-        console.log('getTenantSites - 返却する現場一覧:', sites);
-        return sites;
+        return settings.sites?.sites || [];
     } catch (error) {
         console.error('getTenantSites - エラー:', error);
         return [];

@@ -3836,11 +3836,8 @@ window.inviteNewEmployee = inviteNewEmployee;
  * 現場管理機能の初期化
  */
 function initSiteManagement() {
-    console.log('initSiteManagement: 現場管理機能初期化開始');
-    
     // 現場追加フォームのイベント
     const addSiteForm = document.getElementById('add-site-form');
-    console.log('現場追加フォーム:', addSiteForm);
     if (addSiteForm) {
         // 既存のイベントリスナーを削除してから追加（重複防止）
         const newForm = addSiteForm.cloneNode(true);
@@ -3848,44 +3845,24 @@ function initSiteManagement() {
         
         const freshForm = document.getElementById('add-site-form');
         freshForm.addEventListener('submit', handleAddSite);
-        console.log('現場追加フォームのイベントリスナーを設定しました');
-        
-        // フォームの表示状態をチェック
-        const formStyle = window.getComputedStyle(freshForm);
-        console.log('フォーム表示状態:', {
-            display: formStyle.display,
-            visibility: formStyle.visibility,
-            opacity: formStyle.opacity
-        });
-    } else {
-        console.warn('現場追加フォームが見つかりません');
     }
     
     // 現場更新ボタンのイベント
     const refreshSitesBtn = document.getElementById('refresh-sites-btn');
-    console.log('現場更新ボタン:', refreshSitesBtn);
     if (refreshSitesBtn) {
         refreshSitesBtn.addEventListener('click', loadSiteManagementList);
-        console.log('現場更新ボタンのイベントリスナーを設定しました');
-    } else {
-        console.warn('現場更新ボタンが見つかりません');
     }
-    
-    console.log('initSiteManagement: 現場管理機能初期化完了');
 }
 
 /**
  * 新規現場追加処理
  */
 async function handleAddSite(e) {
-    console.log('handleAddSite: 現場追加処理開始');
     e.preventDefault();
     
     const siteName = document.getElementById('site-name').value.trim();
     const siteAddress = document.getElementById('site-address').value.trim();
     const siteDescription = document.getElementById('site-description').value.trim();
-    
-    console.log('入力値:', { siteName, siteAddress, siteDescription });
     
     if (!siteName) {
         alert('現場名を入力してください');
@@ -3901,23 +3878,12 @@ async function handleAddSite(e) {
         
         // 現場名の重複チェック
         const existingSites = await getTenantSites(tenantId);
-        console.log('既存現場一覧:', existingSites);
-        console.log('入力された現場名:', siteName);
-        
-        const duplicateCheck = existingSites.some(site => {
-            console.log('比較中:');
-            console.log('  既存現場名:', site.name, '型:', typeof site.name);
-            console.log('  入力現場名:', siteName, '型:', typeof siteName);
-            console.log('  trimされた既存名:', site.name?.trim());
-            console.log('  厳密比較結果:', site.name === siteName);
-            console.log('  trim比較結果:', site.name?.trim() === siteName?.trim());
-            return site.name?.trim() === siteName?.trim();
-        });
-        
-        console.log('重複チェック結果:', duplicateCheck);
+        const duplicateCheck = existingSites.some(site => 
+            site.name?.trim() === siteName?.trim()
+        );
         
         if (duplicateCheck) {
-            alert('同じ名前の現場が既に存在します');
+            alert(`現場名「${siteName}」は既に存在します。別の名前を入力してください。`);
             return;
         }
         
@@ -3971,28 +3937,16 @@ async function handleAddSite(e) {
  * 現場管理用の現場一覧を読み込み表示
  */
 async function loadSiteManagementList() {
-    console.log('loadSiteManagementList: 現場一覧読み込み開始');
     try {
         const tenantId = getCurrentTenantId();
-        console.log('テナントID:', tenantId);
-        if (!tenantId) {
-            console.warn('テナントIDが取得できません');
-            return;
-        }
+        if (!tenantId) return;
         
         const sites = await getTenantSites(tenantId);
-        console.log('取得した現場データ:', sites);
-        
         const siteListData = document.getElementById('site-list-data');
-        console.log('現場一覧テーブル要素:', siteListData);
         
-        if (!siteListData) {
-            console.error('現場一覧テーブル要素が見つかりません');
-            return;
-        }
+        if (!siteListData) return;
         
         if (sites.length === 0) {
-            console.log('現場データが0件のため、メッセージを表示');
             siteListData.innerHTML = '<tr><td colspan="6" class="no-data">現場が登録されていません</td></tr>';
             return;
         }
@@ -4194,20 +4148,16 @@ async function updateTenantSites(tenantId, sites) {
  * 現場管理タブを表示
  */
 function showSiteManagementTab() {
-    console.log('showSiteManagementTab: 現場管理タブ表示開始');
-    
     // 勤怠テーブルを非表示
     const attendanceContainer = document.querySelector('.attendance-table-container');
     if (attendanceContainer) {
         attendanceContainer.classList.add('hidden');
-        console.log('勤怠テーブルを非表示にしました');
     }
     
     // フィルター行を非表示
     const filterRow = document.querySelector('.filter-row');
     if (filterRow) {
         filterRow.classList.add('hidden');
-        console.log('フィルター行を非表示にしました');
     }
     
     // 他のコンテンツを非表示
@@ -4215,52 +4165,27 @@ function showSiteManagementTab() {
     if (inviteContent) {
         inviteContent.classList.add('hidden');
         inviteContent.style.display = 'none';
-        console.log('招待コンテンツを非表示にしました');
     }
     
     const adminRequestsContent = document.getElementById('admin-requests-content');
     if (adminRequestsContent) {
         adminRequestsContent.classList.add('hidden');
         adminRequestsContent.style.display = 'none';
-        console.log('管理者依頼コンテンツを非表示にしました');
     }
     
     // 現場管理コンテンツを表示
     const siteManagementContent = document.getElementById('site-management-content');
-    console.log('現場管理コンテンツ要素:', siteManagementContent);
     if (siteManagementContent) {
         siteManagementContent.classList.remove('hidden');
-        // 強制的に表示を設定
         siteManagementContent.style.display = 'block';
-        console.log('現場管理コンテンツを表示しました');
-        
-        // コンテンツの表示状態をチェック
-        const contentStyle = window.getComputedStyle(siteManagementContent);
-        console.log('コンテンツ表示状態:', {
-            display: contentStyle.display,
-            visibility: contentStyle.visibility,
-            opacity: contentStyle.opacity,
-            height: contentStyle.height
-        });
-        
-        // 子要素の状態もチェック
-        const childElements = siteManagementContent.querySelectorAll('.site-management-section, .site-card, #add-site-form');
-        console.log('子要素の数:', childElements.length);
-        childElements.forEach((el, index) => {
-            console.log(`子要素${index}:`, el, window.getComputedStyle(el).display);
-        });
-    } else {
-        console.error('現場管理コンテンツ要素が見つかりません');
     }
     
     // 現場管理機能の初期化（タブ切り替え時に実行）
     if (typeof initSiteManagement === 'function') {
-        console.log('現場管理機能を再初期化します');
         initSiteManagement();
     }
     
     // 現場一覧を読み込み
-    console.log('現場一覧の読み込みを開始');
     loadSiteManagementList();
 }
 
