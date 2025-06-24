@@ -181,7 +181,7 @@ async function loadAdminRequests() {
                     ${request.status === 'pending' ? 
                         `<button class="btn btn-primary btn-sm" onclick="approveAdminRequest('${request.id}')">承認</button>
                          <button class="btn btn-danger btn-sm" onclick="rejectAdminRequest('${request.id}')">却下</button>` : 
-                        ''}
+                        `<span class="text-muted">処理済み</span>`}
                     <button class="btn btn-secondary btn-sm" onclick="viewRequestDetails('${request.id}')">詳細</button>
                 </td>
             </tr>
