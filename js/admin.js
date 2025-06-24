@@ -114,20 +114,28 @@ function showInviteTab() {
  */
 async function loadAdminRequests() {
     try {
+        console.log('loadAdminRequests: 管理者依頼データを読み込み中...');
         
         const tbody = document.getElementById('admin-requests-data');
+        console.log('loadAdminRequests: tbody要素:', tbody);
         if (!tbody) {
+            console.error('loadAdminRequests: admin-requests-data要素が見つかりません');
             return;
         }
         
         // admin_requestsコレクションから依頼データを取得
+        console.log('loadAdminRequests: Firestoreクエリを実行中...');
         const requestsSnapshot = await firebase.firestore()
             .collection('admin_requests')
             .orderBy('requestedAt', 'desc')
             .get();
         
+        console.log('loadAdminRequests: クエリ結果:', requestsSnapshot);
+        console.log('loadAdminRequests: ドキュメント数:', requestsSnapshot.size);
+        console.log('loadAdminRequests: empty:', requestsSnapshot.empty);
         
         if (requestsSnapshot.empty) {
+            console.log('loadAdminRequests: 依頼データが見つかりません');
             tbody.innerHTML = '<tr><td colspan="7" class="no-data">管理者登録依頼はありません</td></tr>';
             return;
         }
@@ -135,6 +143,7 @@ async function loadAdminRequests() {
         const requests = [];
         requestsSnapshot.forEach(doc => {
             const data = doc.data();
+            console.log('loadAdminRequests: 依頼データ:', doc.id, data);
             requests.push({
                 id: doc.id,
                 ...data,
@@ -143,6 +152,9 @@ async function loadAdminRequests() {
                     '日時不明'
             });
         });
+        
+        console.log('loadAdminRequests: 処理済み依頼配列:', requests);
+        console.log('loadAdminRequests: テーブルHTMLを生成中...');
         
         tbody.innerHTML = requests.map(request => `
             <tr>
@@ -162,7 +174,10 @@ async function loadAdminRequests() {
             </tr>
         `).join('');
         
+        console.log('loadAdminRequests: テーブル表示完了');
+        
     } catch (error) {
+        console.error('loadAdminRequests: エラーが発生しました:', error);
         const tbody = document.getElementById('admin-requests-data');
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="7" class="error">データの読み込みに失敗しました</td></tr>';
