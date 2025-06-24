@@ -3812,6 +3812,7 @@ function switchTab(tabName) {
     const siteManagementContent = document.getElementById('site-management-content');
     if (siteManagementContent) {
         siteManagementContent.classList.add('hidden');
+        siteManagementContent.style.display = 'none';
     }
     
     
@@ -4198,12 +4199,14 @@ function showSiteManagementTab() {
     const inviteContent = document.getElementById('invite-content');
     if (inviteContent) {
         inviteContent.classList.add('hidden');
+        inviteContent.style.display = 'none';
         console.log('招待コンテンツを非表示にしました');
     }
     
     const adminRequestsContent = document.getElementById('admin-requests-content');
     if (adminRequestsContent) {
         adminRequestsContent.classList.add('hidden');
+        adminRequestsContent.style.display = 'none';
         console.log('管理者依頼コンテンツを非表示にしました');
     }
     
@@ -4212,6 +4215,8 @@ function showSiteManagementTab() {
     console.log('現場管理コンテンツ要素:', siteManagementContent);
     if (siteManagementContent) {
         siteManagementContent.classList.remove('hidden');
+        // 強制的に表示を設定
+        siteManagementContent.style.display = 'block';
         console.log('現場管理コンテンツを表示しました');
         
         // コンテンツの表示状態をチェック
