@@ -4417,10 +4417,102 @@ function getStatusBadge(status) {
     return badges[status] || '<span class="status-badge">不明</span>';
 }
 
+/**
+ * 勤怠レコードを編集
+ */
+async function editAttendanceRecord(recordId) {
+    try {
+        // レコードを検索
+        const record = currentData.find(r => r.id === recordId);
+        if (!record) {
+            alert('レコードが見つかりません');
+            return;
+        }
+        
+        // 編集フォームを表示
+        const newDate = prompt('日付を編集してください (YYYY-MM-DD):', record.date || '');
+        if (newDate === null) return; // キャンセル
+        
+        const newStartTime = prompt('出勤時刻を編集してください (HH:MM):', record.startTime || '');
+        if (newStartTime === null) return; // キャンセル
+        
+        const newEndTime = prompt('退勤時刻を編集してください (HH:MM、空白可):', record.endTime || '');
+        if (newEndTime === null) return; // キャンセル
+        
+        const newSiteName = prompt('現場名を編集してください:', record.siteName || '');
+        if (newSiteName === null) return; // キャンセル
+        
+        // データ検証
+        if (!newDate || !newStartTime) {
+            alert('日付と出勤時刻は必須です');
+            return;
+        }
+        
+        // 日付フォーマット検証
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+            alert('日付は YYYY-MM-DD 形式で入力してください');
+            return;
+        }
+        
+        // 時刻フォーマット検証
+        if (!/^\d{2}:\d{2}$/.test(newStartTime) || (newEndTime && !/^\d{2}:\d{2}$/.test(newEndTime))) {
+            alert('時刻は HH:MM 形式で入力してください');
+            return;
+        }
+        
+        // 更新データを準備
+        const updateData = {
+            date: newDate,
+            startTime: newStartTime,
+            siteName: newSiteName.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: firebase.auth().currentUser?.email || 'admin'
+        };
+        
+        // 退勤時刻がある場合のみ追加
+        if (newEndTime && newEndTime.trim()) {
+            updateData.endTime = newEndTime;
+        }
+        
+        // Firestoreを更新
+        await updateAttendanceRecord(recordId, record.tenantId, updateData);
+        
+        // データを再読み込み
+        await loadAttendanceData();
+        
+        alert('勤怠データを更新しました');
+        
+    } catch (error) {
+        console.error('勤怠データ編集エラー:', error);
+        alert('勤怠データの更新に失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * Firestoreの勤怠レコードを更新
+ */
+async function updateAttendanceRecord(recordId, tenantId, updateData) {
+    if (tenantId) {
+        // テナント専用データの場合
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('attendance')
+            .doc(recordId)
+            .update(updateData);
+    } else {
+        // 通常のattendanceコレクションの場合
+        await getAttendanceCollection()
+            .doc(recordId)
+            .update(updateData);
+    }
+}
+
 // グローバルスコープに関数をエクスポート
 window.initAdminPage = initAdminPage;
 window.switchTab = switchTab;
 window.initSiteManagement = initSiteManagement;
 window.initSortFeatures = initSortFeatures;
+window.editAttendanceRecord = editAttendanceRecord;
 window.currentData = currentData;
 
