@@ -4470,6 +4470,58 @@ function getStatusBadge(status) {
 let currentEditingRecordId = null;
 
 /**
+ * モーダルのイベントリスナーを設定
+ */
+function setupModalEventListeners() {
+    console.log('Setting up modal event listeners...');
+    
+    // 保存ボタン
+    const saveBtn = document.querySelector('#edit-attendance-modal .btn-primary');
+    if (saveBtn) {
+        // 既存のイベントリスナーを削除
+        saveBtn.replaceWith(saveBtn.cloneNode(true));
+        const newSaveBtn = document.querySelector('#edit-attendance-modal .btn-primary');
+        
+        newSaveBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Save button clicked via event listener');
+            saveAttendanceRecord();
+        });
+        console.log('Save button event listener added');
+    }
+    
+    // 削除ボタン
+    const deleteBtn = document.querySelector('#edit-attendance-modal .btn-danger');
+    if (deleteBtn) {
+        // 既存のイベントリスナーを削除
+        deleteBtn.replaceWith(deleteBtn.cloneNode(true));
+        const newDeleteBtn = document.querySelector('#edit-attendance-modal .btn-danger');
+        
+        newDeleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Delete button clicked via event listener');
+            deleteAttendanceRecord();
+        });
+        console.log('Delete button event listener added');
+    }
+    
+    // キャンセルボタン
+    const cancelBtn = document.querySelector('#edit-attendance-modal .btn-secondary');
+    if (cancelBtn) {
+        // 既存のイベントリスナーを削除
+        cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+        const newCancelBtn = document.querySelector('#edit-attendance-modal .btn-secondary');
+        
+        newCancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Cancel button clicked via event listener');
+            closeEditModal();
+        });
+        console.log('Cancel button event listener added');
+    }
+}
+
+/**
  * 勤怠レコードを編集（モーダル表示）
  */
 async function editAttendanceRecord(recordId) {
@@ -4517,6 +4569,9 @@ async function editAttendanceRecord(recordId) {
             // 強制的にdisplayスタイルを設定
             modal.style.display = 'flex';
             
+            // ボタンのイベントリスナーを設定
+            setupModalEventListeners();
+            
             console.log('Modal display after setting style:', window.getComputedStyle(modal).display);
             console.log('Modal classList:', modal.classList.toString());
         } else {
@@ -4547,6 +4602,9 @@ function closeEditModal() {
  */
 async function saveAttendanceRecord() {
     try {
+        console.log('saveAttendanceRecord called');
+        console.log('currentEditingRecordId:', currentEditingRecordId);
+        
         if (!currentEditingRecordId) {
             alert('編集対象のレコードが見つかりません');
             return;
@@ -4621,6 +4679,9 @@ async function saveAttendanceRecord() {
  */
 async function deleteAttendanceRecord() {
     try {
+        console.log('deleteAttendanceRecord called');
+        console.log('currentEditingRecordId:', currentEditingRecordId);
+        
         if (!currentEditingRecordId) {
             alert('削除対象のレコードが見つかりません');
             return;
