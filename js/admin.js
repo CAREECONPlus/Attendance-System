@@ -36,10 +36,17 @@ function initAdminRequestsManagement() {
  * 管理者依頼タブを表示（スーパー管理者のみ）
  */
 function showAdminRequestsTab() {
+    console.log('showAdminRequestsTab: 管理者依頼タブを表示中...');
+    console.log('showAdminRequestsTab: currentUser:', window.currentUser);
+    console.log('showAdminRequestsTab: user role:', window.currentUser ? window.currentUser.role : 'No user');
+    
     // 権限チェック
     if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        console.log('showAdminRequestsTab: 権限不足でリターン');
         return;
     }
+    
+    console.log('showAdminRequestsTab: 権限チェック通過');
     
     // 全てのタブコンテンツを非表示
     document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
@@ -52,8 +59,14 @@ function showAdminRequestsTab() {
     
     // 管理者依頼コンテンツを表示
     const adminRequestsContent = document.getElementById('admin-requests-content');
+    console.log('showAdminRequestsTab: adminRequestsContent要素:', adminRequestsContent);
     if (adminRequestsContent) {
         adminRequestsContent.classList.remove('hidden');
+        adminRequestsContent.style.display = 'block'; // 強制的に表示
+        console.log('showAdminRequestsTab: コンテンツを表示設定');
+        console.log('showAdminRequestsTab: コンテンツのdisplay:', window.getComputedStyle(adminRequestsContent).display);
+    } else {
+        console.error('showAdminRequestsTab: admin-requests-content要素が見つかりません');
     }
     
     // タブの状態を更新
