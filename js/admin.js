@@ -211,6 +211,84 @@ function getAdminRequestStatusText(status) {
 }
 
 /**
+ * 管理者登録依頼を承認
+ */
+async function approveAdminRequest(requestId) {
+    try {
+        if (!confirm('この管理者登録依頼を承認しますか？')) {
+            return;
+        }
+
+        console.log('approveAdminRequest: 依頼を承認中...', requestId);
+
+        // Firestoreでステータスを更新
+        await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .update({
+                status: 'approved',
+                approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                approvedBy: firebase.auth().currentUser?.email || 'unknown'
+            });
+
+        alert('管理者登録依頼を承認しました');
+        
+        // 依頼一覧を再読み込み
+        loadAdminRequests();
+
+    } catch (error) {
+        console.error('承認エラー:', error);
+        alert('承認処理に失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * 管理者登録依頼を却下
+ */
+async function rejectAdminRequest(requestId) {
+    try {
+        const reason = prompt('却下理由を入力してください（任意）:');
+        if (reason === null) return; // キャンセル
+
+        if (!confirm('この管理者登録依頼を却下しますか？')) {
+            return;
+        }
+
+        console.log('rejectAdminRequest: 依頼を却下中...', requestId);
+
+        // Firestoreでステータスを更新
+        await firebase.firestore()
+            .collection('admin_requests')
+            .doc(requestId)
+            .update({
+                status: 'rejected',
+                rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                rejectedBy: firebase.auth().currentUser?.email || 'unknown',
+                rejectionReason: reason || ''
+            });
+
+        alert('管理者登録依頼を却下しました');
+        
+        // 依頼一覧を再読み込み
+        loadAdminRequests();
+
+    } catch (error) {
+        console.error('却下エラー:', error);
+        alert('却下処理に失敗しました: ' + error.message);
+    }
+}
+
+/**
+ * 管理者登録依頼の詳細を表示
+ */
+function viewRequestDetails(requestId) {
+    // 現在のデータから詳細を取得
+    const requests = document.querySelectorAll('#admin-requests-data tr');
+    // 詳細表示機能は今後実装
+    alert('詳細表示機能は今後実装予定です。\nID: ' + requestId);
+}
+
+/**
  * 勤怠ステータス表示テキストを取得
  */
 function getAttendanceStatusText(status) {
@@ -4916,5 +4994,8 @@ window.editAttendanceRecord = editAttendanceRecord;
 window.closeEditModal = closeEditModal;
 window.saveAttendanceRecord = saveAttendanceRecord;
 window.deleteAttendanceRecord = deleteAttendanceRecord;
+window.approveAdminRequest = approveAdminRequest;
+window.rejectAdminRequest = rejectAdminRequest;
+window.viewRequestDetails = viewRequestDetails;
 window.currentData = currentData;
 

@@ -885,6 +885,102 @@
             }
         }
 
+        /* ==================== 管理者依頼タブ用CSS ==================== */
+
+        /* 管理者依頼ヘッダー */
+        .admin-requests-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 0;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .admin-requests-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        /* ステータスバッジ */
+        .status-pending {
+            background-color: #ffc107;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-approved {
+            background-color: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-rejected {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* アクションボタン */
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons .btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: 60px;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            line-height: 1.25;
+            border-radius: 3px;
+        }
+
+        /* 管理者依頼テーブルの調整 */
+        #admin-requests-content .attendance-table th,
+        #admin-requests-content .attendance-table td {
+            padding: 8px 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        #admin-requests-content .attendance-table th:last-child,
+        #admin-requests-content .attendance-table td:last-child {
+            text-align: center;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .admin-requests-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+
+            .action-buttons .btn {
+                min-width: 50px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1331,8 +1427,8 @@
                         <button id="refresh-requests-btn" class="btn btn-secondary">更新</button>
                     </div>
                     
-                    <div class="admin-requests-container">
-                        <table class="admin-requests-table">
+                    <div class="attendance-table-container">
+                        <table class="attendance-table">
                             <thead>
                                 <tr>
                                     <th>申請日時</th>
