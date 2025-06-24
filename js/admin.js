@@ -450,7 +450,7 @@ window.viewRequestDetails = viewRequestDetails;
  * 全てのイベントリスナーを設定し、初期データを読み込みます
  */
 async function initAdminPage() {
-    console.log('initAdminPage: 管理者画面を初期化中...');
+    console.log('initAdminPage (FIRST): 管理者画面を初期化中...');
     
     // 権限チェック
     if (!checkAuth('admin')) return;
@@ -3700,16 +3700,22 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
  * 管理者ページの初期化関数
  */
 function initAdminPage() {
+    console.log('initAdminPage (SECOND): 管理者画面を初期化中...');
     
     try {
         // 管理者権限チェック
         const user = firebase.auth().currentUser;
         if (!user) {
+            console.log('initAdminPage (SECOND): ユーザーが見つかりません');
             return;
         }
         
         // 現在のユーザーを設定
         window.currentUser = user;
+        
+        // ユーザーのrole情報を確認
+        console.log('initAdminPage (SECOND): currentUser:', window.currentUser);
+        console.log('initAdminPage (SECOND): user role:', window.currentUser.role);
         
         // 管理者画面の基本設定
         setupAdminPageElements();
