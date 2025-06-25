@@ -6,6 +6,7 @@ service cloud.firestore {
     match /global_users/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
       allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
+      allow create: if request.auth != null && request.auth.token.email == email;
     }
     
     // Legacy users collection
@@ -41,18 +42,24 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // Helper functions
+    // Helper functions with safe access
     function getUserTenantId(email) {
-      return get(/databases/$(database)/documents/global_users/$(email)).data.tenantId;
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? get(/databases/$(database)/documents/global_users/$(email)).data.tenantId 
+        : null;
     }
     
     function isSuperAdmin(email) {
-      return get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin';
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin' 
+        : false;
     }
     
     function isAdmin(email, tenantId) {
-      let userData = get(/databases/$(database)/documents/global_users/$(email)).data;
-      return userData.tenantId == tenantId && userData.role in ['admin', 'super_admin'];
+      return exists(/databases/$(database)/documents/global_users/$(email)) 
+        ? (get(/databases/$(database)/documents/global_users/$(email)).data.tenantId == tenantId && 
+           get(/databases/$(database)/documents/global_users/$(email)).data.role in ['admin', 'super_admin'])
+        : false;
     }
   }
 }
