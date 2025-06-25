@@ -375,6 +375,16 @@ async function approveAdminRequest(requestId) {
         // テナントIDを生成
         const tenantId = generateTenantId(requestData.companyName);
         
+        // 🔐 現在の管理者の認証情報を保存
+        const currentAdmin = firebase.auth().currentUser;
+        const adminEmail = currentAdmin ? currentAdmin.email : null;
+        const adminPassword = prompt('管理者承認のため、あなたのパスワードを入力してください:');
+        
+        if (!adminPassword) {
+            alert('パスワードが入力されませんでした。承認を中止します。');
+            return;
+        }
+        
         // Firebase Authアカウント作成
         let userCredential;
         try {
@@ -388,11 +398,16 @@ async function approveAdminRequest(requestId) {
                 displayName: requestData.requesterName
             });
             
+            // 🔄 管理者の認証セッションを復元
+            await firebase.auth().signInWithEmailAndPassword(adminEmail, adminPassword);
+            console.log('✅ 管理者認証セッションを復元しました');
+            
         } catch (authError) {
             
             // メールアドレスが既に使用されている場合の処理
             if (authError.code === 'auth/email-already-in-use') {
                 // 既存アカウントの処理は後続のFirestoreデータ作成で対応
+                console.log('📝 既存アカウントが存在するため、Firestoreデータのみ更新します');
             } else {
                 throw new Error(`Firebase Authアカウント作成失敗: ${authError.message}`);
             }
@@ -435,6 +450,7 @@ async function approveAdminRequest(requestId) {
             .set(globalUserData);
         
         // テナント内のusersコレクションに管理者データを保存
+        // 🔍 作成されたユーザーのUIDを取得（認証セッション復元後でも有効）
         const userUID = userCredential ? userCredential.user.uid : 'pending-uid';
         const tenantUserData = {
             uid: userUID,
