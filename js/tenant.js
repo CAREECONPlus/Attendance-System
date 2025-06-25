@@ -281,12 +281,20 @@ async function initializeTenant() {
         const tenantId = getTenantFromURL();
         
         if (tenantId) {
+            // 認証前はテナントIDを保存してFirestoreアクセスを回避
+            if (!firebase.auth().currentUser) {
+                console.log('🔄 未認証状態 - テナントID保存:', tenantId);
+                // URLパラメータは保持してFirestoreアクセスは認証後に延期
+                return { id: tenantId, deferred: true };
+            }
+            
             const tenantInfo = await loadTenantInfo(tenantId);
             
             if (tenantInfo) {
                 return tenantInfo;
             } else {
-                // 無効なテナントIDの場合はテナントパラメータのみを削除
+                console.log('⚠️ 無効なテナントID:', tenantId);
+                // 認証済みで無効なテナントの場合のみパラメータを削除
                 const url = new URL(window.location);
                 url.searchParams.delete('tenant');
                 window.history.replaceState({}, '', url.toString());

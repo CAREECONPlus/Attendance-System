@@ -143,9 +143,11 @@ async function handleLogin(e) {
         
         showError(message);
     } finally {
-        // フラグをクリア（エラー時も確実に）
-        window.isLoggingIn = false;
-        window.isInitializingUser = false;
+        // エラー時のみフラグをクリア（成功時はhandleAuthStateChangeでクリア）
+        if (!firebase.auth().currentUser) {
+            window.isLoggingIn = false;
+            window.isInitializingUser = false;
+        }
         hideLoadingOverlay();
         
         // ローディング解除
@@ -154,7 +156,7 @@ async function handleLogin(e) {
             submitBtn.textContent = originalText || 'ログイン';
         }
         
-        console.log('🔧 ログイン処理完了 - フラグクリア');
+        console.log('🔧 ログイン処理完了 - 成功時はhandleAuthStateChangeでフラグクリア');
     }
 }
 
