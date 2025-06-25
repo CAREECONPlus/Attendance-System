@@ -381,8 +381,8 @@ async function loadInviteHistory() {
         console.error('エラーの詳細:', {
             code: error.code,
             message: error.message,
-            currentTenantId: currentTenantId,
-            currentUser: currentUser
+            tenantId: getCurrentTenantId ? getCurrentTenantId() : 'unknown',
+            currentUser: window.currentUser
         });
         historyContainer.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #dc3545;">❌ 読み込みに失敗しました</td></tr>';
     }
