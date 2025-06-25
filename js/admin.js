@@ -3914,38 +3914,8 @@ async function initAdminPage() {
             console.error('initAdminPage (SECOND): role情報取得エラー:', error);
         }
 
-        // タブ表示制御（スーパー管理者用）
-        const adminRequestsTab = document.getElementById('admin-requests-tab');
-        const employeeInviteTab = document.querySelector('[data-tab="invite"]');
-        
-        console.log('initAdminPage (SECOND): タブ制御開始');
-        console.log('initAdminPage (SECOND): final user role:', window.currentUser.role);
-        console.log('initAdminPage (SECOND): adminRequestsTab:', adminRequestsTab);
-        console.log('initAdminPage (SECOND): employeeInviteTab:', employeeInviteTab);
-        
-        if (window.currentUser && window.currentUser.role === 'super_admin') {
-            console.log('initAdminPage (SECOND): スーパー管理者として設定中...');
-            // スーパー管理者：管理者依頼タブを表示、従業員招待タブを非表示
-            if (adminRequestsTab) {
-                adminRequestsTab.style.display = 'block';
-                console.log('initAdminPage (SECOND): 管理者依頼タブを表示');
-            }
-            if (employeeInviteTab) {
-                employeeInviteTab.style.display = 'none';
-                console.log('initAdminPage (SECOND): 従業員招待タブを非表示');
-            }
-        } else {
-            console.log('initAdminPage (SECOND): 通常管理者として設定中...');
-            // 通常管理者：管理者依頼タブを非表示、従業員招待タブを表示
-            if (adminRequestsTab) {
-                adminRequestsTab.style.display = 'none';
-                console.log('initAdminPage (SECOND): 管理者依頼タブを非表示');
-            }
-            if (employeeInviteTab) {
-                employeeInviteTab.style.display = 'block';
-                console.log('initAdminPage (SECOND): 従業員招待タブを表示');
-            }
-        }
+        // role取得完了後にタブ制御を実行
+        await setupTabsBasedOnRole();
         
         // 現場管理機能の初期化
         initSiteManagement();
@@ -3962,6 +3932,44 @@ async function initAdminPage() {
         
     } catch (error) {
         showError('管理者ページの初期化に失敗しました');
+    }
+}
+
+/**
+ * ロールに基づいてタブ表示を制御する関数
+ */
+async function setupTabsBasedOnRole() {
+    // タブ表示制御（スーパー管理者用）
+    const adminRequestsTab = document.getElementById('admin-requests-tab');
+    const employeeInviteTab = document.querySelector('[data-tab="invite"]');
+    
+    console.log('initAdminPage (SECOND): タブ制御開始');
+    console.log('initAdminPage (SECOND): final user role:', window.currentUser?.role);
+    console.log('initAdminPage (SECOND): adminRequestsTab:', adminRequestsTab);
+    console.log('initAdminPage (SECOND): employeeInviteTab:', employeeInviteTab);
+    
+    if (window.currentUser && window.currentUser.role === 'super_admin') {
+        console.log('initAdminPage (SECOND): スーパー管理者として設定中...');
+        // スーパー管理者：管理者依頼タブを表示、従業員招待タブを非表示
+        if (adminRequestsTab) {
+            adminRequestsTab.style.display = 'block';
+            console.log('initAdminPage (SECOND): 管理者依頼タブを表示');
+        }
+        if (employeeInviteTab) {
+            employeeInviteTab.style.display = 'none';
+            console.log('initAdminPage (SECOND): 従業員招待タブを非表示');
+        }
+    } else {
+        console.log('initAdminPage (SECOND): 通常管理者として設定中...');
+        // 通常管理者：管理者依頼タブを非表示、従業員招待タブを表示
+        if (adminRequestsTab) {
+            adminRequestsTab.style.display = 'none';
+            console.log('initAdminPage (SECOND): 管理者依頼タブを非表示');
+        }
+        if (employeeInviteTab) {
+            employeeInviteTab.style.display = 'block';
+            console.log('initAdminPage (SECOND): 従業員招待タブを表示');
+        }
     }
 }
 
