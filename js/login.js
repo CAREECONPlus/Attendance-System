@@ -266,16 +266,29 @@ async function handleAuthStateChange(user) {
                 };
                 
                 
-                // テナント情報をURLに反映（スーパー管理者と通常管理者以外）
-                if (userTenantId && userRole !== 'super_admin' && userRole !== 'admin') {
-                    const currentTenantFromUrl = getTenantFromURL();
+                // テナント情報をURLに反映
+                const currentTenantFromUrl = getTenantFromURL();
+                
+                if (userRole === 'super_admin') {
+                    // スーパー管理者：テナントパラメータがあればそれを保持、なければリダイレクトしない
+                    console.log('🔑 スーパー管理者：テナントパラメータ保持');
+                } else if (userRole === 'admin') {
+                    // 通常管理者：テナントパラメータがあればそれを保持、なければ自分のテナントにリダイレクト
+                    if (!currentTenantFromUrl && userTenantId) {
+                        console.log('🔄 管理者テナントリダイレクト実行中...');
+                        const tenantUrl = generateSuccessUrl(userTenantId);
+                        window.location.href = tenantUrl;
+                        return;
+                    }
+                    console.log('🔑 管理者：テナントパラメータ保持');
+                } else if (userTenantId) {
+                    // 一般ユーザー：必ず自分のテナントにリダイレクト
                     console.log('🔍 テナント判定:', {
                         userTenantId,
                         currentTenantFromUrl,
                         isMatch: currentTenantFromUrl === userTenantId
                     });
                     
-                    // 厳密な条件チェック：URLにテナントがない、または異なるテナントの場合のみリダイレクト
                     if (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId) {
                         console.log('🔄 テナントリダイレクト実行中...');
                         const tenantUrl = generateSuccessUrl(userTenantId);
