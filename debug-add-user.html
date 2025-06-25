@@ -6,9 +6,24 @@
 </head>
 <body>
     <h1>Debug: Add User to Global Users Collection</h1>
-    <div>
+    
+    <!-- Login Section -->
+    <div id="loginSection">
+        <h3>Super Admin Login</h3>
+        <input type="email" id="email" placeholder="Email" value="dxconsulting.branu2@gmail.com">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()" id="loginBtn">Login</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <!-- Debug Actions Section -->
+    <div id="debugSection" style="display: none;">
+        <h3>Logged in as: <span id="currentUserEmail"></span></h3>
+        <button onclick="logout()" style="margin-bottom: 20px;">Logout</button>
+        
         <h3>Fix Email Case Mismatch Issue</h3>
         <button onclick="fixEmailCaseMismatch()" id="fixBtn">Fix Email Case</button>
+        <button onclick="checkUserExists()" id="checkBtn">Check User Exists</button>
         <div id="result"></div>
     </div>
 
@@ -22,6 +37,63 @@
     <script src="./js/firebase.js"></script>
 
     <script>
+        // Auth state monitoring
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('debugSection').style.display = 'block';
+                document.getElementById('currentUserEmail').textContent = user.email;
+            } else {
+                document.getElementById('loginSection').style.display = 'block';
+                document.getElementById('debugSection').style.display = 'none';
+            }
+        });
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('loginResult');
+            
+            try {
+                await firebase.auth().signInWithEmailAndPassword(email, password);
+                result.innerHTML = '<div style="color: green;">✅ Login successful</div>';
+            } catch (error) {
+                result.innerHTML = `<div style="color: red;">❌ Login failed: ${error.message}</div>`;
+            }
+        }
+
+        async function logout() {
+            await firebase.auth().signOut();
+        }
+
+        async function checkUserExists() {
+            const result = document.getElementById('result');
+            try {
+                const db = firebase.firestore();
+                
+                // Check both possible documents
+                const lowerCaseDoc = await db.collection('global_users')
+                    .doc('dxconsulting.branu_attendance@gmail.com')
+                    .get();
+                
+                const upperCaseDoc = await db.collection('global_users')
+                    .doc('dxconsulting.branu_Attendance@gmail.com')
+                    .get();
+                
+                result.innerHTML = `
+                    <div>
+                        <h4>Document Check Results:</h4>
+                        <p>Lowercase (dxconsulting.branu_attendance@gmail.com): ${lowerCaseDoc.exists ? '✅ EXISTS' : '❌ NOT FOUND'}</p>
+                        <p>Mixed case (dxconsulting.branu_Attendance@gmail.com): ${upperCaseDoc.exists ? '✅ EXISTS' : '❌ NOT FOUND'}</p>
+                        ${lowerCaseDoc.exists ? `<p>Lowercase data: ${JSON.stringify(lowerCaseDoc.data(), null, 2)}</p>` : ''}
+                        ${upperCaseDoc.exists ? `<p>Mixed case data: ${JSON.stringify(upperCaseDoc.data(), null, 2)}</p>` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `<div style="color: red;">❌ Error: ${error.message}</div>`;
+            }
+        }
+
         async function fixEmailCaseMismatch() {
             const btn = document.getElementById('fixBtn');
             const result = document.getElementById('result');
