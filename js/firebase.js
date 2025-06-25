@@ -48,7 +48,9 @@ try {
     
     isFirebaseInitialized = true;
     
-    // 🆕 即座に基本的な接続テスト
+    // 🔇 接続テストを無効化（誤検知防止のため）
+    // TODO: より適切なテスト方法に改良予定
+    /*
     setTimeout(async () => {
         try {
             
@@ -68,6 +70,7 @@ try {
             }
         }
     }, 1000); // より早い段階でテスト
+    */
     
 } catch (initError) {
     
