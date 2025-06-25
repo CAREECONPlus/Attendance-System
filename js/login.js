@@ -196,7 +196,9 @@ async function handleAuthStateChange(user) {
             // 明示的ログインかページリロードかを判定
             const isExplicitLogin = window.isLoggingIn;
             // ユーザーのテナント情報を取得
+            console.log('🔍 テナント情報取得開始:', user.email);
             const userTenantId = await determineUserTenant(user.email);
+            console.log('📋 テナント情報取得結果:', userTenantId);
             
             // テナント対応のユーザーデータ取得
             let userData;
@@ -204,27 +206,41 @@ async function handleAuthStateChange(user) {
             
             if (userTenantId) {
                 // テナント内からユーザーデータを取得
+                console.log('🔍 テナント内ユーザーデータ取得開始:', userTenantId);
                 const tenantUsersPath = `tenants/${userTenantId}/users`;
                 userDoc = await firebase.firestore().collection(tenantUsersPath).doc(user.uid).get();
+                console.log('📋 テナント内ユーザーデータ取得結果:', userDoc.exists);
                 
                 if (userDoc.exists) {
                     userData = userDoc.data();
                 } else {
                     // フォールバック: 従来のusersコレクションから取得
+                    console.log('🔍 フォールバック: 従来のusersコレクション取得開始');
                     userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                    console.log('📋 従来のusersコレクション取得結果:', userDoc.exists);
                     if (userDoc.exists) {
                         userData = userDoc.data();
                     }
                 }
             } else {
                 // テナント未設定の場合は従来のusersコレクションから取得
+                console.log('🔍 テナント未設定: 従来のusersコレクション取得開始');
                 userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                console.log('📋 従来のusersコレクション取得結果:', userDoc.exists);
                 if (userDoc.exists) {
                     userData = userDoc.data();
                 }
             }
             
+            console.log('📋 最終ユーザーデータ確認:', {
+                hasUserData: !!userData,
+                userEmail: userData?.email,
+                userRole: userData?.role,
+                userTenantId: userData?.tenantId
+            });
+            
             if (userData) {
+                console.log('✅ ユーザーデータ取得成功 - ロール決定開始');
                 
                 // ユーザーのロールを決定
                 let userRole = userData.role || 'employee';
@@ -291,10 +307,33 @@ async function handleAuthStateChange(user) {
                     }
                 }
             } else {
+                console.log('❌ ユーザーデータが見つかりません - サインアウト実行');
+                console.log('📋 検索条件:', {
+                    userEmail: user.email,
+                    userUID: user.uid,
+                    searchedTenantId: userTenantId
+                });
                 await firebase.auth().signOut();
             }
         } catch (error) {
-            await firebase.auth().signOut();
+            console.error('❌ 認証処理中にエラー発生:', error);
+            console.error('📋 エラー詳細:', {
+                code: error.code,
+                message: error.message,
+                stack: error.stack
+            });
+            
+            // 重大なエラーの場合のみサインアウト
+            if (error.code === 'permission-denied' || error.code === 'unauthorized') {
+                console.log('🔐 権限エラーのためサインアウト実行');
+                await firebase.auth().signOut();
+            } else {
+                console.log('⚠️ 一時的なエラーの可能性 - セッション維持');
+                // セッションを維持してリトライ可能にする
+                window.isInitializingUser = false;
+                window.isLoggingIn = false;
+                hideLoadingOverlay();
+            }
         } finally {
             // 初期化完了
             window.isInitializingUser = false;
