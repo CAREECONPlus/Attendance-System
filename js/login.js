@@ -268,8 +268,21 @@ async function handleAuthStateChange(user) {
                 };
                 
                 
-                // テナント情報をURLに反映
+                // テナント情報を設定
                 const currentTenantFromUrl = getTenantFromURL();
+                if (currentTenantFromUrl || userTenantId) {
+                    const tenantId = currentTenantFromUrl || userTenantId;
+                    // 認証後にテナント情報を正しく読み込み
+                    try {
+                        const tenantInfo = await loadTenantInfo(tenantId);
+                        if (tenantInfo) {
+                            window.currentTenant = tenantInfo;
+                            console.log('🏢 テナント情報設定完了:', tenantId);
+                        }
+                    } catch (error) {
+                        console.error('🚨 テナント情報設定エラー:', error);
+                    }
+                }
                 
                 if (userRole === 'super_admin') {
                     // スーパー管理者：テナントパラメータがあればそれを保持、なければリダイレクトしない
