@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug: Add User to Global Users</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>Debug: Add User to Global Users Collection</h1>
+    <div>
+        <h3>Fix Email Case Mismatch Issue</h3>
+        <button onclick="fixEmailCaseMismatch()" id="fixBtn">Fix Email Case</button>
+        <div id="result"></div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- App scripts -->
+    <script src="./js/config.js"></script>
+    <script src="./js/firebase.js"></script>
+
+    <script>
+        async function fixEmailCaseMismatch() {
+            const btn = document.getElementById('fixBtn');
+            const result = document.getElementById('result');
+            
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Fixing...';
+                result.innerHTML = 'Processing...';
+                
+                const db = firebase.firestore();
+                
+                // Get the existing document with wrong case
+                const wrongCaseDoc = await db.collection('global_users')
+                    .doc('dxconsulting.branu_Attendance@gmail.com')
+                    .get();
+                
+                if (!wrongCaseDoc.exists) {
+                    result.innerHTML = '<div style="color: red;">❌ Document with wrong case not found</div>';
+                    return;
+                }
+                
+                const userData = wrongCaseDoc.data();
+                
+                // Update email to lowercase
+                userData.email = 'dxconsulting.branu_attendance@gmail.com';
+                userData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                userData.fixedBy = 'debug-script';
+                
+                // Create new document with correct lowercase key
+                await db.collection('global_users')
+                    .doc('dxconsulting.branu_attendance@gmail.com')
+                    .set(userData);
+                
+                // Delete the old document with wrong case
+                await db.collection('global_users')
+                    .doc('dxconsulting.branu_Attendance@gmail.com')
+                    .delete();
+                
+                result.innerHTML = `
+                    <div style="color: green;">
+                        ✅ Success! Email case mismatch fixed<br>
+                        Old key: dxconsulting.branu_Attendance@gmail.com<br>
+                        New key: dxconsulting.branu_attendance@gmail.com<br>
+                        Role: ${userData.role}<br>
+                        Tenant: ${userData.tenantId}
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error fixing email case:', error);
+                result.innerHTML = `
+                    <div style="color: red;">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Fix Email Case';
+            }
+        }
+    </script>
+</body>
+</html>
