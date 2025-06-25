@@ -1,19 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global users collection - emailをキーとして使用
+    
+    // Global users collection
     match /global_users/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
       allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
     }
     
-    // Legacy users collection - ユーザーは自分の情報のみ読み書き可能
+    // Legacy users collection
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && isSuperAdmin(request.auth.token.email);
     }
     
-    // Tenants collection - テナント管理者またはスーパー管理者のみアクセス可能
+    // Tenants collection
     match /tenants/{tenantId} {
       allow read: if request.auth != null && 
                  (isSuperAdmin(request.auth.token.email) || 
@@ -23,52 +23,36 @@ service cloud.firestore {
                    isAdmin(request.auth.token.email, tenantId));
     }
     
-    // Tenant subcollections - 同一テナント内ユーザーのみアクセス可能
+    // Tenant subcollections
     match /tenants/{tenantId}/{subcollection}/{docId} {
       allow read, write: if request.auth != null && 
                         (isSuperAdmin(request.auth.token.email) || 
                          getUserTenantId(request.auth.token.email) == tenantId);
     }
     
-    // Admin requests - スーパー管理者のみ読み書き可能、作成は未認証でも可能
+    // Admin requests
     match /admin_requests/{docId} {
       allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
-      allow create: if true; // 管理者登録依頼は未認証ユーザーが作成可能
+      allow create: if request.auth != null;
     }
     
-    // Invite codes - 検証は未認証でも可能、管理はテナント管理者のみ
-    match /invite_codes/{docId} {
-      allow read: if true; // 招待リンクの検証は未認証ユーザーも必要
-      allow list: if request.auth != null && 
-                 (isSuperAdmin(request.auth.token.email) || 
-                  getUserTenantId(request.auth.token.email) == resource.data.tenantId);
-      allow write: if request.auth != null && 
-                  (isSuperAdmin(request.auth.token.email) || 
-                   isAdmin(request.auth.token.email, resource.data.tenantId));
-      allow create: if request.auth != null && 
-                   (isSuperAdmin(request.auth.token.email) || 
-                    getUserTenantId(request.auth.token.email) == request.resource.data.tenantId);
-      allow update: if request.auth != null; // 招待コードの使用回数更新は認証済みユーザーが可能
+    // Test collection
+    match /_test/{docId} {
+      allow read, write: if request.auth != null;
     }
     
-    // Helper functions - emailベースのアクセス
+    // Helper functions
     function getUserTenantId(email) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? get(/databases/$(database)/documents/global_users/$(email)).data.tenantId 
-        : '';
+      return get(/databases/$(database)/documents/global_users/$(email)).data.tenantId;
     }
     
     function isSuperAdmin(email) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin' 
-        : false;
+      return get(/databases/$(database)/documents/global_users/$(email)).data.role == 'super_admin';
     }
     
     function isAdmin(email, tenantId) {
-      return exists(/databases/$(database)/documents/global_users/$(email)) 
-        ? (get(/databases/$(database)/documents/global_users/$(email)).data.tenantId == tenantId && 
-           get(/databases/$(database)/documents/global_users/$(email)).data.role in ['admin', 'super_admin'])
-        : false;
+      let userData = get(/databases/$(database)/documents/global_users/$(email)).data;
+      return userData.tenantId == tenantId && userData.role in ['admin', 'super_admin'];
     }
   }
 }
