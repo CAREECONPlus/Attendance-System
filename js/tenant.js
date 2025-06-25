@@ -286,14 +286,18 @@ async function initializeTenant() {
             if (tenantInfo) {
                 return tenantInfo;
             } else {
-                // 無効なテナントIDの場合はパラメータを削除
-                window.history.replaceState({}, '', window.location.pathname);
+                // 無効なテナントIDの場合はテナントパラメータのみを削除
+                const url = new URL(window.location);
+                url.searchParams.delete('tenant');
+                window.history.replaceState({}, '', url.toString());
             }
         } else {
         }
         
         return null;
     } catch (error) {
+        console.error('テナント初期化エラー:', error);
+        // ネットワークエラーなどの場合はURLを変更しない
         return null;
     }
 }
