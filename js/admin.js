@@ -444,10 +444,21 @@ async function approveAdminRequest(requestId) {
             approvedBy: window.currentUser?.email || 'system'
         };
         
+        // 🔧 メールアドレスを小文字に統一（Firestore検索時の一貫性確保）
+        const normalizedEmail = requestData.requesterEmail.toLowerCase();
+        
+        console.log('💾 global_users保存開始:', {
+            originalEmail: requestData.requesterEmail,
+            normalizedEmail: normalizedEmail,
+            data: globalUserData
+        });
+        
         await firebase.firestore()
             .collection('global_users')
-            .doc(requestData.requesterEmail)
+            .doc(normalizedEmail)
             .set(globalUserData);
+            
+        console.log('✅ global_users保存完了:', normalizedEmail);
         
         // テナント内のusersコレクションに管理者データを保存
         // 🔍 作成されたユーザーのUIDを取得（認証セッション復元後でも有効）

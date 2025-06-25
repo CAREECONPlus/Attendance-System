@@ -303,19 +303,36 @@ async function initializeTenant() {
  */
 async function determineUserTenant(userEmail) {
     try {
+        // 🔧 メールアドレスを小文字に統一（保存時と同じ形式で検索）
+        const normalizedEmail = userEmail.toLowerCase();
+        
+        console.log('🔍 determineUserTenant開始:', {
+            originalEmail: userEmail,
+            normalizedEmail: normalizedEmail
+        });
+        
         // global_usersコレクションからユーザーのテナント情報を取得
         const globalUserDoc = await firebase.firestore()
             .collection('global_users')
-            .doc(userEmail)
+            .doc(normalizedEmail)
             .get();
+        
+        console.log('📋 global_users検索結果:', {
+            exists: globalUserDoc.exists,
+            searchedEmail: normalizedEmail,
+            data: globalUserDoc.exists ? globalUserDoc.data() : null
+        });
         
         if (globalUserDoc.exists) {
             const userData = globalUserDoc.data();
+            console.log('✅ テナントID取得成功:', userData.tenantId);
             return userData.tenantId;
         }
         
+        console.log('❌ global_usersにユーザーデータが見つかりません');
         return null;
     } catch (error) {
+        console.error('❌ determineUserTenant エラー:', error);
         return null;
     }
 }
