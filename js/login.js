@@ -117,13 +117,16 @@ async function handleLogin(e) {
     }
     
     try {
-        // ログイン処理中フラグを設定
+        // 🔄 既存のフラグをクリア（前回の処理が残っている可能性）
+        window.isInitializingUser = false;
         window.isLoggingIn = true;
+        
+        console.log('🔐 ログイン処理開始:', email);
         
         // Firebase認証のみ実行（以降の処理はhandleAuthStateChangeに委譲）
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         
-        // handleAuthStateChangeが自動的に呼ばれるため、ここでは何もしない
+        console.log('✅ Firebase認証成功 - handleAuthStateChangeを待機中...');
         
     } catch (error) {
         
@@ -140,8 +143,9 @@ async function handleLogin(e) {
         
         showError(message);
     } finally {
-        // フラグをクリア
+        // フラグをクリア（エラー時も確実に）
         window.isLoggingIn = false;
+        window.isInitializingUser = false;
         hideLoadingOverlay();
         
         // ローディング解除
@@ -149,6 +153,8 @@ async function handleLogin(e) {
             submitBtn.disabled = false;
             submitBtn.textContent = originalText || 'ログイン';
         }
+        
+        console.log('🔧 ログイン処理完了 - フラグクリア');
     }
 }
 
@@ -157,12 +163,17 @@ async function handleLogin(e) {
  * 認証状態変化の処理
  */
 async function handleAuthStateChange(user) {
-    // 初期化中または既に処理済みの場合はスキップ
-    if (window.isInitializingUser || (user && window.currentUser && window.currentUser.uid === user.uid)) {
-        console.log('🔄 認証状態変更をスキップ:', {
-            isInitializing: window.isInitializingUser,
-            alreadyProcessed: user && window.currentUser && window.currentUser.uid === user.uid
-        });
+    console.log('🔄 認証状態変更トリガー:', {
+        hasUser: !!user,
+        userEmail: user?.email,
+        isInitializing: window.isInitializingUser,
+        currentUser: window.currentUser?.email,
+        isLoggingIn: window.isLoggingIn
+    });
+    
+    // 既に処理済みの場合はスキップ（初期化中チェックを緩和）
+    if (user && window.currentUser && window.currentUser.uid === user.uid && !window.isLoggingIn) {
+        console.log('🔄 認証状態変更をスキップ: 既に処理済み');
         return;
     }
     
@@ -289,6 +300,7 @@ async function handleAuthStateChange(user) {
             window.isInitializingUser = false;
             window.isLoggingIn = false;
             hideLoadingOverlay();
+            console.log('🔧 認証状態変更処理完了 - フラグクリア');
         }
     } else {
         // ログアウト状態
