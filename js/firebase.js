@@ -235,12 +235,13 @@ function createErrorDiv() {
 
 // Firebase接続状態の確認
 if (isFirebaseInitialized) {
-    // 認証状態の監視（改良版）
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-        } else {
-        }
-    });
+    // 🔇 認証状態の監視は login.js で管理するため無効化
+    // auth.onAuthStateChanged((user) => {
+    //     if (user) {
+    //     } else {
+    //     }
+    // });
+    console.log('🔧 Firebase初期化完了 - 認証監視はlogin.jsに委譲');
 }
 
 /**

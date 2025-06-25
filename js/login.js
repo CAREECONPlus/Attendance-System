@@ -159,8 +159,20 @@ async function handleLogin(e) {
 async function handleAuthStateChange(user) {
     // 初期化中または既に処理済みの場合はスキップ
     if (window.isInitializingUser || (user && window.currentUser && window.currentUser.uid === user.uid)) {
+        console.log('🔄 認証状態変更をスキップ:', {
+            isInitializing: window.isInitializingUser,
+            alreadyProcessed: user && window.currentUser && window.currentUser.uid === user.uid
+        });
         return;
     }
+    
+    // 重複実行防止のためのタイムスタンプチェック
+    const now = Date.now();
+    if (window.lastAuthStateChange && (now - window.lastAuthStateChange) < 500) {
+        console.log('🔄 認証状態変更を短時間内でスキップ');
+        return;
+    }
+    window.lastAuthStateChange = now;
     
     if (user) {
         try {
@@ -230,10 +242,20 @@ async function handleAuthStateChange(user) {
                 // テナント情報をURLに反映（スーパー管理者以外）
                 if (userTenantId && userRole !== 'super_admin') {
                     const currentTenantFromUrl = getTenantFromURL();
-                    if (currentTenantFromUrl !== userTenantId) {
+                    console.log('🔍 テナント判定:', {
+                        userTenantId,
+                        currentTenantFromUrl,
+                        isMatch: currentTenantFromUrl === userTenantId
+                    });
+                    
+                    // 厳密な条件チェック：URLにテナントがない、または異なるテナントの場合のみリダイレクト
+                    if (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId) {
+                        console.log('🔄 テナントリダイレクト実行中...');
                         const tenantUrl = generateSuccessUrl(userTenantId);
                         window.location.href = tenantUrl;
                         return;
+                    } else {
+                        console.log('✅ テナントURL一致 - リダイレクトなし');
                     }
                 }
                 
