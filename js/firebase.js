@@ -52,9 +52,9 @@ try {
     setTimeout(async () => {
         try {
             
-            // 最もシンプルなテスト（書き込みなし）
-            const testQuery = db.collection('_test').limit(1);
-            await testQuery.get();
+            // 最もシンプルなテスト（read権限で動作）
+            const testDoc = db.collection('_test').doc('connection-test');
+            await testDoc.get();
             
             
         } catch (testError) {
