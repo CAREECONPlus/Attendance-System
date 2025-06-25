@@ -248,36 +248,25 @@ async function restoreCurrentState(recordData) {
     }
 }
 
-// 🔧 修正版 1日1回制限チェック（日付修正）
+// 🔧 修正版 1日1回制限チェック（制限解除）
 async function checkDailyLimit(userId) {
     
     // 🎯 修正: JST確実取得
     const today = getTodayJST();
     
     try {
-        // メモリ内チェック（高速）
+        // メモリ内チェック（既存データの復元のみ）
         if (todayAttendanceData && todayAttendanceData.date === today) {
-            
-            const message = `❌ 今日は既に出勤済みです！\n\n` +
-                          `📋 出勤情報:\n` +
-                          `• 出勤時間: ${todayAttendanceData.startTime || '不明'}\n` +
-                          `• 現場: ${todayAttendanceData.siteName || '不明'}\n` +
-                          `• 状態: ${getStatusText(todayAttendanceData.status)}\n\n` +
-                          `🔒 1日1回のみ出勤可能です。`;
-            
-            alert(message);
             await restoreCurrentState(todayAttendanceData);
-            return false;
+            return true; // 制限を解除し、常に打刻を許可
         }
         
-        // データベースチェック
+        // データベースチェック（既存データの復元のみ）
         const query = getAttendanceCollection()
             .where('userId', '==', userId)
             .where('date', '==', today);
         
         const snapshot = await query.get();
-        
-        // Query results available if needed
         
         if (!snapshot.empty) {
             const existingRecord = snapshot.docs[0].data();
@@ -289,23 +278,15 @@ async function checkDailyLimit(userId) {
             };
             currentAttendanceId = snapshot.docs[0].id;
             
-            const message = `❌ 今日は既に出勤済みです！\n\n` +
-                          `📋 出勤情報:\n` +
-                          `• 出勤時間: ${existingRecord.startTime || '不明'}\n` +
-                          `• 現場: ${existingRecord.siteName || '不明'}\n` +
-                          `• 状態: ${getStatusText(existingRecord.status)}\n\n` +
-                          `🔒 1日1回のみ出勤可能です。`;
-            
-            alert(message);
             await restoreCurrentState(existingRecord);
-            return false;
+            return true; // 制限を解除し、常に打刻を許可
         }
         
-        return true;
+        return true; // 制限を解除し、常に打刻を許可
         
     } catch (error) {
-        alert('出勤チェック中にエラーが発生しました。\n管理者にお問い合わせください。');
-        return false;
+        console.error('出勤チェック中にエラーが発生しました:', error);
+        return true; // エラー時も打刻を許可
     }
 }
 
