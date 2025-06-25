@@ -33,7 +33,7 @@ service cloud.firestore {
     // Admin requests
     match /admin_requests/{docId} {
       allow read, write: if request.auth != null && isSuperAdmin(request.auth.token.email);
-      allow create: if request.auth != null;
+      allow create: if true; // 管理者登録依頼は未認証ユーザーが作成可能
     }
     
     // Test collection
