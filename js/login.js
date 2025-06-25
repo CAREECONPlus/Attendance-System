@@ -266,8 +266,8 @@ async function handleAuthStateChange(user) {
                 };
                 
                 
-                // テナント情報をURLに反映（スーパー管理者以外）
-                if (userTenantId && userRole !== 'super_admin') {
+                // テナント情報をURLに反映（スーパー管理者と通常管理者以外）
+                if (userTenantId && userRole !== 'super_admin' && userRole !== 'admin') {
                     const currentTenantFromUrl = getTenantFromURL();
                     console.log('🔍 テナント判定:', {
                         userTenantId,
