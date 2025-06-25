@@ -69,8 +69,20 @@ async function initLogin() {
         try {
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
-                window.currentUser = JSON.parse(savedUser);
-                console.log('認証状態をlocalStorageから復元しました:', window.currentUser);
+                const parsedUser = JSON.parse(savedUser);
+                const urlTenant = getTenantFromURL();
+                
+                // URLにテナントパラメータがある場合、localStorage のテナント情報と不一致ならクリア
+                if (urlTenant && parsedUser.tenantId && urlTenant !== parsedUser.tenantId) {
+                    console.log('🔄 テナント不一致でlocalStorage をクリア:', {
+                        urlTenant,
+                        savedTenant: parsedUser.tenantId
+                    });
+                    localStorage.removeItem('currentUser');
+                } else {
+                    window.currentUser = parsedUser;
+                    console.log('認証状態をlocalStorageから復元しました:', window.currentUser);
+                }
             }
         } catch (error) {
             console.warn('localStorage認証状態の復元に失敗:', error);
