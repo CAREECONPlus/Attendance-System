@@ -70,20 +70,27 @@ async function initLogin() {
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 const parsedUser = JSON.parse(savedUser);
-                const urlTenant = getTenantFromURL();
                 
-                // テナント不一致チェックを緩和（ユーザーのテナントが一致すれば許可）
-                if (urlTenant && parsedUser.tenantId && urlTenant !== parsedUser.tenantId) {
-                    console.log('⚠️ URL テナントとローカルテナントが異なります:', {
-                        urlTenant,
-                        savedTenant: parsedUser.tenantId
-                    });
-                    // 異なるテナントでも認証状態は保持し、後でチェック
-                    window.currentUser = parsedUser;
-                    console.log('🔄 認証状態を保持してテナント確認を延期');
+                // データ形式の検証
+                if (parsedUser && typeof parsedUser === 'object' && parsedUser.uid) {
+                    const urlTenant = getTenantFromURL();
+                    
+                    // テナント不一致チェックを緩和
+                    if (urlTenant && parsedUser.tenantId && urlTenant !== parsedUser.tenantId) {
+                        console.log('⚠️ URL テナントとローカルテナントが異なります:', {
+                            urlTenant,
+                            savedTenant: parsedUser.tenantId
+                        });
+                        // 異なるテナントでも認証状態は保持し、後でチェック
+                        window.currentUser = parsedUser;
+                        console.log('🔄 認証状態を保持してテナント確認を延期');
+                    } else {
+                        window.currentUser = parsedUser;
+                        console.log('✅ 認証状態をlocalStorageから復元しました:', window.currentUser.email);
+                    }
                 } else {
-                    window.currentUser = parsedUser;
-                    console.log('✅ 認証状態をlocalStorageから復元しました:', window.currentUser.email);
+                    console.warn('⚠️ 不正なlocalStorageデータ形式を検出 - クリアします');
+                    localStorage.removeItem('currentUser');
                 }
             }
         } catch (error) {
@@ -98,24 +105,16 @@ async function initLogin() {
             await initInviteSystem();
         }
         
+        // 既存認証状態でのテナント情報確保
+        if (window.currentUser && window.currentUser.tenantId) {
+            await ensureTenantInfo(window.currentUser.tenantId);
+        }
+        
         // リダイレクト後の場合は迅速にページ遷移
         const authRedirect = localStorage.getItem('authRedirect');
         if (authRedirect && window.currentUser) {
             localStorage.removeItem('authRedirect');
             console.log('🚀 リダイレクト後の迅速ページ遷移を実行');
-            
-            // テナント情報も復元
-            if (window.currentUser.tenantId && typeof window.loadTenantInfo === 'function') {
-                try {
-                    const tenantInfo = await window.loadTenantInfo(window.currentUser.tenantId);
-                    if (tenantInfo) {
-                        window.currentTenant = tenantInfo;
-                        console.log('🏢 リダイレクト後のテナント情報復元:', window.currentUser.tenantId);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ リダイレクト後のテナント情報復元に失敗:', error);
-                }
-            }
             
             const userRole = window.currentUser.role;
             if (userRole === 'admin' || userRole === 'super_admin') {
@@ -235,53 +234,64 @@ async function handleAuthStateChange(user) {
         return;
     }
     
-    // 既に処理済みで変更がない場合の処理
-    if (user && window.currentUser && window.currentUser.uid === user.uid && !window.isLoggingIn) {
-        // ログインページにいる場合は、適切なページに遷移させる
-        const isOnLoginPage = document.getElementById('login-page') && 
-                             !document.getElementById('login-page').classList.contains('hidden');
+    // 既存認証状態のチェックと処理
+    if (user && window.currentUser && !window.isLoggingIn) {
+        // currentUserが文字列の場合（不正な状態）は再処理が必要
+        const isValidCurrentUser = typeof window.currentUser === 'object' && 
+                                  window.currentUser.uid === user.uid;
         
-        if (isOnLoginPage) {
-            console.log('🔄 認証済みユーザーをログインページから遷移させます');
+        if (!isValidCurrentUser) {
+            console.log('⚠️ 不正な認証状態を検出 - 再処理します:', typeof window.currentUser);
+            // 不正な状態をクリアして再処理
+            window.currentUser = null;
+            localStorage.removeItem('currentUser');
+        } else {
+            // 正常な認証状態の場合
+            const isOnLoginPage = document.getElementById('login-page') && 
+                                 !document.getElementById('login-page').classList.contains('hidden');
             
-            // テナント情報の再確認と必要に応じてリダイレクト
-            const currentTenantFromUrl = getTenantFromURL();
-            const userTenantId = window.currentUser.tenantId;
-            
-            if (userTenantId && (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId)) {
-                console.log('🔄 テナント不一致のためリダイレクト:', {
-                    urlTenant: currentTenantFromUrl,
-                    userTenant: userTenantId
-                });
-                const tenantUrl = generateSuccessUrl(userTenantId);
-                window.location.href = tenantUrl;
+            if (isOnLoginPage) {
+                console.log('🔄 認証済みユーザーをログインページから遷移させます');
+                
+                // テナント情報の再確認と必要に応じてリダイレクト
+                const currentTenantFromUrl = getTenantFromURL();
+                const userTenantId = window.currentUser.tenantId;
+                
+                if (userTenantId && (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId)) {
+                    console.log('🔄 テナント不一致のためリダイレクト:', {
+                        urlTenant: currentTenantFromUrl,
+                        userTenant: userTenantId
+                    });
+                    const tenantUrl = generateSuccessUrl(userTenantId);
+                    window.location.href = tenantUrl;
+                    return;
+                }
+                
+                // 適切なページに遷移
+                const userRole = window.currentUser.role;
+                if (userRole === 'admin' || userRole === 'super_admin') {
+                    showPage('admin');
+                    setTimeout(() => {
+                        if (typeof initAdminPage === 'function') {
+                            console.log('🔧 管理者ページ初期化実行');
+                            initAdminPage();
+                        }
+                    }, 300);
+                } else {
+                    showPage('employee');
+                    setTimeout(() => {
+                        if (typeof initEmployeePage === 'function') {
+                            console.log('🔧 従業員ページ初期化実行');
+                            initEmployeePage();
+                        }
+                    }, 300);
+                }
                 return;
             }
             
-            // 適切なページに遷移
-            const userRole = window.currentUser.role;
-            if (userRole === 'admin' || userRole === 'super_admin') {
-                showPage('admin');
-                setTimeout(() => {
-                    if (typeof initAdminPage === 'function') {
-                        console.log('🔧 管理者ページ初期化実行');
-                        initAdminPage();
-                    }
-                }, 300);
-            } else {
-                showPage('employee');
-                setTimeout(() => {
-                    if (typeof initEmployeePage === 'function') {
-                        console.log('🔧 従業員ページ初期化実行');
-                        initEmployeePage();
-                    }
-                }, 300);
-            }
+            console.log('🔄 認証状態変更をスキップ: 既に適切なページにいます');
             return;
         }
-        
-        console.log('🔄 認証状態変更をスキップ: 既に適切なページにいます');
-        return;
     }
     
     // 重複実行防止のためのタイムスタンプチェック
@@ -633,6 +643,29 @@ window.checkAuth = function(requiredRole) {
 };
 
 window.showPage = showPage;
+
+/**
+ * テナント情報を確実に設定する
+ */
+async function ensureTenantInfo(tenantId) {
+    if (!tenantId) return;
+    
+    try {
+        if (typeof window.loadTenantInfo === 'function') {
+            const tenantInfo = await window.loadTenantInfo(tenantId);
+            if (tenantInfo) {
+                window.currentTenant = tenantInfo;
+                console.log('🏢 テナント情報を確保しました:', tenantId);
+            } else {
+                console.warn('⚠️ テナント情報が見つかりません:', tenantId);
+            }
+        } else {
+            console.warn('⚠️ loadTenantInfo関数が利用できません');
+        }
+    } catch (error) {
+        console.error('❌ テナント情報確保エラー:', error);
+    }
+}
 
 /**
  * 従業員登録処理
