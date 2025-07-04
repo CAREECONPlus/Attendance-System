@@ -4545,7 +4545,15 @@ function switchTab(tabName) {
     
     // フィルター行を表示
     const filterRow = document.querySelector('.filter-row');
-    if (filterRow) filterRow.style.display = 'flex';
+    if (filterRow) {
+        console.log('🔧 フィルター行を再表示:', {
+            hadHiddenClass: filterRow.classList.contains('hidden'),
+            currentDisplay: window.getComputedStyle(filterRow).display
+        });
+        filterRow.classList.remove('hidden');
+        filterRow.style.display = 'flex';
+        console.log('✅ フィルター行再表示完了:', window.getComputedStyle(filterRow).display);
+    }
     
     // データを再読み込み
     loadAttendanceData();
@@ -4900,6 +4908,7 @@ function showSiteManagementTab() {
     const filterRow = document.querySelector('.filter-row');
     if (filterRow) {
         filterRow.classList.add('hidden');
+        filterRow.style.display = 'none';
     }
     
     // 他のコンテンツを非表示
