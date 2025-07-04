@@ -38,12 +38,20 @@ service cloud.firestore {
     
     // Invite codes collection  
     match /invite_codes/{docId} {
-      allow read, write: if request.auth != null && 
+      // 未認証ユーザーが招待コードを読み取れるよう許可（検証のため）
+      allow read: if true;
+      
+      // 管理者による招待コードの作成・更新
+      allow write: if request.auth != null && 
                         (isSuperAdmin(request.auth.token.email) || 
                          isAdmin(request.auth.token.email, resource.data.tenantId));
       allow create: if request.auth != null && 
                    (isSuperAdmin(request.auth.token.email) || 
                     isAdmin(request.auth.token.email, request.resource.data.tenantId));
+      
+      // 認証後の使用回数更新（従業員登録時）
+      allow update: if request.auth != null && 
+                   request.resource.data.diff(resource.data).affectedKeys() == ['used', 'lastUsedAt'].toSet();
     }
     
     // Test collection

@@ -25,17 +25,32 @@ async function validateInviteToken(inviteToken) {
             throw new Error('Firebase が初期化されていません');
         }
         
+        console.log('🔍 招待トークン検証開始:', inviteToken);
+        
+        // グローバルのinvite_codesコレクションから検索
         const inviteRef = await firebase.firestore()
             .collection('invite_codes')
             .where('code', '==', inviteToken)
             .where('active', '==', true)
             .get();
         
+        console.log('📋 招待コード検索結果:', {
+            empty: inviteRef.empty,
+            size: inviteRef.size
+        });
+        
         if (inviteRef.empty) {
             throw new Error('無効な招待トークンです');
         }
         
         const inviteData = inviteRef.docs[0].data();
+        console.log('📄 招待データ:', {
+            tenantId: inviteData.tenantId,
+            companyName: inviteData.companyName,
+            expiresAt: inviteData.expiresAt,
+            used: inviteData.used,
+            maxUses: inviteData.maxUses
+        });
         
         // 有効期限チェック
         if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
@@ -47,6 +62,8 @@ async function validateInviteToken(inviteToken) {
             throw new Error('招待トークンの使用回数上限に達しています');
         }
         
+        console.log('✅ 招待トークン検証成功');
+        
         return {
             valid: true,
             tenantId: inviteData.tenantId,
@@ -56,6 +73,16 @@ async function validateInviteToken(inviteToken) {
         };
         
     } catch (error) {
+        console.error('❌ 招待トークン検証エラー:', error);
+        
+        // Firebaseの権限エラーの場合は詳細なメッセージ
+        if (error.code === 'permission-denied') {
+            return {
+                valid: false,
+                error: 'データベースアクセス権限がありません。システム管理者にお問い合わせください。'
+            };
+        }
+        
         return {
             valid: false,
             error: error.message
@@ -169,6 +196,7 @@ function waitForFirebaseInit() {
  * 招待リンクの初期化処理
  */
 async function initInviteSystem() {
+    console.log('🎫 招待システムを初期化中...');
     
     setupInviteStyles();
     
@@ -176,6 +204,8 @@ async function initInviteSystem() {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
     const inviteInfo = document.getElementById('invite-info');
+    
+    console.log('🔍 URLから招待トークンを確認:', inviteToken);
     
     if (inviteToken) {
         await waitForFirebaseInit();
