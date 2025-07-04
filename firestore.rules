@@ -38,13 +38,10 @@ service cloud.firestore {
     
     // Invite codes collection  
     match /invite_codes/{docId} {
-      // 招待コード検証用（未認証でも特定条件下で読み取り可能）
+      // 招待コード検証用（未認証ユーザーでも特定クエリで読み取り可能）
       allow read: if request.auth != null ||
-                     // 未認証の場合：有効で使用可能な招待コードのみ
-                     (resource != null && 
-                      resource.data.active == true && 
-                      resource.data.expiresAt > request.time &&
-                      resource.data.used < resource.data.maxUses);
+                     // 未認証の場合：activeがtrueのコードのみアクセス可能
+                     resource.data.active == true;
       
       // 管理者による招待コードの作成・更新
       allow write: if request.auth != null && 
