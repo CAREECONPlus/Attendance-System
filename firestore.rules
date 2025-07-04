@@ -38,8 +38,13 @@ service cloud.firestore {
     
     // Invite codes collection  
     match /invite_codes/{docId} {
-      // 未認証ユーザーが招待コードを読み取れるよう許可（検証のため）
-      allow read: if true;
+      // 招待コード検証用（未認証でも特定条件下で読み取り可能）
+      allow read: if request.auth != null ||
+                     // 未認証の場合：有効で使用可能な招待コードのみ
+                     (resource != null && 
+                      resource.data.active == true && 
+                      resource.data.expiresAt > request.time &&
+                      resource.data.used < resource.data.maxUses);
       
       // 管理者による招待コードの作成・更新
       allow write: if request.auth != null && 
@@ -52,6 +57,22 @@ service cloud.firestore {
       // 認証後の使用回数更新（従業員登録時）
       allow update: if request.auth != null && 
                    request.resource.data.diff(resource.data).affectedKeys() == ['used', 'lastUsedAt'].toSet();
+    }
+    
+    // Attendance collection (legacy - should use tenant-based)
+    match /attendance/{docId} {
+      allow read, write: if request.auth != null && 
+                        (isSuperAdmin(request.auth.token.email) ||
+                         resource.data.userId == request.auth.uid ||
+                         isAdminOfUserTenant(request.auth.token.email, resource.data.userId));
+    }
+    
+    // Breaks collection (legacy - should use tenant-based) 
+    match /breaks/{docId} {
+      allow read, write: if request.auth != null && 
+                        (isSuperAdmin(request.auth.token.email) ||
+                         resource.data.userId == request.auth.uid ||
+                         isAdminOfUserTenant(request.auth.token.email, resource.data.userId));
     }
     
     // Test collection
@@ -71,6 +92,20 @@ service cloud.firestore {
     function isAdmin(email, tenantId) {
       let userData = get(/databases/$(database)/documents/global_users/$(email)).data;
       return userData.tenantId == tenantId && userData.role in ['admin', 'super_admin'];
+    }
+    
+    function isAdminOfUserTenant(adminEmail, targetUserId) {
+      // 対象ユーザーのテナントを取得
+      let targetUserData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
+      if (targetUserData == null) return false;
+      
+      // 管理者のテナントを取得
+      let adminData = get(/databases/$(database)/documents/global_users/$(adminEmail)).data;
+      if (adminData == null) return false;
+      
+      // 同じテナントかつ管理者権限を持つかチェック
+      return adminData.tenantId == targetUserData.tenantId && 
+             adminData.role in ['admin', 'super_admin'];
     }
   }
 }
