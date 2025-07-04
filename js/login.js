@@ -72,16 +72,18 @@ async function initLogin() {
                 const parsedUser = JSON.parse(savedUser);
                 const urlTenant = getTenantFromURL();
                 
-                // URLにテナントパラメータがある場合、localStorage のテナント情報と不一致ならクリア
+                // テナント不一致チェックを緩和（ユーザーのテナントが一致すれば許可）
                 if (urlTenant && parsedUser.tenantId && urlTenant !== parsedUser.tenantId) {
-                    console.log('🔄 テナント不一致でlocalStorage をクリア:', {
+                    console.log('⚠️ URL テナントとローカルテナントが異なります:', {
                         urlTenant,
                         savedTenant: parsedUser.tenantId
                     });
-                    localStorage.removeItem('currentUser');
+                    // 異なるテナントでも認証状態は保持し、後でチェック
+                    window.currentUser = parsedUser;
+                    console.log('🔄 認証状態を保持してテナント確認を延期');
                 } else {
                     window.currentUser = parsedUser;
-                    console.log('認証状態をlocalStorageから復元しました:', window.currentUser);
+                    console.log('✅ 認証状態をlocalStorageから復元しました:', window.currentUser.email);
                 }
             }
         } catch (error) {
@@ -94,6 +96,30 @@ async function initLogin() {
         // 招待システムの初期化
         if (typeof initInviteSystem === 'function') {
             await initInviteSystem();
+        }
+        
+        // リダイレクト後の場合は迅速にページ遷移
+        const authRedirect = localStorage.getItem('authRedirect');
+        if (authRedirect && window.currentUser) {
+            localStorage.removeItem('authRedirect');
+            console.log('🚀 リダイレクト後の迅速ページ遷移を実行');
+            
+            const userRole = window.currentUser.role;
+            if (userRole === 'admin' || userRole === 'super_admin') {
+                showPage('admin');
+                setTimeout(() => {
+                    if (typeof initAdminPage === 'function') {
+                        initAdminPage();
+                    }
+                }, 100);
+            } else {
+                showPage('employee');
+                setTimeout(() => {
+                    if (typeof initEmployeePage === 'function') {
+                        initEmployeePage();
+                    }
+                }, 100);
+            }
         }
         
         
@@ -136,7 +162,7 @@ async function handleLogin(e) {
         console.log('🔐 ログイン処理開始:', email);
         
         // Firebase認証のみ実行（以降の処理はhandleAuthStateChangeに委譲）
-        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+        await firebase.auth().signInWithEmailAndPassword(email, password);
         
         console.log('✅ Firebase認証成功 - handleAuthStateChangeを待機中...');
         
@@ -192,8 +218,36 @@ async function handleAuthStateChange(user) {
         return;
     }
     
-    // 既に処理済みで変更がない場合はスキップ
+    // 既に処理済みで変更がない場合はスキップ（ただし、ページ遷移が必要な場合は除く）
     if (user && window.currentUser && window.currentUser.uid === user.uid && !window.isLoggingIn) {
+        // ログインページにいる場合は、適切なページに遷移させる
+        const isOnLoginPage = document.getElementById('login-page') && 
+                             !document.getElementById('login-page').classList.contains('hidden');
+        
+        if (isOnLoginPage) {
+            console.log('🔄 ログインページから適切なページに遷移します');
+            const userRole = window.currentUser.role;
+            
+            if (userRole === 'admin' || userRole === 'super_admin') {
+                showPage('admin');
+                setTimeout(() => {
+                    if (typeof initAdminPage === 'function') {
+                        console.log('🔧 管理者ページ初期化実行');
+                        initAdminPage();
+                    }
+                }, 300);
+            } else {
+                showPage('employee');
+                setTimeout(() => {
+                    if (typeof initEmployeePage === 'function') {
+                        console.log('🔧 従業員ページ初期化実行');
+                        initEmployeePage();
+                    }
+                }, 300);
+            }
+            return;
+        }
+        
         console.log('🔄 認証状態変更をスキップ: 既に処理済み');
         return;
     }
@@ -344,8 +398,21 @@ async function handleAuthStateChange(user) {
                     }
                 }
                 
-                // リダイレクトが必要な場合は実行（フラグクリア後）
+                // リダイレクトが必要な場合は実行（認証状態保持）
                 if (shouldRedirect && redirectUrl) {
+                    // localStorage を更新してテナント情報を同期
+                    try {
+                        const updatedUser = {
+                            ...window.currentUser,
+                            tenantId: userTenantId || userData.tenantId
+                        };
+                        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                        localStorage.setItem('authRedirect', 'true'); // リダイレクトフラグ
+                        console.log('💾 リダイレクト前に認証状態を保存:', updatedUser.email);
+                    } catch (error) {
+                        console.warn('⚠️ リダイレクト前の状態保存に失敗:', error);
+                    }
+                    
                     window.isAuthStateChanging = false;
                     window.isInitializingUser = false;
                     window.isLoggingIn = false;
