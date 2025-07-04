@@ -354,7 +354,23 @@ async function determineUserTenant(userEmail) {
  */
 function generateSuccessUrl(tenantId) {
     const baseUrl = `${window.location.origin}${window.location.pathname}`;
-    return `${baseUrl}?tenant=${tenantId}`;
+    const url = new URL(baseUrl);
+    
+    // テナントパラメータを確実に設定
+    if (tenantId) {
+        url.searchParams.set('tenant', tenantId);
+    }
+    
+    // 他の必要なパラメータがあれば保持
+    const currentParams = new URLSearchParams(window.location.search);
+    for (const [key, value] of currentParams.entries()) {
+        if (key !== 'tenant') {
+            url.searchParams.set(key, value);
+        }
+    }
+    
+    console.log('🔗 リダイレクトURL生成:', url.toString());
+    return url.toString();
 }
 
 // グローバル関数として公開

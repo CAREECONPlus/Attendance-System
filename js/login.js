@@ -157,6 +157,7 @@ async function handleLogin(e) {
     } finally {
         // エラー時のみフラグをクリア（成功時はhandleAuthStateChangeでクリア）
         if (!firebase.auth().currentUser) {
+            window.isAuthStateChanging = false;
             window.isLoggingIn = false;
             window.isInitializingUser = false;
         }
@@ -185,7 +186,13 @@ async function handleAuthStateChange(user) {
         isLoggingIn: window.isLoggingIn
     });
     
-    // 既に処理済みの場合はスキップ（初期化中チェックを緩和）
+    // 処理中の場合は重複実行を防止
+    if (window.isAuthStateChanging) {
+        console.log('🔄 認証状態変更処理中のため、スキップ');
+        return;
+    }
+    
+    // 既に処理済みで変更がない場合はスキップ
     if (user && window.currentUser && window.currentUser.uid === user.uid && !window.isLoggingIn) {
         console.log('🔄 認証状態変更をスキップ: 既に処理済み');
         return;
@@ -193,11 +200,12 @@ async function handleAuthStateChange(user) {
     
     // 重複実行防止のためのタイムスタンプチェック
     const now = Date.now();
-    if (window.lastAuthStateChange && (now - window.lastAuthStateChange) < 500) {
+    if (window.lastAuthStateChange && (now - window.lastAuthStateChange) < 1000) {
         console.log('🔄 認証状態変更を短時間内でスキップ');
         return;
     }
     window.lastAuthStateChange = now;
+    window.isAuthStateChanging = true;
     
     if (user) {
         try {
@@ -207,8 +215,7 @@ async function handleAuthStateChange(user) {
             // ローディング表示
             showLoadingOverlay('システムを初期化中...');
             
-            // 明示的ログインかページリロードかを判定
-            const isExplicitLogin = window.isLoggingIn;
+            // ユーザー情報の取得開始
             // ユーザーのテナント情報を取得
             console.log('🔍 テナント情報取得開始:', user.email);
             const userTenantId = await determineUserTenant(user.email);
@@ -279,9 +286,20 @@ async function handleAuthStateChange(user) {
                     tenantId: userTenantId || userData.tenantId
                 };
                 
+                // localStorage に認証状態を保存（テナント情報含む）
+                try {
+                    localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
+                    console.log('💾 ユーザー情報をlocalStorageに保存:', window.currentUser.email);
+                } catch (error) {
+                    console.warn('⚠️ localStorageへの保存に失敗:', error);
+                }
+                
                 
                 // テナント情報を設定
                 const currentTenantFromUrl = getTenantFromURL();
+                let shouldRedirect = false;
+                let redirectUrl = null;
+                
                 if (currentTenantFromUrl || userTenantId) {
                     const tenantId = currentTenantFromUrl || userTenantId;
                     // 認証後にテナント情報を正しく読み込み
@@ -296,18 +314,19 @@ async function handleAuthStateChange(user) {
                     }
                 }
                 
+                // ロール別のテナント処理とリダイレクト判定を分離
                 if (userRole === 'super_admin') {
                     // スーパー管理者：テナントパラメータがあればそれを保持、なければリダイレクトしない
                     console.log('🔑 スーパー管理者：テナントパラメータ保持');
                 } else if (userRole === 'admin') {
                     // 通常管理者：テナントパラメータがあればそれを保持、なければ自分のテナントにリダイレクト
                     if (!currentTenantFromUrl && userTenantId) {
-                        console.log('🔄 管理者テナントリダイレクト実行中...');
-                        const tenantUrl = generateSuccessUrl(userTenantId);
-                        window.location.href = tenantUrl;
-                        return;
+                        console.log('🔄 管理者テナントリダイレクト準備中...');
+                        shouldRedirect = true;
+                        redirectUrl = generateSuccessUrl(userTenantId);
+                    } else {
+                        console.log('🔑 管理者：テナントパラメータ保持');
                     }
-                    console.log('🔑 管理者：テナントパラメータ保持');
                 } else if (userTenantId) {
                     // 一般ユーザー：必ず自分のテナントにリダイレクト
                     console.log('🔍 テナント判定:', {
@@ -317,34 +336,70 @@ async function handleAuthStateChange(user) {
                     });
                     
                     if (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId) {
-                        console.log('🔄 テナントリダイレクト実行中...');
-                        const tenantUrl = generateSuccessUrl(userTenantId);
-                        window.location.href = tenantUrl;
-                        return;
+                        console.log('🔄 テナントリダイレクト準備中...');
+                        shouldRedirect = true;
+                        redirectUrl = generateSuccessUrl(userTenantId);
                     } else {
                         console.log('✅ テナントURL一致 - リダイレクトなし');
                     }
                 }
                 
-                // 現在のページをチェック
-                const currentPage = document.querySelector('.page:not(.hidden)');
-                if (!currentPage || currentPage.id === 'login-page') {
-                    // ログインページ表示中の場合のみ画面遷移
+                // リダイレクトが必要な場合は実行（フラグクリア後）
+                if (shouldRedirect && redirectUrl) {
+                    window.isAuthStateChanging = false;
+                    window.isInitializingUser = false;
+                    window.isLoggingIn = false;
+                    hideLoadingOverlay();
+                    console.log('🔄 テナントリダイレクト実行:', redirectUrl);
+                    window.location.href = redirectUrl;
+                    return;
+                }
+                
+                // ログイン成功時の画面遷移
+                // 現在のページをチェック（より確実な判定）
+                const isOnLoginPage = document.getElementById('login-page') && 
+                                     !document.getElementById('login-page').classList.contains('hidden');
+                const isOnEmployeePage = document.getElementById('employee-page') && 
+                                        !document.getElementById('employee-page').classList.contains('hidden');
+                const isOnAdminPage = document.getElementById('admin-page') && 
+                                     !document.getElementById('admin-page').classList.contains('hidden');
+                
+                console.log('📄 現在のページ状態:', {
+                    isOnLoginPage,
+                    isOnEmployeePage,
+                    isOnAdminPage,
+                    userRole
+                });
+                
+                // ページ遷移の必要性を判定
+                const needsPageTransition = isOnLoginPage || 
+                                          (userRole === 'admin' && !isOnAdminPage) ||
+                                          (userRole === 'employee' && !isOnEmployeePage);
+                
+                if (needsPageTransition) {
+                    console.log('🔄 ページ遷移を実行します...');
+                    
                     if (userRole === 'admin' || userRole === 'super_admin') {
                         showPage('admin');
+                        // 少し遅延してから管理者ページ初期化
                         setTimeout(() => {
                             if (typeof initAdminPage === 'function') {
+                                console.log('🔧 管理者ページ初期化実行');
                                 initAdminPage();
                             }
-                        }, 200);
+                        }, 300);
                     } else {
                         showPage('employee');
+                        // 少し遅延してから従業員ページ初期化
                         setTimeout(() => {
                             if (typeof initEmployeePage === 'function') {
+                                console.log('🔧 従業員ページ初期化実行');
                                 initEmployeePage();
                             }
-                        }, 200);
+                        }, 300);
                     }
+                } else {
+                    console.log('✅ ページ遷移は不要です（既に適切なページにいます）');
                 }
             } else {
                 console.log('❌ ユーザーデータが見つかりません - サインアウト実行');
@@ -376,6 +431,7 @@ async function handleAuthStateChange(user) {
             }
         } finally {
             // 初期化完了
+            window.isAuthStateChanging = false;
             window.isInitializingUser = false;
             window.isLoggingIn = false;
             hideLoadingOverlay();
@@ -384,6 +440,7 @@ async function handleAuthStateChange(user) {
     } else {
         // ログアウト状態
         window.currentUser = null;
+        window.isAuthStateChanging = false;
         window.isInitializingUser = false;
         window.isLoggingIn = false;
         hideLoadingOverlay();
