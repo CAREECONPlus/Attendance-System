@@ -4307,14 +4307,17 @@ async function initAdminPage() {
     
     try {
         // 管理者権限チェック
-        const user = firebase.auth().currentUser;
-        if (!user) {
-            console.log('initAdminPage (SECOND): ユーザーが見つかりません');
+        const authUser = firebase.auth().currentUser;
+        if (!authUser) {
+            console.log('initAdminPage (SECOND): Firebase認証ユーザーが見つかりません');
             return;
         }
         
-        // 現在のユーザーを設定
-        window.currentUser = user;
+        // login.jsで設定された正しいcurrentUserオブジェクトを確認
+        if (!window.currentUser) {
+            console.log('initAdminPage (SECOND): window.currentUserが未設定 - 認証状態を確認');
+            return;
+        }
         
         // ユーザーのrole情報を確認
         console.log('initAdminPage (SECOND): currentUser:', window.currentUser);
@@ -4332,17 +4335,22 @@ async function initAdminPage() {
         // 管理者登録依頼管理（スーパー管理者のみ）
         initAdminRequestsManagement();
         
-        // Firestoreからユーザーのrole情報を取得
+        // role情報の確認（login.jsで既に設定済みの場合はスキップ）
         try {
-            if (window.currentUser && window.currentUser.email && !window.currentUser.role) {
-                console.log('initAdminPage (SECOND): Firestoreからrole情報を取得中...');
-                const userDoc = await firebase.firestore().collection('global_users').doc(window.currentUser.email).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    window.currentUser.role = userData.role;
-                    console.log('initAdminPage (SECOND): role情報を取得:', userData.role);
+            if (window.currentUser && window.currentUser.email) {
+                if (window.currentUser.role) {
+                    console.log('initAdminPage (SECOND): role情報は既に設定済み:', window.currentUser.role);
                 } else {
-                    console.log('initAdminPage (SECOND): global_usersにドキュメントが見つかりません');
+                    console.log('initAdminPage (SECOND): Firestoreからrole情報を取得中...');
+                    const userDoc = await firebase.firestore().collection('global_users').doc(window.currentUser.email.toLowerCase()).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        window.currentUser.role = userData.role;
+                        window.currentUser.tenantId = userData.tenantId; // テナントIDも確保
+                        console.log('initAdminPage (SECOND): role情報を取得:', userData.role);
+                    } else {
+                        console.log('initAdminPage (SECOND): global_usersにドキュメントが見つかりません');
+                    }
                 }
             }
         } catch (error) {
