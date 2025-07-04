@@ -95,16 +95,10 @@ service cloud.firestore {
     }
     
     function isAdminOfUserTenant(adminEmail, targetUserId) {
-      // 対象ユーザーのテナントを取得
       let targetUserData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
-      if (targetUserData == null) return false;
-      
-      // 管理者のテナントを取得
       let adminData = get(/databases/$(database)/documents/global_users/$(adminEmail)).data;
-      if (adminData == null) return false;
-      
-      // 同じテナントかつ管理者権限を持つかチェック
-      return adminData.tenantId == targetUserData.tenantId && 
+      return targetUserData != null && adminData != null && 
+             adminData.tenantId == targetUserData.tenantId && 
              adminData.role in ['admin', 'super_admin'];
     }
   }
