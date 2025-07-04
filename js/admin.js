@@ -1190,28 +1190,40 @@ async function enrichAttendanceDataWithUserInfo(attendanceData) {
 async function loadBreakDataForRecords(attendanceData) {
     try {
         const promises = attendanceData.map(async (record) => {
-            const tenantId = getCurrentTenantId();
-            const breakQuery = await firebase.firestore()
-                .collection('tenants').doc(tenantId)
-                .collection('breaks')
-                .where('attendanceId', '==', record.id)
-                .orderBy('startTime')
-                .get();
-            
-            record.breakTimes = breakQuery.docs.map(doc => {
-                const breakData = doc.data();
-                return {
-                    id: doc.id,
-                    start: breakData.startTime,
-                    end: breakData.endTime
-                };
-            });
-            
-            return record;
+            try {
+                // テナント対応の休憩データコレクション取得
+                const breaksCollection = getBreaksCollection();
+                const breakQuery = await breaksCollection
+                    .where('attendanceId', '==', record.id)
+                    .orderBy('startTime')
+                    .get();
+                
+                record.breakTimes = breakQuery.docs.map(doc => {
+                    const breakData = doc.data();
+                    return {
+                        id: doc.id,
+                        start: breakData.startTime,
+                        end: breakData.endTime
+                    };
+                });
+                
+                return record;
+            } catch (error) {
+                console.warn(`休憩データ取得失敗 (${record.id}):`, error);
+                record.breakTimes = []; // エラー時は空配列
+                return record;
+            }
         });
         
         await Promise.all(promises);
+        console.log(`🛑 ${attendanceData.length}件の休憩データを取得しました`);
+        
     } catch (error) {
+        console.error('❌ 休憩データ取得エラー:', error);
+        // エラー時は全レコードに空の休憩時間を設定
+        attendanceData.forEach(record => {
+            record.breakTimes = [];
+        });
     }
 }
 
@@ -1295,6 +1307,14 @@ function setupAdminEvents() {
  */
 async function exportToCSV() {
     try {
+        // ローディング表示
+        const exportBtn = getElement('export-csv');
+        if (exportBtn) {
+            exportBtn.disabled = true;
+            exportBtn.textContent = 'CSV出力中...';
+        }
+        
+        console.log('📊 CSV出力処理開始');
         const data = await getCurrentFilteredData();
         
         if (!data || data.length === 0) {
@@ -1302,70 +1322,217 @@ async function exportToCSV() {
             return;
         }
         
-        const csvContent = generateCSVContent(data);
-        downloadCSV(csvContent, `attendance_${getTodayString()}.csv`);
+        console.log(`📋 CSV出力対象レコード数: ${data.length}`);
         
-        showToast('CSVファイルをダウンロードしました', 'success');
+        const csvContent = generateCSVContent(data);
+        const filename = generateCSVFilename();
+        
+        downloadCSV(csvContent, filename);
+        
+        showToast(`${data.length}件のデータをCSV出力しました`, 'success');
+        console.log('✅ CSV出力完了');
+        
     } catch (error) {
+        console.error('❌ CSV出力エラー:', error);
         showToast('CSV出力に失敗しました', 'error');
+    } finally {
+        // ボタンを元に戻す
+        const exportBtn = getElement('export-csv');
+        if (exportBtn) {
+            exportBtn.disabled = false;
+            exportBtn.textContent = 'CSV出力';
+        }
     }
+}
+
+/**
+ * CSVファイル名を生成
+ */
+function generateCSVFilename() {
+    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
+    const today = getTodayString();
+    let prefix = 'attendance';
+    let suffix = '';
+    
+    // タブごとにファイル名を変更
+    switch (activeTab) {
+        case 'daily':
+            const filterDate = getElement('filter-date')?.value;
+            if (filterDate) {
+                suffix = `_daily_${filterDate}`;
+            } else {
+                suffix = '_daily';
+            }
+            break;
+        case 'monthly':
+            const filterMonth = getElement('filter-month')?.value;
+            if (filterMonth) {
+                suffix = `_monthly_${filterMonth}`;
+            } else {
+                suffix = '_monthly';
+            }
+            break;
+        case 'employee':
+            const employeeSelect = getElement('filter-employee');
+            const employeeName = employeeSelect?.selectedOptions[0]?.text || '';
+            if (employeeName && employeeName !== '全員') {
+                suffix = `_employee_${employeeName.replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '')}`;
+            } else {
+                suffix = '_employee';
+            }
+            break;
+        case 'site':
+            const siteName = getElement('filter-site')?.value;
+            if (siteName) {
+                suffix = `_site_${siteName.replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '')}`;
+            } else {
+                suffix = '_site';
+            }
+            break;
+        default:
+            suffix = '_all';
+    }
+    
+    // テナント情報があれば追加
+    const tenantInfo = window.currentTenant;
+    if (tenantInfo && tenantInfo.companyName) {
+        const companyName = tenantInfo.companyName.replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '');
+        prefix = `${companyName}_${prefix}`;
+    }
+    
+    return `${prefix}${suffix}_${today}.csv`;
 }
 
 /**
  * 現在のフィルター設定でデータを取得
  */
 async function getCurrentFilteredData() {
-    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
-    if (!activeTab) return [];
-    
-    let query = firebase.firestore().collection('attendance');
-    
-    // フィルター条件の適用
-    if (activeTab === 'daily') {
-        const filterDate = getElement('filter-date')?.value;
-        if (filterDate) {
-            query = query.where('date', '==', filterDate);
+    try {
+        const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
+        if (!activeTab) return [];
+        
+        // テナント対応の勤怠データコレクション取得
+        let query = getAttendanceCollection();
+        
+        // フィルター条件の適用
+        if (activeTab === 'daily') {
+            const filterDate = getElement('filter-date')?.value;
+            if (filterDate) {
+                query = query.where('date', '==', filterDate);
+            }
+        } else if (activeTab === 'monthly') {
+            const filterMonth = getElement('filter-month')?.value;
+            if (filterMonth) {
+                const startDate = `${filterMonth}-01`;
+                const endDate = `${filterMonth}-31`;
+                query = query.where('date', '>=', startDate).where('date', '<=', endDate);
+            }
+        } else if (activeTab === 'employee') {
+            const employeeId = getElement('filter-employee')?.value;
+            if (employeeId) {
+                query = query.where('userId', '==', employeeId);
+            }
+        } else if (activeTab === 'site') {
+            const siteName = getElement('filter-site')?.value;
+            if (siteName) {
+                query = query.where('siteName', '==', siteName);
+            }
         }
-    } else if (activeTab === 'monthly') {
-        const filterMonth = getElement('filter-month')?.value;
-        if (filterMonth) {
-            const startDate = `${filterMonth}-01`;
-            const endDate = `${filterMonth}-31`;
-            query = query.where('date', '>=', startDate).where('date', '<=', endDate);
-        }
-    } else if (activeTab === 'employee') {
-        const employeeId = getElement('filter-employee')?.value;
-        if (employeeId) {
-            query = query.where('userId', '==', employeeId);
-        }
-    } else if (activeTab === 'site') {
-        const siteName = getElement('filter-site')?.value;
-        if (siteName) {
-            query = query.where('siteName', '==', siteName);
-        }
+        
+        // ソート条件を追加
+        const sortField = getElement('sort-field')?.value || 'date';
+        const sortDirection = getElement('sort-direction')?.value || 'desc';
+        query = query.orderBy(sortField, sortDirection);
+        
+        console.log('📥 CSV用データ取得開始');
+        const querySnapshot = await query.get();
+        
+        const data = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        console.log(`📋 取得した勤怠レコード数: ${data.length}`);
+        
+        // ユーザー情報とマージ
+        await enrichDataWithUserInfo(data);
+        
+        // 休憩データも取得
+        await loadBreakDataForRecords(data);
+        
+        console.log('✅ CSV用データ取得完了');
+        return data;
+        
+    } catch (error) {
+        console.error('❌ CSV用データ取得エラー:', error);
+        throw error;
     }
-    
-    query = query.orderBy('date', 'desc');
-    const querySnapshot = await query.get();
-    
-    const data = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    
-    // 休憩データも取得
-    await loadBreakDataForRecords(data);
-    
-    return data;
+}
+
+/**
+ * ユーザー情報を勤怠データにマージ
+ */
+async function enrichDataWithUserInfo(data) {
+    try {
+        const userIds = [...new Set(data.map(record => record.userId).filter(Boolean))];
+        const usersCollection = getUsersCollection();
+        
+        const userPromises = userIds.map(async (userId) => {
+            try {
+                const userDoc = await usersCollection.doc(userId).get();
+                return userDoc.exists ? { id: userId, ...userDoc.data() } : null;
+            } catch (error) {
+                console.warn(`ユーザー情報取得失敗 (${userId}):`, error);
+                return null;
+            }
+        });
+        
+        const users = (await Promise.all(userPromises)).filter(Boolean);
+        const userMap = new Map(users.map(user => [user.id, user]));
+        
+        // 勤怠データにユーザー情報をマージ
+        data.forEach(record => {
+            const user = userMap.get(record.userId);
+            if (user) {
+                record.userName = user.displayName || user.email || record.userId;
+                record.userEmail = user.email || '';
+            } else {
+                record.userName = record.userId || '不明';
+                record.userEmail = '';
+            }
+        });
+        
+        console.log(`👥 ${users.length}名のユーザー情報をマージしました`);
+    } catch (error) {
+        console.error('❌ ユーザー情報のマージに失敗:', error);
+    }
 }
 
 /**
  * CSV形式のコンテンツを生成
  */
 function generateCSVContent(data) {
-    const headers = ['従業員名', '日付', '現場名', '出勤時間', '退勤時間', '休憩時間', '実労働時間', 'メモ'];
+    // より詳細なヘッダーを追加
+    const headers = [
+        '従業員名',
+        'メールアドレス', 
+        '日付',
+        '曜日',
+        '現場名',
+        '出勤時間',
+        '退勤時間',
+        '休憩時間',
+        '実労働時間',
+        '休憩回数',
+        'メモ',
+        '作成日時',
+        '更新日時'
+    ];
     
     const rows = data.map(record => {
+        const recordDate = new Date(record.date);
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][recordDate.getDay()];
+        
         const breakTime = calculateTotalBreakTime(record.breakTimes || []);
         const workTime = calculateWorkingTime(
             record.startTime,
@@ -1374,14 +1541,19 @@ function generateCSVContent(data) {
         );
         
         return [
-            record.userEmail || record.userName || '',
+            record.userName || '不明',
+            record.userEmail || '',
             formatDate(record.date),
+            dayOfWeek,
             record.siteName || '',
             formatTime(record.startTime),
-            formatTime(record.endTime),
+            formatTime(record.endTime) || (record.startTime ? '未退勤' : ''),
             breakTime.formatted || '0時間0分',
-            workTime.formatted || '0時間0分',
-            record.notes || ''
+            workTime.formatted || (record.endTime ? '0時間0分' : '計算不可'),
+            (record.breakTimes || []).length || '0',
+            (record.notes || '').replace(/\n/g, ' '), // 改行をスペースに変換
+            formatDateTime(record.createdAt),
+            formatDateTime(record.updatedAt)
         ];
     });
     
@@ -1389,6 +1561,33 @@ function generateCSVContent(data) {
     return csvArray.map(row => 
         row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
     ).join('\n');
+}
+
+/**
+ * 日時をフォーマット（CSV用）
+ */
+function formatDateTime(timestamp) {
+    if (!timestamp) return '';
+    
+    let date;
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+        date = timestamp;
+    } else {
+        date = new Date(timestamp);
+    }
+    
+    if (isNaN(date.getTime())) return '';
+    
+    return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 }
 
 /**
