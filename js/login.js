@@ -104,6 +104,19 @@ async function initLogin() {
             localStorage.removeItem('authRedirect');
             console.log('🚀 リダイレクト後の迅速ページ遷移を実行');
             
+            // テナント情報も復元
+            if (window.currentUser.tenantId && typeof window.loadTenantInfo === 'function') {
+                try {
+                    const tenantInfo = await window.loadTenantInfo(window.currentUser.tenantId);
+                    if (tenantInfo) {
+                        window.currentTenant = tenantInfo;
+                        console.log('🏢 リダイレクト後のテナント情報復元:', window.currentUser.tenantId);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ リダイレクト後のテナント情報復元に失敗:', error);
+                }
+            }
+            
             const userRole = window.currentUser.role;
             if (userRole === 'admin' || userRole === 'super_admin') {
                 showPage('admin');
@@ -156,10 +169,14 @@ async function handleLogin(e) {
     
     try {
         // 🔄 既存のフラグをクリア（前回の処理が残っている可能性）
+        window.isAuthStateChanging = false;
         window.isInitializingUser = false;
         window.isLoggingIn = true;
         
         console.log('🔐 ログイン処理開始:', email);
+        
+        // 明示的にログインページを表示
+        showPage('login');
         
         // Firebase認証のみ実行（以降の処理はhandleAuthStateChangeに委譲）
         await firebase.auth().signInWithEmailAndPassword(email, password);
@@ -218,16 +235,31 @@ async function handleAuthStateChange(user) {
         return;
     }
     
-    // 既に処理済みで変更がない場合はスキップ（ただし、ページ遷移が必要な場合は除く）
+    // 既に処理済みで変更がない場合の処理
     if (user && window.currentUser && window.currentUser.uid === user.uid && !window.isLoggingIn) {
         // ログインページにいる場合は、適切なページに遷移させる
         const isOnLoginPage = document.getElementById('login-page') && 
                              !document.getElementById('login-page').classList.contains('hidden');
         
         if (isOnLoginPage) {
-            console.log('🔄 ログインページから適切なページに遷移します');
-            const userRole = window.currentUser.role;
+            console.log('🔄 認証済みユーザーをログインページから遷移させます');
             
+            // テナント情報の再確認と必要に応じてリダイレクト
+            const currentTenantFromUrl = getTenantFromURL();
+            const userTenantId = window.currentUser.tenantId;
+            
+            if (userTenantId && (!currentTenantFromUrl || currentTenantFromUrl !== userTenantId)) {
+                console.log('🔄 テナント不一致のためリダイレクト:', {
+                    urlTenant: currentTenantFromUrl,
+                    userTenant: userTenantId
+                });
+                const tenantUrl = generateSuccessUrl(userTenantId);
+                window.location.href = tenantUrl;
+                return;
+            }
+            
+            // 適切なページに遷移
+            const userRole = window.currentUser.role;
             if (userRole === 'admin' || userRole === 'super_admin') {
                 showPage('admin');
                 setTimeout(() => {
@@ -248,7 +280,7 @@ async function handleAuthStateChange(user) {
             return;
         }
         
-        console.log('🔄 認証状態変更をスキップ: 既に処理済み');
+        console.log('🔄 認証状態変更をスキップ: 既に適切なページにいます');
         return;
     }
     
@@ -348,20 +380,21 @@ async function handleAuthStateChange(user) {
                     console.warn('⚠️ localStorageへの保存に失敗:', error);
                 }
                 
-                
-                // テナント情報を設定
+                // テナント情報を設定（権限エラー対策）
                 const currentTenantFromUrl = getTenantFromURL();
                 let shouldRedirect = false;
                 let redirectUrl = null;
                 
-                if (currentTenantFromUrl || userTenantId) {
-                    const tenantId = currentTenantFromUrl || userTenantId;
-                    // 認証後にテナント情報を正しく読み込み
+                // テナント情報の確実な設定
+                const finalTenantId = currentTenantFromUrl || userTenantId;
+                if (finalTenantId && typeof window.loadTenantInfo === 'function') {
                     try {
-                        const tenantInfo = await loadTenantInfo(tenantId);
+                        const tenantInfo = await window.loadTenantInfo(finalTenantId);
                         if (tenantInfo) {
                             window.currentTenant = tenantInfo;
-                            console.log('🏢 テナント情報設定完了:', tenantId);
+                            console.log('🏢 テナント情報設定完了:', finalTenantId);
+                        } else {
+                            console.warn('⚠️ テナント情報が見つかりません:', finalTenantId);
                         }
                     } catch (error) {
                         console.error('🚨 テナント情報設定エラー:', error);
