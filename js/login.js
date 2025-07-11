@@ -328,15 +328,66 @@ async function handleAuthStateChange(user) {
                 userDoc = await firebase.firestore().collection(tenantUsersPath).doc(user.uid).get();
                 console.log('📋 テナント内ユーザーデータ取得結果:', userDoc.exists);
                 
+                // デバッグ: テナント内の全ユーザーを確認
+                if (!userDoc.exists) {
+                    console.log('🔍 デバッグ: テナント内の全ユーザーを確認');
+                    const allUsersSnapshot = await firebase.firestore().collection(tenantUsersPath).get();
+                    console.log('📋 テナント内全ユーザー数:', allUsersSnapshot.size);
+                    allUsersSnapshot.forEach(doc => {
+                        console.log('📋 テナント内ユーザー:', {
+                            id: doc.id,
+                            email: doc.data().email,
+                            uid: doc.data().uid,
+                            role: doc.data().role
+                        });
+                    });
+                }
+                
                 if (userDoc.exists) {
                     userData = userDoc.data();
                 } else {
-                    // フォールバック: 従来のusersコレクションから取得
-                    console.log('🔍 フォールバック: 従来のusersコレクション取得開始');
-                    userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-                    console.log('📋 従来のusersコレクション取得結果:', userDoc.exists);
-                    if (userDoc.exists) {
-                        userData = userDoc.data();
+                    // メールアドレスベースで検索して修正
+                    console.log('🔍 メールアドレスベースでテナント内ユーザー検索開始');
+                    const emailQuerySnapshot = await firebase.firestore()
+                        .collection(tenantUsersPath)
+                        .where('email', '==', user.email)
+                        .get();
+                    
+                    if (!emailQuerySnapshot.empty) {
+                        const userDocByEmail = emailQuerySnapshot.docs[0];
+                        userData = userDocByEmail.data();
+                        console.log('📋 メールアドレスベース検索成功:', {
+                            foundDocId: userDocByEmail.id,
+                            expectedUID: user.uid,
+                            actualUID: userData.uid
+                        });
+                        
+                        // UIDが一致しない場合は修正
+                        if (userData.uid !== user.uid) {
+                            console.log('🔄 UIDが一致しないため、データを修正します');
+                            
+                            // 新しいドキュメントを正しいUIDで作成
+                            const updatedData = {
+                                ...userData,
+                                uid: user.uid,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            
+                            await firebase.firestore().collection(tenantUsersPath).doc(user.uid).set(updatedData);
+                            
+                            // 古いドキュメントを削除
+                            await firebase.firestore().collection(tenantUsersPath).doc(userDocByEmail.id).delete();
+                            
+                            console.log('✅ テナント内ユーザーデータのUID修正完了');
+                        }
+                    } else {
+                        // フォールバック: 従来のusersコレクションから取得
+                        console.log('🔍 フォールバック: 従来のusersコレクション取得開始');
+                        userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                        console.log('📋 従来のusersコレクション取得結果:', userDoc.exists);
+                        if (userDoc.exists) {
+                            userData = userDoc.data();
+                        }
                     }
                 }
             } else {
