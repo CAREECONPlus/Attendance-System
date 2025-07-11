@@ -248,7 +248,7 @@ async function restoreCurrentState(recordData) {
     }
 }
 
-// 🔧 修正版 1日1回制限チェック（制限解除）
+// 🔧 修正版 1日1回制限チェック（適切な制限を実装）
 async function checkDailyLimit(userId) {
     
     // 🎯 修正: JST確実取得
@@ -258,7 +258,7 @@ async function checkDailyLimit(userId) {
         // メモリ内チェック（既存データの復元のみ）
         if (todayAttendanceData && todayAttendanceData.date === today) {
             await restoreCurrentState(todayAttendanceData);
-            return true; // 制限を解除し、常に打刻を許可
+            return false; // 既にその日の勤怠データがある場合は新規作成を防ぐ
         }
         
         // データベースチェック（既存データの復元のみ）
@@ -269,6 +269,12 @@ async function checkDailyLimit(userId) {
         const snapshot = await query.get();
         
         if (!snapshot.empty) {
+            // 複数レコードがある場合は統合処理
+            if (snapshot.docs.length > 1) {
+                console.warn('🚨 同日に複数の勤怠レコードを検出:', snapshot.docs.length);
+                await consolidateDuplicateRecords(snapshot.docs, today);
+            }
+            
             const existingRecord = snapshot.docs[0].data();
             
             // グローバル変数を更新
@@ -279,14 +285,89 @@ async function checkDailyLimit(userId) {
             currentAttendanceId = snapshot.docs[0].id;
             
             await restoreCurrentState(existingRecord);
-            return true; // 制限を解除し、常に打刻を許可
+            return false; // 既にその日の勤怠データがある場合は新規作成を防ぐ
         }
         
-        return true; // 制限を解除し、常に打刻を許可
+        return true; // 今日のデータがない場合のみ新規作成を許可
         
     } catch (error) {
         console.error('出勤チェック中にエラーが発生しました:', error);
         return true; // エラー時も打刻を許可
+    }
+}
+
+// 🔧 同日の重複レコードを統合する関数
+async function consolidateDuplicateRecords(docs, today) {
+    try {
+        console.log('🔄 重複レコード統合開始:', docs.length, '件');
+        
+        // 最も完全なレコードを選択（endTimeがあるもの、または最新のもの）
+        let primaryRecord = null;
+        let primaryDoc = null;
+        
+        docs.forEach(doc => {
+            const data = doc.data();
+            if (!primaryRecord || 
+                (data.endTime && !primaryRecord.endTime) || 
+                (data.createdAt && (!primaryRecord.createdAt || data.createdAt > primaryRecord.createdAt))) {
+                primaryRecord = data;
+                primaryDoc = doc;
+            }
+        });
+        
+        // 関連する休憩レコードを統合
+        const breakPromises = docs.map(async doc => {
+            if (doc.id !== primaryDoc.id) {
+                // 他のレコードに関連する休憩レコードを主レコードに移行
+                const breakQuery = getBreaksCollection()
+                    .where('attendanceId', '==', doc.id)
+                    .where('userId', '==', currentUser.uid);
+                
+                const breakSnapshot = await breakQuery.get();
+                
+                // 休憩レコードのattendanceIdを更新
+                const updatePromises = breakSnapshot.docs.map(breakDoc => {
+                    return breakDoc.ref.update({
+                        attendanceId: primaryDoc.id,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+                
+                await Promise.all(updatePromises);
+            }
+        });
+        
+        await Promise.all(breakPromises);
+        
+        // 重複レコードを削除（主レコード以外）
+        const deletePromises = docs.map(doc => {
+            if (doc.id !== primaryDoc.id) {
+                console.log('🗑️ 重複レコード削除:', doc.id);
+                return doc.ref.delete();
+            }
+        }).filter(promise => promise);
+        
+        await Promise.all(deletePromises);
+        
+        console.log('✅ 重複レコード統合完了 - 残存レコード:', primaryDoc.id);
+        
+        // 統合後の状態を管理者に通知
+        const notification = {
+            type: 'duplicate_consolidation',
+            userId: currentUser.uid,
+            userEmail: currentUser.email,
+            date: today,
+            consolidatedRecords: docs.length,
+            primaryRecordId: primaryDoc.id,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // 通知をFirestoreに保存
+        await firebase.firestore().collection('system_notifications').add(notification);
+        
+    } catch (error) {
+        console.error('❌ 重複レコード統合エラー:', error);
+        // 統合に失敗しても処理を継続
     }
 }
 
@@ -1176,6 +1257,62 @@ function forceStateReset() {
     setTimeout(() => {
         restoreTodayAttendanceState();
     }, 100);
+}
+
+// 🆕 管理者向け：従業員の勤怠状態を強制リセットする関数
+async function adminResetEmployeeAttendance(userId, targetDate) {
+    try {
+        if (!targetDate) {
+            targetDate = getTodayJST();
+        }
+        
+        console.log('🔄 管理者による勤怠状態リセット開始:', userId, targetDate);
+        
+        // 対象日の勤怠レコードを取得
+        const attendanceQuery = getAttendanceCollection()
+            .where('userId', '==', userId)
+            .where('date', '==', targetDate);
+        
+        const attendanceSnapshot = await attendanceQuery.get();
+        
+        if (!attendanceSnapshot.empty) {
+            // 勤怠レコードを未完了状態に変更
+            const updatePromises = attendanceSnapshot.docs.map(doc => {
+                return doc.ref.update({
+                    status: 'working',
+                    endTime: firebase.firestore.FieldValue.delete(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    adminResetBy: window.currentUser?.email || 'admin',
+                    adminResetAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            await Promise.all(updatePromises);
+            
+            console.log('✅ 勤怠状態リセット完了:', attendanceSnapshot.docs.length, '件');
+            
+            // 管理者ログに記録
+            const adminLog = {
+                action: 'reset_attendance_state',
+                targetUserId: userId,
+                targetDate: targetDate,
+                adminId: window.currentUser?.uid || 'unknown',
+                adminEmail: window.currentUser?.email || 'unknown',
+                recordCount: attendanceSnapshot.docs.length,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            await firebase.firestore().collection('admin_logs').add(adminLog);
+            
+            return { success: true, message: '勤怠状態をリセットしました' };
+        } else {
+            return { success: false, message: '対象日の勤怠データが見つかりません' };
+        }
+        
+    } catch (error) {
+        console.error('❌ 勤怠状態リセットエラー:', error);
+        return { success: false, message: 'リセット処理でエラーが発生しました' };
+    }
 }
 
 // 🆕 正確な日付でのテスト関数
