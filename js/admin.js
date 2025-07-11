@@ -114,6 +114,63 @@ function showAdminRequestsTab() {
 }
 
 /**
+ * 従業員管理の初期化（スーパー管理者のみ）
+ */
+function initEmployeeManagement() {
+    // スーパー管理者チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        console.log('従業員管理機能: スーパー管理者のみアクセス可能');
+        return;
+    }
+    
+    // スーパー管理者の場合のみタブを表示
+    const employeeManagementTab = document.getElementById('employee-management-tab');
+    if (employeeManagementTab) {
+        employeeManagementTab.style.display = 'block';
+        employeeManagementTab.addEventListener('click', () => {
+            showEmployeeManagementTab();
+        });
+    }
+}
+
+/**
+ * 従業員管理タブを表示（スーパー管理者のみ）
+ */
+function showEmployeeManagementTab() {
+    console.log('従業員管理タブを表示中...');
+    
+    // スーパー管理者権限チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        console.log('従業員管理タブ: スーパー管理者のみアクセス可能');
+        alert('この機能はスーパー管理者のみアクセス可能です。');
+        return;
+    }
+    
+    // 全てのタブコンテンツを非表示
+    document.querySelectorAll('.tab-content, .attendance-table-container').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // フィルター行を非表示
+    const filterRow = document.querySelector('.filter-row');
+    if (filterRow) filterRow.style.display = 'none';
+    
+    // 従業員管理コンテンツを表示
+    const employeeContent = document.getElementById('employee-management-content');
+    if (employeeContent) {
+        employeeContent.classList.remove('hidden');
+        employeeContent.style.display = 'block';
+    }
+    
+    // タブの状態を更新
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('employee-management-tab').classList.add('active');
+    
+    // 全テナント従業員一覧を読み込み
+    loadAllTenantsEmployeeList();
+}
+
+/**
  * 招待管理タブを表示
  */
 function showInviteTab() {
@@ -721,6 +778,9 @@ async function initAdminPage() {
     if (window.currentUser && window.currentUser.role === 'super_admin') {
         initAdminRequestsManagement();
     }
+    
+    // 従業員管理機能を初期化（スーパー管理者のみ）
+    initEmployeeManagement();
     
     // 招待リンク管理機能を初期化（全ての管理者）
     // DOMが完全に読み込まれた後に実行
@@ -4305,6 +4365,571 @@ async function inviteNewEmployee(emailAddress, displayName, role = 'employee') {
 }
 
 /**
+ * 🆕 従業員管理機能
+ */
+
+// 全テナント従業員一覧を読み込む（スーパー管理者専用）
+async function loadAllTenantsEmployeeList() {
+    try {
+        // スーパー管理者権限チェック
+        if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+            console.error('loadAllTenantsEmployeeList: スーパー管理者のみアクセス可能');
+            showEmployeeError('この機能はスーパー管理者のみアクセス可能です');
+            return;
+        }
+
+        console.log('全テナント従業員一覧読み込み開始');
+
+        // 全テナントを取得
+        const tenantsSnapshot = await firebase.firestore()
+            .collection('tenants')
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        const allEmployees = [];
+
+        // 各テナントの従業員を取得
+        for (const tenantDoc of tenantsSnapshot.docs) {
+            const tenantId = tenantDoc.id;
+            const tenantData = tenantDoc.data();
+
+            console.log(`テナント ${tenantId} の従業員を取得中...`);
+
+            // テナント内のユーザーを取得
+            const usersSnapshot = await firebase.firestore()
+                .collection('tenants')
+                .doc(tenantId)
+                .collection('users')
+                .orderBy('createdAt', 'desc')
+                .get();
+
+            // 従業員情報にテナント情報を追加
+            usersSnapshot.docs.forEach(doc => {
+                const userData = doc.data();
+                allEmployees.push({
+                    id: doc.id,
+                    uid: userData.uid,
+                    email: userData.email,
+                    displayName: userData.displayName || '名前未設定',
+                    role: userData.role || 'employee',
+                    createdAt: userData.createdAt,
+                    isActive: userData.isActive !== false,
+                    lastLogin: userData.lastLogin || null,
+                    // テナント情報を追加
+                    tenantId: tenantId,
+                    tenantName: tenantData.companyName || tenantId,
+                    companyName: tenantData.companyName || '未設定'
+                });
+            });
+        }
+
+        console.log('取得した全従業員数:', allEmployees.length);
+        displayAllTenantsEmployeeList(allEmployees);
+
+    } catch (error) {
+        console.error('全テナント従業員一覧読み込みエラー:', error);
+        showEmployeeError('全テナント従業員データの読み込みに失敗しました');
+    }
+}
+
+// 従業員一覧を読み込む（通常の管理者用）
+async function loadEmployeeList() {
+    try {
+        const tenantId = window.getCurrentTenantId ? window.getCurrentTenantId() : null;
+        if (!tenantId) {
+            console.error('テナントIDが取得できません');
+            return;
+        }
+
+        console.log('従業員一覧読み込み開始:', tenantId);
+
+        // テナント内のユーザーを取得
+        const usersSnapshot = await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        const employees = [];
+        usersSnapshot.docs.forEach(doc => {
+            const userData = doc.data();
+            employees.push({
+                id: doc.id,
+                uid: userData.uid,
+                email: userData.email,
+                displayName: userData.displayName || '名前未設定',
+                role: userData.role || 'employee',
+                createdAt: userData.createdAt,
+                isActive: userData.isActive !== false,
+                lastLogin: userData.lastLogin || null
+            });
+        });
+
+        console.log('取得した従業員数:', employees.length);
+        displayEmployeeList(employees);
+
+    } catch (error) {
+        console.error('従業員一覧読み込みエラー:', error);
+        showEmployeeError('従業員データの読み込みに失敗しました');
+    }
+}
+
+// 全テナント従業員一覧を表示（スーパー管理者専用）
+function displayAllTenantsEmployeeList(employees) {
+    const tableBody = document.getElementById('employee-list-data');
+    if (!tableBody) return;
+
+    if (employees.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="loading-cell">従業員が登録されていません</td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    employees.forEach(employee => {
+        const createdDate = employee.createdAt ? 
+            employee.createdAt.toDate().toLocaleDateString('ja-JP') : '不明';
+        
+        const lastLoginDate = employee.lastLogin ? 
+            employee.lastLogin.toDate().toLocaleDateString('ja-JP') : '未ログイン';
+
+        const statusClass = employee.isActive ? 'active' : 'inactive';
+        const statusText = employee.isActive ? 'アクティブ' : '無効';
+
+        html += `
+            <tr data-employee-id="${employee.id}" data-employee-uid="${employee.uid}" data-tenant-id="${employee.tenantId}">
+                <td>
+                    <div class="employee-info">
+                        <div class="employee-name">${employee.displayName}</div>
+                        <div class="employee-role-badge">${getRoleDisplayName(employee.role)}</div>
+                    </div>
+                </td>
+                <td>${employee.email}</td>
+                <td>
+                    <div class="tenant-info">
+                        <div class="tenant-name">${employee.companyName}</div>
+                        <div class="tenant-id">${employee.tenantId}</div>
+                    </div>
+                </td>
+                <td>${getRoleDisplayName(employee.role)}</td>
+                <td>${createdDate}</td>
+                <td>${lastLoginDate}</td>
+                <td>
+                    <span class="employee-status ${statusClass}">${statusText}</span>
+                </td>
+                <td>
+                    <div class="employee-actions">
+                        <button class="btn btn-edit" onclick="editEmployee('${employee.id}', '${employee.tenantId}')">
+                            ✏️ 編集
+                        </button>
+                        ${employee.isActive ? `
+                            <button class="btn btn-deactivate" onclick="deactivateEmployeeFromAllTenants('${employee.id}', '${employee.displayName}', '${employee.tenantId}')">
+                                ⏸️ 無効化
+                            </button>
+                        ` : `
+                            <button class="btn btn-activate" onclick="activateEmployeeFromAllTenants('${employee.id}', '${employee.displayName}', '${employee.tenantId}')">
+                                ▶️ 有効化
+                            </button>
+                        `}
+                        <button class="btn btn-delete" onclick="deleteEmployeeFromAllTenants('${employee.id}', '${employee.displayName}', '${employee.email}', '${employee.tenantId}')">
+                            🗑️ 削除
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+// 従業員一覧を表示（通常の管理者用）
+function displayEmployeeList(employees) {
+    const tableBody = document.getElementById('employee-list-data');
+    if (!tableBody) return;
+
+    if (employees.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="loading-cell">従業員が登録されていません</td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    employees.forEach(employee => {
+        const createdDate = employee.createdAt ? 
+            employee.createdAt.toDate().toLocaleDateString('ja-JP') : '不明';
+        
+        const lastLoginDate = employee.lastLogin ? 
+            employee.lastLogin.toDate().toLocaleDateString('ja-JP') : '未ログイン';
+
+        const statusClass = employee.isActive ? 'active' : 'inactive';
+        const statusText = employee.isActive ? 'アクティブ' : '無効';
+
+        html += `
+            <tr data-employee-id="${employee.id}" data-employee-uid="${employee.uid}">
+                <td>
+                    <div class="employee-info">
+                        <div class="employee-name">${employee.displayName}</div>
+                        <div class="employee-role-badge">${getRoleDisplayName(employee.role)}</div>
+                    </div>
+                </td>
+                <td>${employee.email}</td>
+                <td>${getRoleDisplayName(employee.role)}</td>
+                <td>${createdDate}</td>
+                <td>${lastLoginDate}</td>
+                <td>
+                    <span class="employee-status ${statusClass}">${statusText}</span>
+                </td>
+                <td>
+                    <div class="employee-actions">
+                        <button class="btn btn-edit" onclick="editEmployee('${employee.id}')">
+                            ✏️ 編集
+                        </button>
+                        ${employee.isActive ? `
+                            <button class="btn btn-deactivate" onclick="deactivateEmployee('${employee.id}', '${employee.displayName}')">
+                                ⏸️ 無効化
+                            </button>
+                        ` : `
+                            <button class="btn btn-activate" onclick="activateEmployee('${employee.id}', '${employee.displayName}')">
+                                ▶️ 有効化
+                            </button>
+                        `}
+                        <button class="btn btn-delete" onclick="deleteEmployee('${employee.id}', '${employee.displayName}', '${employee.email}')">
+                            🗑️ 削除
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+// 役割の表示名を取得
+function getRoleDisplayName(role) {
+    const roleMap = {
+        'admin': '管理者',
+        'employee': '従業員',
+        'super_admin': 'スーパー管理者'
+    };
+    return roleMap[role] || '不明';
+}
+
+// 従業員を無効化
+async function deactivateEmployee(employeeId, employeeName) {
+    if (!confirm(`${employeeName}さんのアカウントを無効化しますか？\n\n無効化すると、このユーザーはログインできなくなります。`)) {
+        return;
+    }
+
+    try {
+        const tenantId = window.getCurrentTenantId();
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .update({
+                isActive: false,
+                deactivatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                deactivatedBy: window.currentUser?.email || 'admin'
+            });
+
+        alert(`${employeeName}さんのアカウントを無効化しました`);
+        loadEmployeeList();
+
+    } catch (error) {
+        console.error('従業員無効化エラー:', error);
+        alert('無効化処理でエラーが発生しました');
+    }
+}
+
+// 従業員を有効化
+async function activateEmployee(employeeId, employeeName) {
+    if (!confirm(`${employeeName}さんのアカウントを有効化しますか？`)) {
+        return;
+    }
+
+    try {
+        const tenantId = window.getCurrentTenantId();
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .update({
+                isActive: true,
+                activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                activatedBy: window.currentUser?.email || 'admin'
+            });
+
+        alert(`${employeeName}さんのアカウントを有効化しました`);
+        loadEmployeeList();
+
+    } catch (error) {
+        console.error('従業員有効化エラー:', error);
+        alert('有効化処理でエラーが発生しました');
+    }
+}
+
+// 従業員を完全削除
+async function deleteEmployee(employeeId, employeeName, employeeEmail) {
+    const confirmation = prompt(
+        `⚠️ 重要な操作です ⚠️\n\n${employeeName}さん（${employeeEmail}）のアカウントを完全に削除します。\n\n` +
+        `この操作は元に戻せません。関連する勤怠データもすべて削除されます。\n\n` +
+        `削除を実行するには「DELETE」と入力してください:`
+    );
+
+    if (confirmation !== 'DELETE') {
+        alert('削除がキャンセルされました');
+        return;
+    }
+
+    try {
+        const tenantId = window.getCurrentTenantId();
+        
+        console.log('従業員削除開始:', employeeId, employeeName);
+
+        // 1. テナント内のユーザーデータを削除
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .delete();
+
+        // 2. global_usersからも削除
+        const normalizedEmail = employeeEmail.toLowerCase();
+        await firebase.firestore()
+            .collection('global_users')
+            .doc(normalizedEmail)
+            .delete();
+
+        // 3. 関連する勤怠データを削除
+        const attendanceQuery = getAttendanceCollection()
+            .where('userEmail', '==', employeeEmail);
+        
+        const attendanceSnapshot = await attendanceQuery.get();
+        const deletePromises = [];
+        
+        attendanceSnapshot.docs.forEach(doc => {
+            deletePromises.push(doc.ref.delete());
+        });
+
+        // 4. 関連する休憩データを削除
+        const breakQuery = getBreaksCollection()
+            .where('userId', '==', employeeId);
+        
+        const breakSnapshot = await breakQuery.get();
+        breakSnapshot.docs.forEach(doc => {
+            deletePromises.push(doc.ref.delete());
+        });
+
+        await Promise.all(deletePromises);
+
+        // 5. 削除ログを記録
+        await firebase.firestore().collection('admin_logs').add({
+            action: 'delete_employee',
+            deletedEmployee: {
+                id: employeeId,
+                name: employeeName,
+                email: employeeEmail
+            },
+            deletedBy: window.currentUser?.email || 'admin',
+            tenantId: tenantId,
+            deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            deletedRecords: {
+                attendance: attendanceSnapshot.size,
+                breaks: breakSnapshot.size
+            }
+        });
+
+        alert(`${employeeName}さんのアカウントと関連データを完全に削除しました`);
+        loadEmployeeList();
+
+    } catch (error) {
+        console.error('従業員削除エラー:', error);
+        alert('削除処理でエラーが発生しました');
+    }
+}
+
+// 全テナント対応の従業員無効化（スーパー管理者専用）
+async function deactivateEmployeeFromAllTenants(employeeId, employeeName, tenantId) {
+    // スーパー管理者権限チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        alert('この操作はスーパー管理者のみ実行可能です。');
+        return;
+    }
+
+    if (!confirm(`${employeeName}さんのアカウントを無効化しますか？\n\nテナント: ${tenantId}\n無効化すると、このユーザーはログインできなくなります。`)) {
+        return;
+    }
+
+    try {
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .update({
+                isActive: false,
+                deactivatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                deactivatedBy: window.currentUser?.email || 'super_admin'
+            });
+
+        alert(`${employeeName}さんのアカウントを無効化しました`);
+        loadAllTenantsEmployeeList();
+
+    } catch (error) {
+        console.error('従業員無効化エラー:', error);
+        alert('無効化処理でエラーが発生しました');
+    }
+}
+
+// 全テナント対応の従業員有効化（スーパー管理者専用）
+async function activateEmployeeFromAllTenants(employeeId, employeeName, tenantId) {
+    // スーパー管理者権限チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        alert('この操作はスーパー管理者のみ実行可能です。');
+        return;
+    }
+
+    if (!confirm(`${employeeName}さんのアカウントを有効化しますか？\n\nテナント: ${tenantId}`)) {
+        return;
+    }
+
+    try {
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .update({
+                isActive: true,
+                activatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                activatedBy: window.currentUser?.email || 'super_admin'
+            });
+
+        alert(`${employeeName}さんのアカウントを有効化しました`);
+        loadAllTenantsEmployeeList();
+
+    } catch (error) {
+        console.error('従業員有効化エラー:', error);
+        alert('有効化処理でエラーが発生しました');
+    }
+}
+
+// 全テナント対応の従業員完全削除（スーパー管理者専用）
+async function deleteEmployeeFromAllTenants(employeeId, employeeName, employeeEmail, tenantId) {
+    // スーパー管理者権限チェック
+    if (!window.currentUser || window.currentUser.role !== 'super_admin') {
+        alert('この操作はスーパー管理者のみ実行可能です。');
+        return;
+    }
+
+    const confirmation = prompt(
+        `⚠️ 重要な操作です ⚠️\n\n${employeeName}さん（${employeeEmail}）のアカウントを完全に削除します。\n\n` +
+        `テナント: ${tenantId}\n\n` +
+        `この操作は元に戻せません。関連する勤怠データもすべて削除されます。\n\n` +
+        `削除を実行するには「DELETE」と入力してください:`
+    );
+
+    if (confirmation !== 'DELETE') {
+        alert('削除がキャンセルされました');
+        return;
+    }
+
+    try {
+        // 1. Firebase Authアカウントを削除（Admin SDKが必要のためスキップ）
+        console.log('Firebase Authアカウントの削除は管理者が手動で実行してください');
+
+        // 2. テナント内のユーザーデータを削除
+        await firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('users')
+            .doc(employeeId)
+            .delete();
+
+        // 3. 関連する勤怠データを削除
+        const attendanceQuery = firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('attendance')
+            .where('userId', '==', employeeId);
+        
+        const attendanceSnapshot = await attendanceQuery.get();
+        const deletePromises = [];
+        
+        attendanceSnapshot.docs.forEach(doc => {
+            deletePromises.push(doc.ref.delete());
+        });
+
+        // 4. 関連する休憩データを削除
+        const breakQuery = firebase.firestore()
+            .collection('tenants')
+            .doc(tenantId)
+            .collection('breaks')
+            .where('userId', '==', employeeId);
+        
+        const breakSnapshot = await breakQuery.get();
+        breakSnapshot.docs.forEach(doc => {
+            deletePromises.push(doc.ref.delete());
+        });
+
+        await Promise.all(deletePromises);
+
+        // 5. 削除ログを記録
+        await firebase.firestore().collection('admin_logs').add({
+            action: 'delete_employee_super_admin',
+            deletedEmployee: {
+                id: employeeId,
+                name: employeeName,
+                email: employeeEmail,
+                tenantId: tenantId
+            },
+            deletedBy: window.currentUser?.email || 'super_admin',
+            deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            deletedRecords: {
+                attendance: attendanceSnapshot.size,
+                breaks: breakSnapshot.size
+            }
+        });
+
+        alert(`${employeeName}さんのアカウントと関連データを完全に削除しました\n\n注意: Firebase Authアカウントは手動で削除してください`);
+        loadAllTenantsEmployeeList();
+
+    } catch (error) {
+        console.error('従業員削除エラー:', error);
+        alert('削除処理でエラーが発生しました');
+    }
+}
+
+// 従業員編集（プレースホルダー）
+function editEmployee(employeeId, tenantId) {
+    alert(`従業員編集機能は今後実装予定です。\n\n従業員ID: ${employeeId}\nテナント: ${tenantId}\n\n現在は無効化・有効化・削除機能をご利用ください。`);
+}
+
+// 従業員エラー表示
+function showEmployeeError(message) {
+    const tableBody = document.getElementById('employee-list-data');
+    if (tableBody) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="loading-cell">❌ ${message}</td>
+            </tr>
+        `;
+    }
+}
+
+/**
  * ユーザー管理UI用のヘルパー関数群
  */
 /**
@@ -4342,6 +4967,9 @@ async function initAdminPage() {
         
         // 管理者登録依頼管理（スーパー管理者のみ）
         initAdminRequestsManagement();
+        
+        // 従業員管理機能を初期化（スーパー管理者のみ）
+        initEmployeeManagement();
         
         // role情報の確認（login.jsで既に設定済みの場合はスキップ）
         try {

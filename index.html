@@ -1256,6 +1256,217 @@
             }
         }
 
+        /* 🆕 従業員管理用スタイル */
+        .employee-management-section {
+            padding: 20px 0;
+        }
+
+        .employee-management-header {
+            margin-bottom: 30px;
+        }
+
+        .employee-management-description {
+            color: #6c757d;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        .employee-list-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .employee-list-header {
+            background: #f8f9fa;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-list-header h4 {
+            margin: 0;
+            color: #495057;
+            font-size: 18px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .employee-search {
+            padding: 20px 24px;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .status-filter {
+            min-width: 150px;
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .employee-list-container {
+            overflow-x: auto;
+        }
+
+        .employee-list-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .employee-list-table th {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            white-space: nowrap;
+        }
+
+        .employee-list-table td {
+            padding: 16px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        .employee-list-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .loading-cell {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .employee-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .employee-status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .employee-status.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .employee-actions .btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-edit {
+            background: #007bff;
+            color: white;
+            border: none;
+        }
+
+        .btn-deactivate {
+            background: #ffc107;
+            color: #212529;
+            border: none;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+        }
+
+        .btn-activate {
+            background: #28a745;
+            color: white;
+            border: none;
+        }
+
+        /* 従業員管理のレスポンシブ対応 */
+        @media (max-width: 768px) {
+            .employee-list-header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .employee-search {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .search-input,
+            .status-filter {
+                width: 100%;
+            }
+
+            .employee-actions {
+                justify-content: center;
+            }
+
+            .employee-list-table {
+                font-size: 14px;
+            }
+
+            .employee-list-table th,
+            .employee-list-table td {
+                padding: 8px 12px;
+            }
+        }
+
+        /* テナント情報表示用スタイル */
+        .tenant-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .tenant-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .tenant-id {
+            font-size: 11px;
+            color: #666;
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
     </style>
 </head>
 <body>
@@ -1417,6 +1628,7 @@
                     <button class="tab-btn" data-tab="site">現場別</button>
                     <button class="tab-btn" data-tab="site-management">現場管理</button>
                     <button class="tab-btn" data-tab="invite">従業員招待</button>
+                    <button class="tab-btn" data-tab="employee-management" id="employee-management-tab" style="display: none;">従業員管理</button>
                     <button class="tab-btn" data-tab="admin-requests" id="admin-requests-tab" style="display: none;">管理者依頼</button>
                 </div>
 
@@ -1695,6 +1907,56 @@
                                     </thead>
                                     <tbody id="site-list-data">
                                         <!-- 現場データが表示されます -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🆕 従業員管理セクション -->
+                <div id="employee-management-content" class="tab-content hidden">
+                    <div class="employee-management-section">
+                        <div class="employee-management-header">
+                            <h3>👥 従業員管理</h3>
+                            <p class="employee-management-description">テナント内の従業員アカウントを管理できます。</p>
+                        </div>
+                        
+                        <!-- 従業員一覧 -->
+                        <div class="employee-list-section">
+                            <div class="employee-list-header">
+                                <h4>📋 従業員一覧</h4>
+                                <div class="header-actions">
+                                    <button id="refresh-employees-btn" class="btn btn-secondary btn-small">🔄 更新</button>
+                                    <button id="export-employees-btn" class="btn btn-secondary btn-small">📤 エクスポート</button>
+                                </div>
+                            </div>
+                            <div class="employee-search">
+                                <input type="text" id="employee-search-input" placeholder="🔍 名前またはメールアドレスで検索..." class="search-input">
+                                <select id="employee-status-filter" class="status-filter">
+                                    <option value="">全ステータス</option>
+                                    <option value="active">アクティブ</option>
+                                    <option value="inactive">無効</option>
+                                </select>
+                            </div>
+                            <div class="employee-list-container">
+                                <table class="employee-list-table">
+                                    <thead>
+                                        <tr>
+                                            <th>氏名</th>
+                                            <th>メールアドレス</th>
+                                            <th>テナント</th>
+                                            <th>役割</th>
+                                            <th>登録日</th>
+                                            <th>最終ログイン</th>
+                                            <th>ステータス</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="employee-list-data">
+                                        <tr class="loading-row">
+                                            <td colspan="8" class="loading-cell">🔄 従業員データを読み込み中...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
