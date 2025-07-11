@@ -356,6 +356,60 @@ async function handleAuthStateChange(user) {
                 userTenantId: userData?.tenantId
             });
             
+            // Legacy usersコレクションからの自動移行処理
+            if (userData && !userTenantId) {
+                console.log('🔄 Legacy usersコレクションのユーザーをテナントシステムに移行します');
+                
+                // dx5アカウント専用のテナントIDを生成
+                const legacyTenantId = `legacy-${userData.email.split('@')[0]}`;
+                
+                // テナントデータを作成
+                await firebase.firestore().collection('tenants').doc(legacyTenantId).set({
+                    tenantId: legacyTenantId,
+                    companyName: userData.displayName || 'Legacy Account',
+                    adminEmail: userData.email,
+                    adminName: userData.displayName || 'Legacy Admin',
+                    department: '',
+                    phone: '',
+                    status: 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    migrated: true,
+                    migratedFrom: 'legacy-users'
+                });
+                
+                // global_usersコレクションに登録
+                const normalizedEmail = user.email.toLowerCase();
+                await firebase.firestore().collection('global_users').doc(normalizedEmail).set({
+                    uid: user.uid,
+                    email: userData.email,
+                    displayName: userData.displayName || 'Legacy User',
+                    role: userData.role || 'admin',
+                    tenantId: legacyTenantId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    migratedFrom: 'legacy-users'
+                });
+                
+                // テナント内のusersコレクションに保存
+                await firebase.firestore().collection(`tenants/${legacyTenantId}/users`).doc(user.uid).set({
+                    uid: user.uid,
+                    email: userData.email,
+                    displayName: userData.displayName || 'Legacy User',
+                    role: userData.role || 'admin',
+                    isActive: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    migratedFrom: 'legacy-users'
+                });
+                
+                // userTenantIdを更新
+                userTenantId = legacyTenantId;
+                userData.tenantId = legacyTenantId;
+                
+                console.log('✅ Legacy usersコレクションからの移行完了:', legacyTenantId);
+            }
+            
             // UIDの不一致をチェックし、必要に応じて更新
             if (userData && userData.uid === 'pending-uid') {
                 console.log('🔄 UIDが未設定のため、global_usersを更新します');
