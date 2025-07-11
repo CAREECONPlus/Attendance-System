@@ -1122,6 +1122,140 @@
             }
         }
 
+        /* 🆕 短時間再出勤確認モーダル */
+        .reclock-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .reclock-modal-overlay.show {
+            opacity: 1;
+        }
+
+        .reclock-modal {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .reclock-modal-overlay.show .reclock-modal {
+            transform: translateY(0);
+        }
+
+        .reclock-modal-header {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            padding: 20px 24px;
+            text-align: center;
+        }
+
+        .reclock-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .reclock-modal-body {
+            padding: 24px;
+            text-align: center;
+        }
+
+        .reclock-modal-body p {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .reclock-modal-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .last-work-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            border-left: 4px solid #007bff;
+        }
+
+        .last-work-info p {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .last-work-info p:last-child {
+            margin-bottom: 0;
+        }
+
+        .reclock-modal-footer {
+            padding: 20px 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+
+        .reclock-modal-footer .btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 20px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .reclock-modal-footer .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* モーダルのレスポンシブ対応 */
+        @media (max-width: 480px) {
+            .reclock-modal {
+                width: 95%;
+                margin: 20px;
+            }
+
+            .reclock-modal-header {
+                padding: 16px 20px;
+            }
+
+            .reclock-modal-header h3 {
+                font-size: 18px;
+            }
+
+            .reclock-modal-body {
+                padding: 20px;
+            }
+
+            .reclock-modal-footer {
+                padding: 16px 20px;
+                flex-direction: column;
+            }
+
+            .reclock-modal-footer .btn {
+                min-width: auto;
+            }
+        }
+
     </style>
 </head>
 <body>

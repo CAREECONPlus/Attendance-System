@@ -248,45 +248,75 @@ async function restoreCurrentState(recordData) {
     }
 }
 
-// 🔧 複数現場対応：同一現場での未完了勤務チェック
+// 🔧 複数現場対応：同一現場での未完了勤務・短時間再出勤チェック
 async function checkSiteLimit(userId, siteName) {
     
-    // 🎯 夜勤対応：勤務日を判定（4時間ルール）
-    const workingDate = getWorkingDate();
-    
     try {
-        // 同一現場での未完了勤務をチェック
-        const siteQuery = getAttendanceCollection()
+        // 1. 同一現場での未完了勤務をチェック
+        const activeQuery = getAttendanceCollection()
             .where('userId', '==', userId)
             .where('siteName', '==', siteName)
             .where('status', 'in', ['working', 'break']);
         
-        const siteSnapshot = await siteQuery.get();
+        const activeSnapshot = await activeQuery.get();
         
-        if (!siteSnapshot.empty) {
+        if (!activeSnapshot.empty) {
             // 同一現場で未完了の勤務がある場合
-            const activeRecord = siteSnapshot.docs[0].data();
+            const activeRecord = activeSnapshot.docs[0].data();
             console.log('🚨 同一現場で未完了の勤務を検出:', siteName);
             
             // グローバル変数を更新
             todayAttendanceData = {
-                id: siteSnapshot.docs[0].id,
+                id: activeSnapshot.docs[0].id,
                 ...activeRecord
             };
-            currentAttendanceId = siteSnapshot.docs[0].id;
+            currentAttendanceId = activeSnapshot.docs[0].id;
             
             await restoreCurrentState(activeRecord);
-            return false; // 同一現場での重複出勤を防ぐ
+            return { canClockIn: false, reason: 'active_work' };
+        }
+        
+        // 2. 同一現場での最近の完了勤務をチェック（短時間再出勤）
+        const recentQuery = getAttendanceCollection()
+            .where('userId', '==', userId)
+            .where('siteName', '==', siteName)
+            .where('status', '==', 'completed')
+            .orderBy('updatedAt', 'desc')
+            .limit(1);
+        
+        const recentSnapshot = await recentQuery.get();
+        
+        if (!recentSnapshot.empty) {
+            const recentRecord = recentSnapshot.docs[0].data();
+            const now = new Date();
+            const lastEndTime = recentRecord.updatedAt?.toDate();
+            
+            if (lastEndTime) {
+                const timeDifference = (now - lastEndTime) / (1000 * 60); // 分単位
+                const timeThreshold = 60; // 1時間以内の再出勤は確認が必要
+                
+                if (timeDifference <= timeThreshold) {
+                    console.log('⚠️ 短時間での再出勤を検出:', siteName, `${Math.round(timeDifference)}分前に退勤`);
+                    
+                    return {
+                        canClockIn: false,
+                        reason: 'recent_clock_out',
+                        lastRecord: recentRecord,
+                        timeDifference: Math.round(timeDifference),
+                        siteName: siteName
+                    };
+                }
+            }
         }
         
         // 今日の勤務データを復元（現場が異なる場合は許可）
         await restoreTodayAttendanceState();
         
-        return true; // 異なる現場または新規勤務の場合は許可
+        return { canClockIn: true }; // 出勤許可
         
     } catch (error) {
         console.error('現場制限チェック中にエラーが発生しました:', error);
-        return true; // エラー時も打刻を許可
+        return { canClockIn: true }; // エラー時も打刻を許可
     }
 }
 
@@ -308,6 +338,67 @@ function getWorkingDate() {
     }
     
     return getTodayJST();
+}
+
+// 🆕 短時間再出勤確認モーダル
+function showReClockInModal(checkResult) {
+    return new Promise((resolve) => {
+        // モーダル用のHTMLを動的作成
+        const modalHtml = `
+            <div id="reclock-modal" class="reclock-modal-overlay">
+                <div class="reclock-modal">
+                    <div class="reclock-modal-header">
+                        <h3>⚠️ 短時間での再出勤確認</h3>
+                    </div>
+                    <div class="reclock-modal-body">
+                        <p><strong>${checkResult.siteName}</strong>で${checkResult.timeDifference}分前に退勤したばかりです。</p>
+                        <p>本当に再度出勤しますか？</p>
+                        <div class="last-work-info">
+                            <p><small>前回の勤務:</small></p>
+                            <p><small>出勤: ${checkResult.lastRecord.startTime}</small></p>
+                            <p><small>退勤: ${checkResult.lastRecord.endTime}</small></p>
+                        </div>
+                    </div>
+                    <div class="reclock-modal-footer">
+                        <button id="reclock-cancel" class="btn btn-secondary">❌ キャンセル</button>
+                        <button id="reclock-confirm" class="btn btn-primary">✅ 出勤する</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // モーダルをページに追加
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const modal = document.getElementById('reclock-modal');
+        const cancelBtn = document.getElementById('reclock-cancel');
+        const confirmBtn = document.getElementById('reclock-confirm');
+        
+        // モーダルを表示
+        setTimeout(() => {
+            modal.classList.add('show');
+        }, 10);
+        
+        // モーダルを閉じる関数
+        function closeModal(result) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                resolve(result);
+            }, 300);
+        }
+        
+        // イベントリスナー
+        cancelBtn.addEventListener('click', () => closeModal(false));
+        confirmBtn.addEventListener('click', () => closeModal(true));
+        
+        // 背景クリックで閉じる
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(false);
+            }
+        });
+    });
 }
 
 // 🆕 複数現場対応：勤務日ごとの現場データを取得
@@ -638,12 +729,24 @@ async function handleClockIn() {
             return;
         }
         
-        // 🚨 重要：同一現場での重複出勤チェック
-        const canClockIn = await checkSiteLimit(currentUser.uid, siteName);
-        if (!canClockIn) {
-            alert(`${siteName}では既に勤務中です。退勤してから新しい勤務を開始してください。`);
-            restoreButton();
-            return;
+        // 🚨 重要：同一現場での重複出勤・短時間再出勤チェック
+        const siteCheck = await checkSiteLimit(currentUser.uid, siteName);
+        
+        if (!siteCheck.canClockIn) {
+            if (siteCheck.reason === 'active_work') {
+                alert(`${siteName}では既に勤務中です。退勤してから新しい勤務を開始してください。`);
+                restoreButton();
+                return;
+            } else if (siteCheck.reason === 'recent_clock_out') {
+                // 短時間再出勤の確認モーダルを表示
+                const userConfirmed = await showReClockInModal(siteCheck);
+                if (!userConfirmed) {
+                    console.log('ユーザーが再出勤をキャンセルしました');
+                    restoreButton();
+                    return;
+                }
+                console.log('ユーザーが再出勤を承認しました');
+            }
         }
         
         // 🎯 日付生成を修正（JST確実対応）
