@@ -984,6 +984,144 @@
             }
         }
 
+        /* 🆕 複数現場表示用スタイル */
+        .multi-site-section {
+            margin: 30px 0;
+        }
+
+        .site-attendance-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .site-attendance-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .site-attendance-card.working {
+            border-left: 4px solid #28a745;
+        }
+
+        .site-attendance-card.break {
+            border-left: 4px solid #ffc107;
+        }
+
+        .site-attendance-card.completed {
+            border-left: 4px solid #6c757d;
+            opacity: 0.8;
+        }
+
+        .site-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .site-header h4 {
+            margin: 0;
+            color: #495057;
+            font-size: 18px;
+        }
+
+        .site-status {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .site-attendance-card.working .site-status {
+            background: #28a745;
+        }
+
+        .site-attendance-card.break .site-status {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .site-attendance-card.completed .site-status {
+            background: #6c757d;
+        }
+
+        .site-details {
+            padding: 15px 20px;
+        }
+
+        .time-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .time-info span {
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .working-indicator {
+            color: #28a745 !important;
+            font-weight: 500;
+        }
+
+        .site-notes {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .site-actions {
+            padding: 0 20px 15px;
+        }
+
+        .switch-site-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .switch-site-btn:hover {
+            background: #0056b3;
+        }
+
+        .no-sites {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        /* 複数現場表示のレスポンシブ対応 */
+        @media (max-width: 768px) {
+            .time-info {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .site-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1107,6 +1245,13 @@
                         <small>💡 作業内容や特記事項を記録できます（任意）</small>
                     </div>
                 </div>
+
+                <!-- 🆕 複数現場対応：今日の現場別勤務状況 -->
+                <section class="multi-site-section">
+                    <div id="multi-site-attendance">
+                        <div class="loading-message">🔄 現場情報を読み込み中...</div>
+                    </div>
+                </section>
 
                 <!-- 直近3日間の記録 -->
                 <section class="recent-records">

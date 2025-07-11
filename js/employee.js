@@ -248,126 +248,198 @@ async function restoreCurrentState(recordData) {
     }
 }
 
-// 🔧 修正版 1日1回制限チェック（適切な制限を実装）
-async function checkDailyLimit(userId) {
+// 🔧 複数現場対応：同一現場での未完了勤務チェック
+async function checkSiteLimit(userId, siteName) {
     
-    // 🎯 修正: JST確実取得
-    const today = getTodayJST();
+    // 🎯 夜勤対応：勤務日を判定（4時間ルール）
+    const workingDate = getWorkingDate();
     
     try {
-        // メモリ内チェック（既存データの復元のみ）
-        if (todayAttendanceData && todayAttendanceData.date === today) {
-            await restoreCurrentState(todayAttendanceData);
-            return false; // 既にその日の勤怠データがある場合は新規作成を防ぐ
-        }
-        
-        // データベースチェック（既存データの復元のみ）
-        const query = getAttendanceCollection()
+        // 同一現場での未完了勤務をチェック
+        const siteQuery = getAttendanceCollection()
             .where('userId', '==', userId)
-            .where('date', '==', today);
+            .where('siteName', '==', siteName)
+            .where('status', 'in', ['working', 'break']);
         
-        const snapshot = await query.get();
+        const siteSnapshot = await siteQuery.get();
         
-        if (!snapshot.empty) {
-            // 複数レコードがある場合は統合処理
-            if (snapshot.docs.length > 1) {
-                console.warn('🚨 同日に複数の勤怠レコードを検出:', snapshot.docs.length);
-                await consolidateDuplicateRecords(snapshot.docs, today);
-            }
-            
-            const existingRecord = snapshot.docs[0].data();
+        if (!siteSnapshot.empty) {
+            // 同一現場で未完了の勤務がある場合
+            const activeRecord = siteSnapshot.docs[0].data();
+            console.log('🚨 同一現場で未完了の勤務を検出:', siteName);
             
             // グローバル変数を更新
             todayAttendanceData = {
-                id: snapshot.docs[0].id,
-                ...existingRecord
+                id: siteSnapshot.docs[0].id,
+                ...activeRecord
             };
-            currentAttendanceId = snapshot.docs[0].id;
+            currentAttendanceId = siteSnapshot.docs[0].id;
             
-            await restoreCurrentState(existingRecord);
-            return false; // 既にその日の勤怠データがある場合は新規作成を防ぐ
+            await restoreCurrentState(activeRecord);
+            return false; // 同一現場での重複出勤を防ぐ
         }
         
-        return true; // 今日のデータがない場合のみ新規作成を許可
+        // 今日の勤務データを復元（現場が異なる場合は許可）
+        await restoreTodayAttendanceState();
+        
+        return true; // 異なる現場または新規勤務の場合は許可
         
     } catch (error) {
-        console.error('出勤チェック中にエラーが発生しました:', error);
+        console.error('現場制限チェック中にエラーが発生しました:', error);
         return true; // エラー時も打刻を許可
     }
 }
 
-// 🔧 同日の重複レコードを統合する関数
-async function consolidateDuplicateRecords(docs, today) {
+// 🆕 夜勤対応：勤務日判定（4時間ルール）
+function getWorkingDate() {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // 午前4時より前は前日の勤務日とみなす
+    if (currentHour < 4) {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return yesterday.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: 'Asia/Tokyo'
+        }).replace(/\//g, '-');
+    }
+    
+    return getTodayJST();
+}
+
+// 🆕 複数現場対応：勤務日ごとの現場データを取得
+async function getTodayMultiSiteAttendance(userId) {
     try {
-        console.log('🔄 重複レコード統合開始:', docs.length, '件');
+        const workingDate = getWorkingDate();
         
-        // 最も完全なレコードを選択（endTimeがあるもの、または最新のもの）
-        let primaryRecord = null;
-        let primaryDoc = null;
+        // 勤務日ベースでデータを取得
+        const query = getAttendanceCollection()
+            .where('userId', '==', userId)
+            .where('workingDate', '==', workingDate)
+            .orderBy('createdAt', 'desc');
         
-        docs.forEach(doc => {
-            const data = doc.data();
-            if (!primaryRecord || 
-                (data.endTime && !primaryRecord.endTime) || 
-                (data.createdAt && (!primaryRecord.createdAt || data.createdAt > primaryRecord.createdAt))) {
-                primaryRecord = data;
-                primaryDoc = doc;
-            }
+        const snapshot = await query.get();
+        
+        const sites = [];
+        snapshot.docs.forEach(doc => {
+            sites.push({
+                id: doc.id,
+                ...doc.data()
+            });
         });
         
-        // 関連する休憩レコードを統合
-        const breakPromises = docs.map(async doc => {
-            if (doc.id !== primaryDoc.id) {
-                // 他のレコードに関連する休憩レコードを主レコードに移行
-                const breakQuery = getBreaksCollection()
-                    .where('attendanceId', '==', doc.id)
-                    .where('userId', '==', currentUser.uid);
-                
-                const breakSnapshot = await breakQuery.get();
-                
-                // 休憩レコードのattendanceIdを更新
-                const updatePromises = breakSnapshot.docs.map(breakDoc => {
-                    return breakDoc.ref.update({
-                        attendanceId: primaryDoc.id,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                });
-                
-                await Promise.all(updatePromises);
-            }
-        });
-        
-        await Promise.all(breakPromises);
-        
-        // 重複レコードを削除（主レコード以外）
-        const deletePromises = docs.map(doc => {
-            if (doc.id !== primaryDoc.id) {
-                console.log('🗑️ 重複レコード削除:', doc.id);
-                return doc.ref.delete();
-            }
-        }).filter(promise => promise);
-        
-        await Promise.all(deletePromises);
-        
-        console.log('✅ 重複レコード統合完了 - 残存レコード:', primaryDoc.id);
-        
-        // 統合後の状態を管理者に通知
-        const notification = {
-            type: 'duplicate_consolidation',
-            userId: currentUser.uid,
-            userEmail: currentUser.email,
-            date: today,
-            consolidatedRecords: docs.length,
-            primaryRecordId: primaryDoc.id,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // 通知をFirestoreに保存
-        await firebase.firestore().collection('system_notifications').add(notification);
+        return sites;
         
     } catch (error) {
-        console.error('❌ 重複レコード統合エラー:', error);
-        // 統合に失敗しても処理を継続
+        console.error('❌ 複数現場データ取得エラー:', error);
+        return [];
+    }
+}
+
+// 🆕 現場ごとの勤怠データ表示
+function displayMultiSiteAttendance(sites) {
+    const multiSiteContainer = document.getElementById('multi-site-attendance');
+    if (!multiSiteContainer) return;
+    
+    if (sites.length === 0) {
+        multiSiteContainer.innerHTML = `
+            <div class="no-sites">
+                <p>📍 今日はまだ勤務していません</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<h3>📋 今日の現場別勤務状況</h3>';
+    
+    sites.forEach(site => {
+        const statusIcon = site.status === 'completed' ? '✅' : 
+                          site.status === 'working' ? '🔄' : 
+                          site.status === 'break' ? '⏸️' : '❓';
+        
+        const statusText = site.status === 'completed' ? '勤務完了' : 
+                          site.status === 'working' ? '勤務中' : 
+                          site.status === 'break' ? '休憩中' : '不明';
+        
+        html += `
+            <div class="site-attendance-card ${site.status}">
+                <div class="site-header">
+                    <h4>${statusIcon} ${site.siteName}</h4>
+                    <span class="site-status">${statusText}</span>
+                </div>
+                <div class="site-details">
+                    <div class="time-info">
+                        <span>⏰ 出勤: ${site.startTime}</span>
+                        ${site.endTime ? `<span>⏰ 退勤: ${site.endTime}</span>` : '<span class="working-indicator">勤務中...</span>'}
+                    </div>
+                    ${site.notes ? `<div class="site-notes">📝 ${site.notes}</div>` : ''}
+                </div>
+                ${site.status !== 'completed' ? `
+                    <div class="site-actions">
+                        <button onclick="switchToSite('${site.id}', '${site.siteName}')" class="switch-site-btn">
+                            この現場に切り替え
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    multiSiteContainer.innerHTML = html;
+}
+
+// 🆕 現場切り替え機能
+async function switchToSite(attendanceId, siteName) {
+    try {
+        console.log('🔄 現場切り替え開始:', siteName);
+        
+        // 指定された勤怠レコードを取得
+        const doc = await getAttendanceCollection().doc(attendanceId).get();
+        
+        if (!doc.exists) {
+            alert('勤怠データが見つかりません');
+            return;
+        }
+        
+        const attendanceData = doc.data();
+        
+        // グローバル変数を更新
+        currentAttendanceId = attendanceId;
+        todayAttendanceData = {
+            id: attendanceId,
+            ...attendanceData
+        };
+        
+        // 状態を復元
+        await restoreCurrentState(attendanceData);
+        
+        // 現場選択を更新
+        const siteSelect = document.getElementById('site-name');
+        if (siteSelect) {
+            siteSelect.value = siteName;
+        }
+        
+        alert(`${siteName}に切り替えました`);
+        console.log('✅ 現場切り替え完了:', siteName);
+        
+    } catch (error) {
+        console.error('❌ 現場切り替えエラー:', error);
+        alert('現場の切り替えに失敗しました');
+    }
+}
+
+// 🆕 複数現場データの更新
+async function updateMultiSiteDisplay() {
+    if (!currentUser) return;
+    
+    try {
+        const sites = await getTodayMultiSiteAttendance(currentUser.uid);
+        displayMultiSiteAttendance(sites);
+    } catch (error) {
+        console.error('❌ 複数現場表示更新エラー:', error);
     }
 }
 
@@ -558,17 +630,18 @@ async function handleClockIn() {
             throw new Error('ユーザーが認証されていません');
         }
         
-        // 🚨 重要：1日1回制限チェック
-        const canClockIn = await checkDailyLimit(currentUser.uid);
-        if (!canClockIn) {
-            restoreButton();
-            return;
-        }
-        
         // 現場選択チェック
         const siteName = getSiteNameFromSelection();
         
         if (!siteName) {
+            restoreButton();
+            return;
+        }
+        
+        // 🚨 重要：同一現場での重複出勤チェック
+        const canClockIn = await checkSiteLimit(currentUser.uid, siteName);
+        if (!canClockIn) {
+            alert(`${siteName}では既に勤務中です。退勤してから新しい勤務を開始してください。`);
             restoreButton();
             return;
         }
@@ -587,7 +660,8 @@ async function handleClockIn() {
         const attendanceData = {
             userId: currentUser.uid,
             userEmail: currentUser.email,
-            date: today,  // 🎯 修正された日付
+            date: today,  // 実際の日付
+            workingDate: getWorkingDate(),  // 🆕 夜勤対応：勤務日（4時間ルール）
             siteName: siteName,
             startTime: now.toLocaleTimeString('ja-JP'),
             status: 'working',
@@ -617,6 +691,11 @@ async function handleClockIn() {
         // UI更新
         updateClockButtons('working');
         updateStatusDisplay('working', todayAttendanceData);
+        
+        // 🆕 複数現場表示を更新
+        setTimeout(() => {
+            updateMultiSiteDisplay();
+        }, 500);
         
         alert(`✅ 出勤しました！\n現場: ${siteName}\n時刻: ${attendanceData.startTime}\n日付: ${today}`);
         
@@ -669,6 +748,11 @@ async function handleClockOut() {
         // UI更新
         updateClockButtons('completed');
         updateStatusDisplay('completed', todayAttendanceData);
+        
+        // 🆕 複数現場表示を更新
+        setTimeout(() => {
+            updateMultiSiteDisplay();
+        }, 500);
         
         alert('お疲れさまでした！');
         
@@ -738,6 +822,11 @@ async function handleBreakStart() {
         updateClockButtons('break');
         updateStatusDisplay('break', todayAttendanceData, breakData);
         
+        // 🆕 複数現場表示を更新
+        setTimeout(() => {
+            updateMultiSiteDisplay();
+        }, 500);
+        
     } catch (error) {
         alert('休憩記録でエラーが発生しました: ' + error.message);
     }
@@ -794,6 +883,11 @@ async function handleBreakEnd() {
         alert('休憩を終了しました');
         updateClockButtons('working');
         updateStatusDisplay('working', todayAttendanceData);
+        
+        // 🆕 複数現場表示を更新
+        setTimeout(() => {
+            updateMultiSiteDisplay();
+        }, 500);
         
     } catch (error) {
         alert('休憩終了記録でエラーが発生しました: ' + error.message);
@@ -1358,6 +1452,11 @@ async function initEmployeePage() {
         
         // 今日の勤怠状態を復元
         restoreTodayAttendanceState();
+        
+        // 🆕 複数現場データの表示
+        setTimeout(() => {
+            updateMultiSiteDisplay();
+        }, 1500);
         
         // UI要素の設定
         setupEmployeeEventListeners();
