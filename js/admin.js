@@ -514,14 +514,14 @@ async function approveAdminRequest(requestId) {
         
         await firebase.firestore()
             .collection('tenants').doc(tenantId)
-            .collection('users').doc(userUID)
+            .collection('users').doc(newUserUID)
             .set(tenantUserData);
         
         // legacy usersコレクションにも保存（後方互換性）
-        if (userCredential) {
+        if (newUserUID && newUserUID !== 'pending-uid') {
             await firebase.firestore()
                 .collection('users')
-                .doc(userCredential.user.uid)
+                .doc(newUserUID)
                 .set(tenantUserData);
         }
         
