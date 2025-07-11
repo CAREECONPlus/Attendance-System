@@ -71,31 +71,88 @@ async function handleAdminRegister(e) {
     }
     
     try {
-        // 管理者登録依頼をadmin_requestsコレクションに保存
+        // 1. Firebase認証でユーザー作成
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // 2. テナントIDを生成
+        const tenantId = generateTenantId();
+        
+        // 3. global_usersコレクションにユーザー情報を保存
+        await firebase.firestore().collection('global_users').doc(user.uid).set({
+            email: email,
+            displayName: displayName,
+            tenantId: tenantId,
+            role: 'admin',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // 4. テナント内のusersコレクションにユーザー情報を保存
+        await firebase.firestore().collection('tenants').doc(tenantId).collection('users').doc(user.uid).set({
+            email: email,
+            displayName: displayName,
+            department: department || '',
+            phone: phone || '',
+            role: 'admin',
+            isActive: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // 5. テナント設定を初期化
+        await firebase.firestore().collection('tenants').doc(tenantId).set({
+            name: company,
+            adminEmail: email,
+            adminName: displayName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            settings: {
+                workingHours: {
+                    start: '09:00',
+                    end: '18:00'
+                },
+                breakTime: {
+                    start: '12:00',
+                    end: '13:00'
+                },
+                allowedIPs: [],
+                requireLocation: false
+            }
+        });
+        
+        // 6. 管理者登録依頼をadmin_requestsコレクションに保存（記録用）
         const requestData = {
             requesterEmail: email,
             requesterName: displayName,
             companyName: company,
             department: department || '',
             phone: phone || '',
-            password: password, // 承認時にアカウント作成用
-            status: 'pending',
+            tenantId: tenantId,
+            userId: user.uid,
+            status: 'approved',
             requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
             requestedBy: 'self-registration'
         };
         
-        const requestRef = await firebase.firestore().collection('admin_requests').add(requestData);
+        await firebase.firestore().collection('admin_requests').add(requestData);
         
         // メール通知を送信
-        const emailResult = await sendAdminRequestNotification(requestData, requestRef.id);
+        const emailResult = await sendAdminRequestNotification(requestData, null);
         if (!emailResult.success) {
             }
         
         // 成功メッセージ表示
-        showMessage('管理者登録依頼を送信しました。承認をお待ちください。', 'success');
+        showMessage('管理者アカウントを作成しました。ログインページでログインしてください。', 'success');
         
         // フォームをリセット
         document.getElementById('adminRegisterForm').reset();
+        
+        // 3秒後にログインページへリダイレクト
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 3000);
         
         
     } catch (error) {

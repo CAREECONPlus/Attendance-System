@@ -356,6 +356,29 @@ async function handleAuthStateChange(user) {
                 userTenantId: userData?.tenantId
             });
             
+            // UIDの不一致をチェックし、必要に応じて更新
+            if (userData && userData.uid === 'pending-uid') {
+                console.log('🔄 UIDが未設定のため、global_usersを更新します');
+                
+                // global_usersのUIDを更新
+                const normalizedEmail = user.email.toLowerCase();
+                await firebase.firestore().collection('global_users').doc(normalizedEmail).update({
+                    uid: user.uid,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // テナント内のusersコレクションのUIDも更新
+                if (userTenantId) {
+                    await firebase.firestore().collection(`tenants/${userTenantId}/users`).doc(user.uid).update({
+                        uid: user.uid,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                console.log('✅ UID更新完了:', user.uid);
+                userData.uid = user.uid;
+            }
+            
             if (userData) {
                 console.log('✅ ユーザーデータ取得成功 - ロール決定開始');
                 

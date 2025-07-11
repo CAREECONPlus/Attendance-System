@@ -414,11 +414,16 @@ async function approveAdminRequest(requestId) {
         
         // Firebase Authアカウント作成
         let userCredential;
+        let newUserUID = null;
         try {
             userCredential = await firebase.auth().createUserWithEmailAndPassword(
                 requestData.requesterEmail, 
                 requestData.password
             );
+            
+            // 新しく作成されたユーザーのUIDを保存
+            newUserUID = userCredential.user.uid;
+            console.log('✅ 新規ユーザー作成完了:', newUserUID);
             
             // プロフィール更新
             await userCredential.user.updateProfile({
@@ -435,6 +440,10 @@ async function approveAdminRequest(requestId) {
             if (authError.code === 'auth/email-already-in-use') {
                 // 既存アカウントの処理は後続のFirestoreデータ作成で対応
                 console.log('📝 既存アカウントが存在するため、Firestoreデータのみ更新します');
+                
+                // 既存ユーザーのUIDを取得（管理者認証セッション復元後なので直接は取得できない）
+                // この場合は後でlogin.jsでUIDを更新する必要がある
+                newUserUID = 'pending-uid';
             } else {
                 throw new Error(`Firebase Authアカウント作成失敗: ${authError.message}`);
             }
@@ -459,6 +468,7 @@ async function approveAdminRequest(requestId) {
         
         // グローバルユーザー管理に管理者を登録
         const globalUserData = {
+            uid: newUserUID,
             email: requestData.requesterEmail,
             displayName: requestData.requesterName,
             role: 'admin',
@@ -488,10 +498,8 @@ async function approveAdminRequest(requestId) {
         console.log('✅ global_users保存完了:', normalizedEmail);
         
         // テナント内のusersコレクションに管理者データを保存
-        // 🔍 作成されたユーザーのUIDを取得（認証セッション復元後でも有効）
-        const userUID = userCredential ? userCredential.user.uid : 'pending-uid';
         const tenantUserData = {
-            uid: userUID,
+            uid: newUserUID,
             email: requestData.requesterEmail,
             displayName: requestData.requesterName,
             role: 'admin',
