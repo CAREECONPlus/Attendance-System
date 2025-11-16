@@ -44,6 +44,52 @@
 - **Hosting**: GitHub Pages
 - **Email**: EmailJS
 
+## 📁 プロジェクト構成
+
+```
+Attendance-System/
+├── css/
+│   └── style.css                # スタイルシート
+│
+├── js/
+│   ├── admin.js                 # 管理者画面のメイン機能（215KB）
+│   ├── employee.js              # 従業員画面の機能（56KB）
+│   ├── login.js                 # ログイン処理
+│   ├── auth.js                  # 認証関連
+│   ├── firebase.js              # Firebase設定
+│   ├── admin-register.js        # 管理者登録処理
+│   ├── invite-admin.js          # 管理者招待機能
+│   ├── invite-system.js         # 招待システム
+│   ├── tenant.js                # テナント管理
+│   ├── tenant-settings.js       # テナント設定
+│   ├── email-config.js          # EmailJS設定
+│   ├── error-handler.js         # エラーハンドリング
+│   ├── utils.js                 # ユーティリティ関数
+│   ├── config.js                # 設定ファイル
+│   ├── main.js                  # メイン処理
+│   └── missing-functions.js     # 補助機能
+│
+├── scripts/
+│   ├── build-config.js          # ビルド設定
+│   └── deploy.sh                # デプロイスクリプト
+│
+├── index.html                   # メインページ（従業員/管理者画面）
+├── admin-register.html          # 管理者登録ページ
+├── debug-add-user.html          # デバッグ用ページ
+│
+├── firebase.json                # Firebase設定
+├── firestore.rules              # Firestoreセキュリティルール
+├── firestore.indexes.json       # Firestoreインデックス
+├── package.json                 # パッケージ情報
+│
+└── ドキュメント
+    ├── README.md                # このファイル
+    ├── SECURITY.md              # セキュリティガイドライン
+    ├── EMAIL_SETUP.md           # メール設定手順
+    ├── PRODUCTION_DEPLOY.md     # 本番デプロイ手順
+    └── LICENSE                  # ライセンス情報
+```
+
 ## 🔧 セットアップ
 
 ### 1. Firebase設定
